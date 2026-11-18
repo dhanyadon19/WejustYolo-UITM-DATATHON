@@ -1,0 +1,16 @@
+# Large raw downloads (keep only the processed, Malaysia-only versions)
+data/raw/ookla/
+data/raw/elevation/
+*.pdf
+
+# Python and environment
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.streamlit/secrets.toml
+
+# OS and editor
+.DS_Store
+Thumbs.db
