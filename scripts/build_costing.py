@@ -15,19 +15,25 @@ Clusters
   share, so no household is counted twice. Flagged (hh_source = "parent ...").
   unconnected_households = households x access_gap / 100 (district rate, ICTHS 2025)
 
-Fix per cluster (in order)
-  fibre_pop  any Ookla fixed tile within 2 km of the school (PROXY for "fibre route nearby")
-  tower      households >= break-even (tower 5-yr cost / satellite 5-yr cost per terminal)
-  satellite  otherwise: one terminal per unconnected household + one Business terminal for the school
+Category per settlement (in order)
+  takeup_gap  any Ookla fixed tile within 2 km of the school: "fixed network likely nearby:
+              take-up gap" (PROXY). Take-up, not infrastructure, is the likely barrier, so these
+              settlements are EXCLUDED from the infrastructure cost (counted and reported only).
+  tower       households >= break-even (tower 5-yr cost / satellite 5-yr cost per terminal)
+  satellite   otherwise: one terminal per unconnected household + one Business terminal for the school
 
 5-year cost to provide service (users' mobile plans excluded)
-  tower      capex + 5 x opex
-  satellite  (kit + 60 x monthly) per terminal; school terminal uses the Business plan
-  fibre_pop  capex only; its running cost is UNSOURCED (flagged)
-Main case: Residential plan, central costs. Sensitivity: all costs -30% and +30%, Lite plan.
+  tower       capex + 5 x opex
+  satellite   (kit + 60 x monthly) per terminal; school terminal uses the Business plan
+  upper bound additionally costs each take-up-gap settlement as one fibre PoP (capex only;
+              running cost UNSOURCED)
+Cases: main (Residential, central costs), Lite plan, upper bound; also all costs -30% / +30%.
 
-Value: people_without_home_internet per RM1m and students (in rural schools of the district)
-per RM1m, reported separately; value rank on people per RM1m.
+Value (planned = tower/satellite settlements)
+  MAIN       people_per_rm_m = rural people without home internet in planned settlements per RM1m
+  secondary  people_per_rm_m_district = whole-district people without home internet per RM1m
+  students_per_rm_m = pupils of planned settlements' schools per RM1m (reported separately)
+  Districts whose settlements are all take-up gap have no infrastructure cost and no value rank.
 
 Usage: python scripts/build_costing.py
 """
@@ -53,7 +59,7 @@ OUT_CLUSTERS = PROC / "costing_clusters.csv"
 OUT_DISTRICTS = PROC / "costing_districts.csv"
 FIBRE_RADIUS_KM = 2
 FOCUS = "Sarawak"
-FIXES = ["fibre_pop", "tower", "satellite"]
+TAKEUP = "takeup_gap"  # fixed network likely nearby: take-up gap (PROXY)
 
 
 def unit_costs(c: dict, plan: str, scale: float = 1.0) -> dict:
@@ -123,22 +129,30 @@ def census_households(d: gpd.GeoDataFrame) -> pd.DataFrame:
     return out, parent
 
 
-def choose(clusters: pd.DataFrame, u: dict) -> pd.Series:
-    return pd.Series(np.where(clusters["fibre_nearby"], "fibre_pop",
+def categorise(clusters: pd.DataFrame, u: dict) -> pd.Series:
+    """takeup_gap if a fixed tile is within 2 km (PROXY: fixed network likely nearby), else
+    tower if households >= break-even, else satellite."""
+    return pd.Series(np.where(clusters["fixed_nearby"], TAKEUP,
                               np.where(clusters["households"] >= u["breakeven_households"], "tower", "satellite")),
                      index=clusters.index)
 
 
-def cost(clusters: pd.DataFrame, fix: pd.Series, u: dict) -> pd.Series:
+def cost(clusters: pd.DataFrame, cat: pd.Series, u: dict, upper_bound: bool = False) -> pd.Series:
+    """5-yr cost. Take-up-gap settlements cost 0 (no infrastructure), except in the upper-bound
+    case, where each is costed as one fibre PoP (capex only)."""
     sat = clusters["unconnected_households"] * u["satellite_terminal"] + u["satellite_school"]
-    return pd.Series(np.select([fix == "fibre_pop", fix == "tower"], [u["fibre_pop"], u["tower"]], sat),
-                     index=clusters.index)
+    takeup = u["fibre_pop"] if upper_bound else 0.0
+    return pd.Series(np.select([cat == TAKEUP, cat == "tower"], [takeup, u["tower"]], sat), index=clusters.index)
 
 
-def dominant(clusters: pd.DataFrame, fix: pd.Series) -> pd.Series:
-    """District's recommended fix = the fix serving the most unconnected households."""
-    t = clusters.assign(fix=fix).groupby(["state", "district", "fix"])["unconnected_households"].sum()
-    return t.groupby(level=[0, 1]).idxmax().map(lambda k: k[2])
+def main_fix(clusters: pd.DataFrame, cat: pd.Series) -> pd.Series:
+    """District's main fix = tower or satellite, whichever serves more unconnected households among
+    the planned (non take-up) settlements; 'none (take-up gap only)' if there are none."""
+    idx = pd.MultiIndex.from_frame(clusters[["state", "district"]].drop_duplicates())
+    infra = clusters.assign(cat=cat)[cat != TAKEUP]
+    t = infra.groupby(["state", "district", "cat"])["unconnected_households"].sum()
+    dom = t.groupby(level=[0, 1]).idxmax().map(lambda k: k[2])
+    return dom.reindex(idx).fillna("none (take-up gap only)")
 
 
 def main() -> None:
@@ -156,7 +170,7 @@ def main() -> None:
     mobile = pd.read_parquet(PROC / f"ookla_my_mobile_{year}q{q}.parquet", columns=cols)
     m = tile_metrics(rural, fixed, mobile)
     rural = rural.join(m[["fixed_tiles_2km", "nearest_fixed_tile_km"]])
-    rural["fibre_nearby"] = rural["fixed_tiles_2km"].fillna(0) > 0
+    rural["fixed_nearby"] = rural["fixed_tiles_2km"].fillna(0) > 0
 
     n_rural = rural.groupby(["state", "district"]).size().rename("rural_schools")
     cl = rural.merge(n_rural.reset_index(), on=["state", "district"]).merge(hh, on=["state", "district"], how="left")
@@ -165,89 +179,132 @@ def main() -> None:
     assert miss.empty, f"clusters without households or access data:\n{miss[['state', 'district']].drop_duplicates()}"
     cl["households"] = cl["rural_households"] / cl["rural_schools"]
     cl["unconnected_households"] = cl["households"] * cl["access_gap"] / 100
+    cl["unconnected_people"] = cl["unconnected_households"] * cl["household_size"]
 
-    # --- scenarios
-    scen = {"main": unit_costs(c, "residential"), "cost_minus30": unit_costs(c, "residential", 0.7),
-            "cost_plus30": unit_costs(c, "residential", 1.3), "lite": unit_costs(c, "residential_lite")}
+    # --- scenarios: category and 5-yr cost per settlement
+    scen = {"main": unit_costs(c, "residential"), "lite": unit_costs(c, "residential_lite"),
+            "cost_minus30": unit_costs(c, "residential", 0.7), "cost_plus30": unit_costs(c, "residential", 1.3)}
     for k, u in scen.items():
-        cl[f"fix_{k}"] = choose(cl, u)
-        cl[f"cost_{k}"] = cost(cl, cl[f"fix_{k}"], u)
+        cl[f"category_{k}"] = categorise(cl, u)
+        cl[f"cost_{k}"] = cost(cl, cl[f"category_{k}"], u)
+    cl["cost_upper_bound"] = cost(cl, cl["category_main"], scen["main"], upper_bound=True)
 
     cl_out = cl[["state", "district", "school_code", "school_name", "students", "lon", "lat", "rural_schools",
                  "rural_households", "household_size", "hh_source", "households", "access_gap",
-                 "unconnected_households", "small_sample_flag", "fixed_tiles_2km", "nearest_fixed_tile_km",
-                 "fibre_nearby"] + [f"{p}_{k}" for k in scen for p in ("fix", "cost")]].copy()
+                 "unconnected_households", "unconnected_people", "small_sample_flag", "fixed_tiles_2km",
+                 "nearest_fixed_tile_km", "fixed_nearby"]
+                + [f"{p}_{k}" for k in scen for p in ("category", "cost")] + ["cost_upper_bound"]].copy()
     cl_out.insert(0, "ookla_quarter", f"{year}Q{q}")
     cl_out.sort_values(["state", "district", "school_code"]).to_csv(OUT_CLUSTERS, index=False)
 
     # --- districts
-    g = cl.groupby(["state", "district"])
+    planned = cl["category_main"] != TAKEUP
+    key = ["state", "district"]
+    g, gp, gt = cl.groupby(key), cl[planned].groupby(key), cl[~planned].groupby(key)
     dist = pd.DataFrame({
-        "rural_schools": g.size(),
-        "students_rural_schools": g["students"].sum(),
-        "rural_households": g["rural_households"].first(),
-        "unconnected_rural_households": g["unconnected_households"].sum(),
+        "rural_settlements": g.size(),
         "household_size": g["household_size"].first(),
         "hh_source": g["hh_source"].first(),
+        "rural_households": g["rural_households"].first(),
+        "rural_people_without_internet": g["unconnected_people"].sum(),
+        "students_rural_schools": g["students"].sum(),
+        "n_takeup_gap": gt.size(),
+        "takeup_gap_people_without_internet": gt["unconnected_people"].sum(),
+        "n_tower": gp["category_main"].apply(lambda s: int((s == "tower").sum())),
+        "n_satellite": gp["category_main"].apply(lambda s: int((s == "satellite").sum())),
+        "planned_people_without_internet": gp["unconnected_people"].sum(),
+        "planned_students": gp["students"].sum(),
     })
-    for f in FIXES:
-        dist[f"n_{f}"] = g["fix_main"].apply(lambda s, f=f: int((s == f).sum()))
-    for k in scen:
+    fill0 = ["n_takeup_gap", "takeup_gap_people_without_internet", "n_tower", "n_satellite",
+             "planned_people_without_internet", "planned_students"]
+    dist[fill0] = dist[fill0].fillna(0)
+    for c_ in ["n_takeup_gap", "n_tower", "n_satellite"]:
+        dist[c_] = dist[c_].astype(int)
+    dist["share_settlements_takeup_gap"] = dist["n_takeup_gap"] / dist["rural_settlements"]
+    for k in [*scen, "upper_bound"]:
         dist[f"cost_{k}_rm"] = g[f"cost_{k}"].sum()
-        dist[f"fix_{k}"] = dominant(cl, cl[f"fix_{k}"])
+    dist["main_fix"] = main_fix(cl, cl["category_main"])
+    dist["main_fix_lite"] = main_fix(cl, cl["category_lite"])
     dist = dist.reset_index().merge(
         gi[["state", "district", "cgi", "rank_national", "rank_sarawak", "small_sample_flag",
-            "people_without_home_internet", "population_k", "access_gap"]], on=["state", "district"], how="left")
-    # cross-check only: people in the costed rural clusters (the plan does not reach urban areas)
-    dist["rural_people_without_internet_est"] = (dist["unconnected_rural_households"] * dist["household_size"]).round()
+            "people_without_home_internet", "population_k", "access_gap"]], on=key, how="left")
+
+    def per_m(num: pd.Series, cost_: pd.Series) -> pd.Series:
+        return (num / (cost_ / 1e6)).where(cost_ > 0)
+
     for k in scen:
-        dist[f"people_per_rm_m_{k}"] = dist["people_without_home_internet"] / (dist[f"cost_{k}_rm"] / 1e6)
-        dist[f"students_per_rm_m_{k}"] = dist["students_rural_schools"] / (dist[f"cost_{k}_rm"] / 1e6)
-    dist["value_rank_national"] = dist["people_per_rm_m_main"].rank(ascending=False, method="min").astype("Int64")
+        # MAIN value metric: rural people without home internet in the planned settlements per RM1m
+        dist[f"people_per_rm_m_{k}"] = per_m(dist["planned_people_without_internet"], dist[f"cost_{k}_rm"])
+        dist[f"students_per_rm_m_{k}"] = per_m(dist["planned_students"], dist[f"cost_{k}_rm"])
+        # secondary: whole-district people without home internet (urban included) per RM1m
+        dist[f"people_per_rm_m_district_{k}"] = per_m(dist["people_without_home_internet"], dist[f"cost_{k}_rm"])
+    # upper bound covers every rural settlement (take-up group costed as PoPs)
+    dist["people_per_rm_m_upper_bound"] = per_m(dist["rural_people_without_internet"], dist["cost_upper_bound_rm"])
+    dist["students_per_rm_m_upper_bound"] = per_m(dist["students_rural_schools"], dist["cost_upper_bound_rm"])
+
+    def rank(col: str, mask: pd.Series | None = None) -> pd.Series:
+        s = dist[col] if mask is None else dist[col].where(mask)
+        return s.rank(ascending=False, method="min").astype("Int64")
+
     sk = dist["state"] == FOCUS
-    dist.loc[sk, "value_rank_sarawak"] = dist.loc[sk, "people_per_rm_m_main"].rank(ascending=False, method="min")
-    dist["value_rank_sarawak"] = dist["value_rank_sarawak"].astype("Int64")
-    for k in ["cost_minus30", "cost_plus30", "lite"]:
-        dist[f"value_rank_national_{k}"] = dist[f"people_per_rm_m_{k}"].rank(ascending=False, method="min").astype("Int64")
-    dist["fibre_pop_opex_unsourced"] = dist["n_fibre_pop"] > 0
+    dist["value_rank_national"] = rank("people_per_rm_m_main")
+    dist["value_rank_sarawak"] = rank("people_per_rm_m_main", sk)
+    for k in ["lite", "cost_minus30", "cost_plus30", "upper_bound"]:
+        dist[f"value_rank_national_{k}"] = rank(f"people_per_rm_m_{k}")
+    dist["fibre_pop_opex_unsourced_upper_bound"] = dist["n_takeup_gap"] > 0
     dist.insert(0, "ookla_quarter", f"{year}Q{q}")
-    dist = dist.sort_values("value_rank_national")
+    dist = dist.sort_values(["value_rank_national", "state", "district"], na_position="last")
     dist.to_csv(OUT_DISTRICTS, index=False)
 
     # --- report
     u = scen["main"]
     print(f"unit 5-yr costs (main, Residential): tower RM{u['tower']:,.0f}, satellite terminal RM{u['satellite_terminal']:,.0f}, "
-          f"school terminal RM{u['satellite_school']:,.0f}, fibre PoP RM{u['fibre_pop']:,.0f} (capex only); "
+          f"school terminal RM{u['satellite_school']:,.0f}; fibre PoP RM{u['fibre_pop']:,.0f} (capex only, upper bound only); "
           f"break-even {u['breakeven_households']:.1f} households (Lite {scen['lite']['breakeven_households']:.1f})")
     print("new-district parents (largest overlap with 2022 DOSM polygon):", {k[1]: v[1] for k, v in parent.items()})
-    no_cl = gi[~gi.set_index(["state", "district"]).index.isin(dist.set_index(["state", "district"]).index)]
-    print(f"\nwrote {OUT_CLUSTERS.relative_to(ROOT)}: {len(cl)} clusters (rural schools) in {len(dist)} districts")
-    print(f"wrote {OUT_DISTRICTS.relative_to(ROOT)}: {len(dist)} districts; "
-          f"{len(no_cl)} indexed districts have no rural school, so no cost: {sorted(no_cl['district'])}")
-    print("clusters by fix (main):", cl["fix_main"].value_counts().to_dict())
+    no_cl = gi[~gi.set_index(key).index.isin(dist.set_index(key).index)]
+    print(f"\nwrote {OUT_CLUSTERS.relative_to(ROOT)}: {len(cl)} settlements (rural schools) in {len(dist)} districts")
+    print(f"wrote {OUT_DISTRICTS.relative_to(ROOT)}: {len(dist)} districts; {len(no_cl)} indexed districts have no rural school")
     print("rural schools excluded (no district / missing coords):",
           int(((sch["urban_rural"] == "Luar Bandar") & sch["district"].isna()).sum()))
+    print("settlements by category (main):", cl["category_main"].value_counts().to_dict())
+    print(f"take-up gap group: {int((~planned).sum())} settlements, "
+          f"{cl.loc[~planned, 'unconnected_people'].sum():,.0f} rural people without home internet | planned "
+          f"(tower/satellite): {int(planned.sum())} settlements, {cl.loc[planned, 'unconnected_people'].sum():,.0f} people")
+    only = dist[dist["main_fix"].str.startswith("none")]
+    print(f"districts with only take-up-gap settlements (no infrastructure cost, no value rank): {len(only)}")
 
-    print("\n=== Sensitivity: districts whose recommended (dominant) fix changes vs main ===")
-    for k in ["cost_minus30", "cost_plus30", "lite"]:
-        ch = dist[dist[f"fix_{k}"] != dist["fix_main"]]
-        ncl = int((cl[f"fix_{k}"] != cl["fix_main"]).sum())
-        print(f"  {k:<13} districts changed: {len(ch):>3} | clusters changed: {ncl:>4} | "
-              f"total cost RM{dist[f'cost_{k}_rm'].sum() / 1e9:,.2f}bn (main RM{dist['cost_main_rm'].sum() / 1e9:,.2f}bn)")
-        if len(ch):
-            print("    ", ch[["state", "district", "fix_main", f"fix_{k}"]].to_dict("records")[:12])
+    print("\n=== Totals: 5-yr cost to provide service ===")
+    lab = {"main": "Main (Residential)", "lite": "Lite plan", "upper_bound": "Upper bound (+1 PoP per take-up settlement)",
+           "cost_minus30": "All costs -30%", "cost_plus30": "All costs +30%"}
+    for k in ["main", "lite", "upper_bound", "cost_minus30", "cost_plus30"]:
+        extra = ""
+        if k == "lite":
+            ch = dist[dist["main_fix"] != dist["main_fix_lite"]]
+            ncl = int((cl["category_lite"] != cl["category_main"]).sum())
+            extra = f" | main fix changes in {len(ch)} districts, {ncl} settlements: {sorted(ch['district'])}"
+        elif k.startswith("cost_"):
+            extra = f" | settlements changing category: {int((cl[f'category_{k}'] != cl['category_main']).sum())}"
+        print(f"  {lab[k]:<45} Malaysia RM{dist[f'cost_{k}_rm'].sum() / 1e9:5.2f}bn | "
+              f"Sarawak RM{dist.loc[sk, f'cost_{k}_rm'].sum() / 1e9:5.2f}bn{extra}")
 
-    show = ["value_rank_sarawak", "district", "rank_sarawak", "people_per_rm_m_main", "students_per_rm_m_main",
-            "cost_main_rm", "fix_main", "n_fibre_pop", "n_tower", "n_satellite", "people_without_home_internet",
-            "students_rural_schools", "small_sample_flag"]
-    t = dist[dist["state"] == FOCUS].sort_values("value_rank_sarawak").head(15)[show].copy()
+    show = ["value_rank_sarawak", "district", "rank_sarawak", "main_fix", "share_settlements_takeup_gap",
+            "people_per_rm_m_main", "people_per_rm_m_district_main", "students_per_rm_m_main", "cost_main_rm",
+            "n_tower", "n_satellite", "n_takeup_gap", "planned_people_without_internet", "small_sample_flag"]
+    t = dist[(dist["state"] == FOCUS) & dist["value_rank_sarawak"].notna()].sort_values("value_rank_sarawak").head(15)[show].copy()
     t["rank_sarawak"] = t["rank_sarawak"].astype("Int64")
-    t[["people_without_home_internet", "students_rural_schools"]] = \
-        t[["people_without_home_internet", "students_rural_schools"]].astype("Int64")
+    t["planned_people_without_internet"] = t["planned_people_without_internet"].round().astype(int)
+    t["share_settlements_takeup_gap"] = (100 * t["share_settlements_takeup_gap"]).round().astype(int).astype(str) + "%"
     t["cost_main_rm"] = (t["cost_main_rm"] / 1e6).round(1)
-    t = t.rename(columns={"rank_sarawak": "need_rank_sarawak", "cost_main_rm": "cost_rm_m"})
-    print("\n=== Sarawak top 15 by value (people without home internet per RM1m), next to need rank ===")
+    t = t.rename(columns={"rank_sarawak": "need_rank", "share_settlements_takeup_gap": "takeup_share",
+                          "people_per_rm_m_main": "rural_ppl_per_rm_m", "people_per_rm_m_district_main": "district_ppl_per_rm_m",
+                          "students_per_rm_m_main": "students_per_rm_m", "cost_main_rm": "cost_rm_m",
+                          "planned_people_without_internet": "rural_ppl_planned"})
+    print("\n=== Sarawak top 15 by value (rural people without home internet in planned settlements per RM1m) ===")
     print(t.to_string(index=False, float_format=lambda x: f"{x:.1f}"))
+    sk_only = dist[(dist["state"] == FOCUS) & dist["main_fix"].str.startswith("none")]["district"].tolist()
+    if sk_only:
+        print(f"  Sarawak districts with only take-up-gap settlements (not ranked): {sk_only}")
 
 
 if __name__ == "__main__":

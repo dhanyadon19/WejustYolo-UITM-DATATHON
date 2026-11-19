@@ -251,17 +251,17 @@ The method, sources, sensitivity results and unsourced assumptions are in [`docs
 
 | File | Rows | Content |
 |---|---|---|
-| `costing_clusters.csv` | 4,322 | One row per **rural MOE school** (cluster anchor): households, unconnected households, `hh_source`, fixed tiles within 2 km, and fix and five-year cost under main / cost_minus30 / cost_plus30 / lite |
-| `costing_districts.csv` | 150 | Per district: rural schools, students, unconnected rural households, number of each fix, dominant fix and cost per scenario, `people_per_rm_m_*`, `students_per_rm_m_*`, value rank (national, Sarawak, per scenario), need rank and CGI from the index, `fibre_pop_opex_unsourced` |
+| `costing_clusters.csv` | 4,322 | One row per **rural MOE school** (settlement anchor): households, unconnected households and people, `hh_source`, fixed tiles within 2 km, `fixed_nearby`, and category (`takeup_gap` / `tower` / `satellite`) and five-year cost under main / lite / cost_minus30 / cost_plus30, plus `cost_upper_bound` |
+| `costing_districts.csv` | 150 | Per district: settlements; take-up group (`n_takeup_gap`, `share_settlements_takeup_gap`, `takeup_gap_people_without_internet`); planned settlements (`n_tower`, `n_satellite`, `planned_people_without_internet`, `planned_students`); `main_fix` (and `_lite`); cost per case incl. `cost_upper_bound_rm`; **main value `people_per_rm_m_*` (rural people in planned settlements)**, secondary `people_per_rm_m_district_*`, `students_per_rm_m_*`; value ranks; need rank and CGI from the index |
 
 **Raw input added:** `data/raw/census/census_district.csv`, the DOSM Population and Housing Census by district (1970–2020) from [github.com/dosm-malaysia/data-open](https://github.com/dosm-malaysia/data-open/blob/main/datasets/census/census_district.csv). DOSM Open Data Licence; downloaded 2026-11-19.
 - **Columns used (2020):** `household_size_avg`, `density_rural` (rural population, not a density), `population_total`.
 - **Coverage:** 160 districts. Gedong, Lingga, Pantu and Sebuyau post-date it. "Larut dan Matang" is aliased.
 
 **Caveats**
-- **Mostly fibre PoPs:** 80% of clusters get a PoP, because a fixed Ookla tile within 2 km is the "fibre nearby" proxy. Some of those areas may already be served, so the PoP cost is probably overstated.
-- **Uniform ±30% doesn't change any fix:** the Lite plan changes 8 Sarawak districts from tower to satellite.
-- **No value rank:** 14 urban districts have no rural school, so no cost.
+- **Take-up group (proxy):** settlements with an Ookla fixed tile within 2 km are labelled **"fixed network likely nearby: take-up gap"**. They're **excluded from infrastructure cost**: 3,456 of 4,322 settlements (80%), holding ~468k rural people without home internet, against ~120k in planned settlements. They're costed as fibre PoPs only in the upper-bound case.
+- **Totals (five-year):** main RM1.73bn (Sarawak RM0.82bn); Lite RM1.26bn (Sarawak RM0.44bn); upper bound RM6.81bn (Sarawak RM1.96bn). Uniform ±30% doesn't change any category.
+- **No value rank:** 14 urban districts have no rural school, and 24 districts (none in Sarawak) have only take-up-gap settlements, so they have no infrastructure cost.
 
 **`gap_index_sensitivity.csv`**: for each district, the baseline ranks plus three sensitivity checks:
 - **Equal weights:** `cgi_equal`, `rank_*_equal`.
