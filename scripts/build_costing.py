@@ -51,6 +51,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW, PROC = ROOT / "data" / "raw", ROOT / "data" / "processed"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_schools import assign_districts, latest_quarter, load_schools, tile_metrics  # noqa: E402
+from _checks import fail, report_unmatched, require_files  # noqa: E402
 
 COSTS = ROOT / "config" / "costs.yaml"
 CENSUS = RAW / "census" / "census_district.csv"
@@ -156,6 +157,8 @@ def main_fix(clusters: pd.DataFrame, cat: pd.Series) -> pd.Series:
 
 
 def main() -> None:
+    require_files(COSTS, CENSUS, DOSM_2022, PROC / "districts.geojson", PROC / "gap_index_districts.csv",
+                  PROC / "district_aliases.csv", RAW / "population_district.parquet")
     c = yaml.safe_load(COSTS.read_text(encoding="utf-8"))
     d = gpd.read_file(PROC / "districts.geojson")
     hh, parent = census_households(d)
@@ -176,7 +179,11 @@ def main() -> None:
     cl = rural.merge(n_rural.reset_index(), on=["state", "district"]).merge(hh, on=["state", "district"], how="left")
     cl = cl.merge(gi[["state", "district", "access_gap", "small_sample_flag"]], on=["state", "district"], how="left")
     miss = cl[cl["rural_households"].isna() | cl["access_gap"].isna()]
-    assert miss.empty, f"clusters without households or access data:\n{miss[['state', 'district']].drop_duplicates()}"
+    if not miss.empty:
+        report_unmatched(set(zip(cl.state, cl.district)), set(zip(hh.state, hh.district)),
+                         "rural-school districts", "Census 2020 households")
+        fail(f"settlements in districts without Census households or access data: "
+             f"{sorted(set(zip(miss.state, miss.district)))}. Add a spelling alias or a parent mapping.")
     cl["households"] = cl["rural_households"] / cl["rural_schools"]
     cl["unconnected_households"] = cl["households"] * cl["access_gap"] / 100
     cl["unconnected_people"] = cl["unconnected_households"] * cl["household_size"]

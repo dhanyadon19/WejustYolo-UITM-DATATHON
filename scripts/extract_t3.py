@@ -37,6 +37,9 @@ from pathlib import Path
 import openpyxl
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _checks import check_coords, fail, report_unmatched, require_columns, require_files, require_nonempty  # noqa: E402,F401
+
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
 OUT = ROOT / "data" / "processed"
@@ -272,6 +275,7 @@ def run_checks(hh24: pd.DataFrame, hh25: pd.DataFrame) -> bool:
 
 
 def main() -> None:
+    require_files(*[RAW / f"icths_{y}_table3.xlsx" for y in YEARS])
     OUT.mkdir(parents=True, exist_ok=True)
     out = {"hh": {}, "ind": {}}
     for year in YEARS:

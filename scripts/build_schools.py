@@ -34,11 +34,15 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _checks import check_coords, fail, report_unmatched, require_columns, require_files, require_nonempty  # noqa: E402,F401
 
 ROOT = Path(__file__).resolve().parent.parent
 MOE = ROOT / "data" / "raw" / "moe" / "senarai_sekolah_rendah_menengah_jun2022.xlsx"
@@ -71,10 +75,14 @@ MOE_STATE_NAMES = {  # MOE NEGERI -> DOSM / districts.geojson state names
 
 def load_schools(states: list[str] | None = STATES) -> gpd.GeoDataFrame:
     """MOE school list (Jun 2022) as points; states=None loads every state."""
+    require_files(MOE)
     df = pd.read_excel(MOE, header=1, dtype={"KODSEKOLAH": str, "POSKODSURAT": str})
+    require_columns(df, ["NEGERI", "KODSEKOLAH", "NAMASEKOLAH", "LOKASI", "MURID", "KOORDINATXX", "KOORDINATYY"],
+                    MOE.name)
     df["state"] = df["NEGERI"].str.strip().str.title().replace(MOE_STATE_NAMES)
     if states is not None:
         df = df[df["state"].isin(states)].copy()
+    check_coords(df, "KOORDINATXX", "KOORDINATYY", f"MOE school list ({len(df)} schools)", name_col="NAMASEKOLAH")
     df["lon"] = pd.to_numeric(df["KOORDINATXX"], errors="coerce")
     df["lat"] = pd.to_numeric(df["KOORDINATYY"], errors="coerce")
     out = pd.DataFrame({
@@ -189,6 +197,7 @@ def main() -> None:
     a = ap.parse_args()
     year, q = (a.year, a.quarter) if a.year and a.quarter else latest_quarter()
 
+    require_files(DISTRICTS, HANSARD, PROC / f"ookla_my_fixed_{year}q{q}.parquet", PROC / f"ookla_my_mobile_{year}q{q}.parquet")
     d = gpd.read_file(DISTRICTS)
     s = assign_districts(load_schools(), d)
     cols = ["tile_x", "tile_y", "tests", "avg_d_kbps"]

@@ -30,6 +30,9 @@ import geopandas as gpd
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _checks import check_coords, fail, report_unmatched, require_columns, require_files, require_nonempty  # noqa: E402,F401
+
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw" / "ookla"
 OUT = ROOT / "data" / "processed"
@@ -93,6 +96,7 @@ def main() -> None:
     year, q = yq
     print(f"Quarter: {year} Q{q} (latest available for both fixed and mobile: {common[-1]})")
 
+    require_files(BOUNDS_SRC)
     minx, miny, maxx, maxy = gpd.read_file(BOUNDS_SRC).total_bounds
     bbox = (minx - BUFFER_DEG, miny - BUFFER_DEG, maxx + BUFFER_DEG, maxy + BUFFER_DEG)
     print("Malaysia bbox (lon/lat, from DOSM boundaries + buffer):", tuple(round(v, 3) for v in bbox))
@@ -105,12 +109,17 @@ def main() -> None:
         download(key, src, a.force)
         t = pq.read_table(src)
         n_global = t.num_rows
-        assert {"tile_x", "tile_y"} <= set(t.column_names), f"no tile_x/tile_y in {src.name}: {t.column_names}"
+        if n_global == 0:
+            fail(f"{src.name} has no rows: the Ookla download is empty or truncated; rerun with --force.")
+        if not {"tile_x", "tile_y"} <= set(t.column_names):
+            fail(f"{src.name} has no tile_x/tile_y columns ({t.column_names}); Ookla's format may have changed.")
         mask = pc.and_(
             pc.and_(pc.greater_equal(t["tile_x"], bbox[0]), pc.less_equal(t["tile_x"], bbox[2])),
             pc.and_(pc.greater_equal(t["tile_y"], bbox[1]), pc.less_equal(t["tile_y"], bbox[3])),
         )
         my = t.filter(mask)
+        if my.num_rows == 0:
+            fail(f"no {kind} tiles fall inside Malaysia's bounding box {bbox}: check the boundary file and the download.")
         dest = OUT / f"ookla_my_{kind}_{year}q{q}.parquet"
         pq.write_table(my, dest)
         print(f"wrote {dest.relative_to(ROOT)}: {my.num_rows:,} of {n_global:,} global tiles; "

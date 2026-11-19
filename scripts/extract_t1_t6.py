@@ -17,10 +17,14 @@ Usage: python scripts/extract_t1_t6.py
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import openpyxl
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _checks import check_coords, fail, report_unmatched, require_columns, require_files, require_nonempty  # noqa: E402,F401
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW, PROC = ROOT / "data" / "raw", ROOT / "data" / "processed"
@@ -105,6 +109,7 @@ def parse_t6(edition: int, sheet: str) -> pd.DataFrame:
 
 
 def main() -> None:
+    require_files(*[RAW / f"icths_{e}_table{t}.xlsx" for e in EDITIONS for t in (1, 6)])
     t1 = pd.concat([parse_t1(e) for e in EDITIONS], ignore_index=True)
     assert t1["state"].nunique() == 17, sorted(t1["state"].unique())
     t1.to_csv(PROC / "dosm_hh_internet_state.csv", index=False)

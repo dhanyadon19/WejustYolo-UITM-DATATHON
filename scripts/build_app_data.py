@@ -22,9 +22,12 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW, PROC = ROOT / "data" / "raw", ROOT / "data" / "processed"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_schools import assign_districts, load_schools  # noqa: E402
+from _checks import report_unmatched, require_files  # noqa: E402
 
 
 def main() -> None:
+    require_files(RAW / "hansard_schools_2026-11-11.csv", PROC / "districts.geojson", PROC / "district_aliases.csv",
+                  RAW / "hh_access_amenities.parquet", PROC / "dosm_hh_ict_district_2025.csv")
     shutil.copyfile(RAW / "hansard_schools_2026-11-11.csv", PROC / "hansard_schools.csv")
     print("wrote data/processed/hansard_schools.csv")
 

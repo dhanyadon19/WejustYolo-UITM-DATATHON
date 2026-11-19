@@ -25,11 +25,15 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _checks import check_coords, fail, report_unmatched, require_columns, require_files, require_nonempty  # noqa: E402,F401
 
 ROOT = Path(__file__).resolve().parent.parent
 PROC = ROOT / "data" / "processed"
@@ -80,6 +84,7 @@ def main() -> None:
     a = ap.parse_args()
     year, q = (a.year, a.quarter) if a.year and a.quarter else latest_quarter()
 
+    require_files(DISTRICTS, DOSM_OUTLINE, *[PROC / f"ookla_my_{k}_{year}q{q}.parquet" for k in TYPES])
     d = gpd.read_file(DISTRICTS)
     keys = ["state", "district", "dosm_district", "boundary_source", "contains_unmapped"]
     d["contains_unmapped"] = d["contains_unmapped"].fillna("")
@@ -91,6 +96,7 @@ def main() -> None:
         src = PROC / f"ookla_my_{kind}_{year}q{q}.parquet"
         t = pd.read_parquet(src, columns=["quadkey", "tile_x", "tile_y", "avg_d_kbps", "avg_u_kbps",
                                           "avg_lat_ms", "tests", "devices"])
+        require_nonempty(t, src.name, "Rerun scripts/download_ookla.py.")
         pts = gpd.GeoDataFrame(t, geometry=gpd.points_from_xy(t["tile_x"], t["tile_y"]), crs=4326)
         j = gpd.sjoin(pts, d[keys + ["geometry"]], how="left", predicate="within")
         # The simplified DOSM 2022 polygons overlap by slivers along shared edges. A centroid in

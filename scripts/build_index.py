@@ -46,6 +46,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW, PROC = ROOT / "data" / "raw", ROOT / "data" / "processed"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_schools import assign_districts, load_schools  # noqa: E402
+from _checks import report_unmatched, require_files  # noqa: E402
 
 OUT = PROC / "gap_index_districts.csv"
 OUT_SENS = PROC / "gap_index_sensitivity.csv"
@@ -158,6 +159,11 @@ def main() -> None:
     w = {k: float(cfg[k]["weight"]) for k in INDICATORS}
     assert abs(sum(w.values()) - 1) < 1e-9, f"weights must sum to 1: {w}"
 
+    require_files(PROC / "dosm_hh_ict_district_2025.csv", PROC / "district_aliases.csv", PROC / "districts.geojson",
+                  RAW / "population_district.parquet", RAW / "hh_income_district.parquet",
+                  RAW / "enrolment_school_district.parquet")
+    if not list(PROC.glob("ookla_district_*q*.csv")):
+        require_files(PROC / "ookla_district_<year>q<quarter>.csv")
     base, notes = build_base()
     complete = base[INDICATORS].notna().all(axis=1)
     missing = base.loc[~complete, ["state", "district"] + INDICATORS]

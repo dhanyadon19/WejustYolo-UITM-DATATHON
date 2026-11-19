@@ -30,12 +30,16 @@ Usage: python scripts/build_boundaries.py
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import LineString, Point
 from shapely.ops import polygonize, unary_union
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _checks import check_coords, fail, report_unmatched, require_columns, require_files, require_nonempty  # noqa: E402,F401
 
 ROOT = Path(__file__).resolve().parent.parent
 RAWB = ROOT / "data" / "raw" / "boundaries"
@@ -70,6 +74,7 @@ def osm_polygons(path: Path) -> gpd.GeoDataFrame:
 
 
 def main() -> None:
+    require_files(DOSM_GEO, OSM_SARAWAK, OSM_TOWNS, DOSM_T3, ALIASES)
     aliases = pd.read_csv(ALIASES)
     amap = {(r.state, r.alias): r.canonical for r in aliases.itertuples()}
 
@@ -86,6 +91,7 @@ def main() -> None:
 
     # --- OSM for Sarawak, clipped to the DOSM Sarawak outline
     og = osm_polygons(OSM_SARAWAK)
+    require_nonempty(og, "OpenStreetMap Sarawak districts", "Re-download with download_raw.py --force.")
     og["geometry"] = og.geometry.make_valid().intersection(sarawak_outline)
     og = og[~og.geometry.is_empty].copy()
     og["state"] = OSM_STATE
