@@ -32,6 +32,7 @@ scripts/extract_t3.py        ICTHS Table 3 -> data/processed/ + district_aliases
 scripts/build_boundaries.py  -> data/processed/districts.geojson (needs district_aliases.csv from extract_t3.py)
 scripts/download_ookla.py    latest Ookla quarter (fixed + mobile) -> data/raw/ookla/ (gitignored, ~550 MB) -> ookla_my_{type}_{y}q{q}.parquet
 scripts/build_ookla.py       tiles -> districts -> ookla_district_{y}q{q}.csv (needs districts.geojson)
+scripts/build_schools.py     MOE schools (6 Hansard states) + Ookla -> schools_connectivity.csv, prints Hansard validation
 
 In data/raw/ (downloaded 2026-11-19, untouched):
 
@@ -53,6 +54,8 @@ Columns include small_sample_flag, implied_sample_n, internet_moe95_pp (inferred
 
 ookla_my_{fixed,mobile}_2026q3.parquet: Ookla tiles clipped to Malaysia's bbox (CC BY-NC-SA 4.0, non-commercial)
 ookla_district_2026q3.csv: per district x type: dl_mbps, ul_mbps (test-weighted mean), latency_median_ms (test-weighted median), n_tiles, tests, devices (upper bound), low_sample (tests < 50). Fixed-speed tests only come from homes that already have fixed broadband: always read speed together with DOSM access.
+
+schools_connectivity.csv: 5,349 schools in the 6 states with district, fixed tiles/tests within 1 and 2 km, nearest fixed tile, mobile tests + speed within 2 km, likely_no_fibre (no fixed tile within 2 km; _1km variant), confidence (mobile tests within 2 km: high >=100, medium 20-99, low <20). ESTIMATE: validation vs Hansard is poor at state level (2 km: 786 vs 1,180, -33%; 1 km total -1.9% only by offsetting errors, e.g. Terengganu 83 vs 4). Present flags as a low-confidence screening list, always with the state-level error; never as a count of schools without fibre.
 
 All planned raw data is collected.
 

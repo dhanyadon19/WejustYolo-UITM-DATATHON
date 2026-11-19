@@ -175,6 +175,49 @@ The site-wide catalogue pages of OpenDOSM and data.gov.my list no boundary datas
 - **Selection bias:** Speedtest data comes from user-run tests. Fixed results describe **households that already have fixed broadband**, so a high fixed speed doesn't mean good coverage. For example, Kanowit has the lowest household internet access in Sarawak (DOSM) but 206 Mbps fixed from just 106 tests. Read speed together with access, and treat test counts as a rough measure of reach, not of population.
 - **Siburan and Membakut:** their tiles are counted under Kuching and Beaufort (see `contains_unmapped`).
 
+## Processed: schools (from `scripts/build_schools.py`), an ESTIMATE
+
+**`schools_connectivity.csv`**: 5,349 schools in Kelantan, Terengganu, Pahang, Kedah, Sabah and Sarawak (MOE list, Jun 2022), compared against Ookla 2026 Q3 tiles. Inherits CC BY-NC-SA 4.0 from Ookla.
+
+| Column | Meaning |
+|---|---|
+| school_code … lon, lat | from the MOE list (`aid_status`: SK = government, SBK = government-aided) |
+| district | polygon of the school's **own state** that contains it. If none does, the nearest own-state polygon within 5 km. |
+| district_method | `within` (5,277), `nearest (x km)` (65), or blank (7) |
+| coord_flag | `ok` 5,277 · `outside_polygons` 60 (mostly islands and coast) · `other_state` 5 (border slivers) · `missing` 4 · `suspect` 3 (no own-state polygon within 5 km: SK Bandar Baru Beris Jaya, Kedah; SJK(C) Poay Chai, Pahang, which plots in Kedah; SK Pulau Tigabu, Sabah) |
+| fixed_tiles_1km / _2km, fixed_tests_1km / _2km | Ookla fixed tiles, and their tests, whose centre lies within 1 / 2 km of the school |
+| nearest_fixed_tile_km | distance to the nearest fixed tile centre |
+| mobile_tests_2km, mobile_dl_mbps_2km | mobile tests within 2 km, and their test-weighted mean download speed |
+| likely_no_fibre | **True if no fixed tile within 2 km** (`likely_no_fibre_1km`: within 1 km). Blank for the 4 schools without coordinates. |
+| confidence | from mobile tests within 2 km: **high ≥ 100, medium 20–99, low < 20**. Set in advance and not tuned. |
+
+- **Distances** are measured in metres in each state's UTM zone, from the school to each tile's centre.
+- **Spot-check:** three schools (YBB8311 Sarawak, KBA0006 Kedah, XBA6015 Sabah) were recomputed independently with haversine distances. Tile and test counts and mobile speed matched exactly; nearest distances agreed within 0.3% (UTM vs sphere).
+
+**Validation against Parliament (Hansard 11 Nov 2026).** The thresholds were not tuned to match.
+
+| State | MOE schools | Hansard: no fibre | Ours, 2 km | Diff | % diff | Ours, 1 km | Diff | % diff |
+|---|---|---|---|---|---|---|---|---|
+| Kelantan | 596 | 45 | 32 | −13 | −28.9% | 63 | +18 | +40.0% |
+| Terengganu | 506 | 4 | 52 | +48 | +1200% | 83 | +79 | +1975% |
+| Pahang | 741 | 181 | 116 | −65 | −35.9% | 172 | −9 | −5.0% |
+| Kedah | 752 | 14 | 21 | +7 | +50.0% | 58 | +44 | +314% |
+| Sabah | 1,296 | 177 | 122 | −55 | −31.1% | 195 | +18 | +10.2% |
+| Sarawak | 1,458 | 759 | 443 | −316 | −41.6% | 587 | −172 | −22.7% |
+| **Total** | **5,349** | **1,180** | **786** | **−394** | **−33.4%** | **1,158** | **−22** | **−1.9%** |
+
+**How to read it**
+- **2 km rule: misses about a third of Parliament's 1,180** overall, and under-counts in 4 of the 6 states. Sarawak, the deep-dive state, is short by 42%.
+- **1 km rule: the near-match on the total (−1.9%) is a coincidence of offsetting errors,** not accuracy. It over-counts heavily where Parliament's numbers are tiny (Terengganu: 83 against 4; Kedah: 58 against 14) and still under-counts Sarawak by 23%.
+- **Neither rule gets the states right.** Use the flags as a **screening list with low confidence**, not as a count. Report the state-level error alongside any map of flagged schools.
+- **Confidence is mostly low:** of the 786 schools flagged at 2 km, 686 are low, 93 medium and 7 high. Places with no fixed tiles also have very few mobile tests, so the flag mostly rests on sparse data.
+
+**Why the estimate is off (caveats)**
+- **Ookla "fixed" tiles are home broadband tests by the public,** not school connections. A home with fibre near a school doesn't mean the school has fibre, so we under-count in rural Sarawak, Sabah and Pahang.
+- **Fixed wireless and satellite home connections also appear as "fixed" tiles,** which pushes towards under-counting.
+- **Dense areas over-count:** a school with fibre in a place where few people run home broadband tests gets flagged, which is likely why Terengganu and Kedah come out too high.
+- **Dates differ:** the MOE list is from Jun 2022, Ookla from Jul–Sep 2026, and Hansard from Nov 2026.
+
 ---
 
 ## Processed (from `scripts/build_boundaries.py`)
