@@ -86,6 +86,17 @@ HANSARD = {
 }
 
 
+# MOE "Senarai Sekolah Rendah dan Menengah" (government + government-aided schools), data as at
+# 30 Jun 2022, the newest complete list in MOE's download area (www.moe.gov.my/muatturun,
+# folder laporan_dan_statistik/senarai_sekolah). Served by the site's elFinder connector; the
+# target is the folder path base64url-encoded. Includes KOORDINATXX (lon) / KOORDINATYY (lat).
+MOE_CONNECTOR = "https://www.moe.gov.my/muatturun/connector?cmd=file&download=1&target="
+MOE = {
+    "moe/senarai_sekolah_rendah_menengah_jun2022.xlsx": MOE_CONNECTOR
+    + "l1_bGFwb3Jhbl9kYW5fc3RhdGlzdGlrL3NlbmFyYWlfc2Vrb2xhaC9TZW5hcmFpIFNla29sYWggUmVuZGFoIGRhbiBNZW5lbmdhaCBKdW4gMjAyMi54bHN4",
+}
+
+
 def is_pdf(p: Path) -> bool:
     with p.open("rb") as f:
         return f.read(5) == b"%PDF-"
@@ -166,7 +177,9 @@ def main() -> None:
         fetch(name, OVERPASS, is_overpass, args.force, post_query=query)
     for name, url in HANSARD.items():
         fetch(name, url, is_pdf, args.force)
-    n = len(PARQUET) + len(XLSX) + len(BOUNDARIES) + len(OSM_QUERIES) + len(HANSARD)
+    for name, url in MOE.items():
+        fetch(name, url, is_xlsx, args.force)
+    n = len(PARQUET) + len(XLSX) + len(BOUNDARIES) + len(OSM_QUERIES) + len(HANSARD) + len(MOE)
     print(f"All {n} files present and valid in {RAW}")
     print("Ookla tiles are large and handled separately: python scripts/download_ookla.py")
 

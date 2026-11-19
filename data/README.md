@@ -71,6 +71,46 @@ OpenDOSM names the federal territories `W.P. Kuala Lumpur`, `W.P. Labuan` and `W
 - **Derived totals don't add up exactly:** they sum to **5,141**, against the stated 5,362 (−221, −4.1%). The gap comes from the rounded percentages and is within their combined range (4,763–5,887). So use the per-state totals only as approximations; the 5,362 total is the exact figure.
 - **What "without fibre" means:** the Hansard says these 1,180 schools have **wireless broadband or satellite** instead of fibre, so they are not offline. The 4,182 with fibre get 300–800 Mbps.
 
+## Raw: MOE school list (`moe/senarai_sekolah_rendah_menengah_jun2022.xlsx`)
+
+| | |
+|---|---|
+| Source | Ministry of Education (KPM), *Senarai Sekolah Rendah dan Menengah Jun 2022*: government (`BANTUAN = SK`) and government-aided (`SBK`) primary and secondary schools. **Data as at 30 Jun 2022** (stated in row 1). |
+| Where | MOE download area https://www.moe.gov.my/muatturun → folder `laporan_dan_statistik/senarai_sekolah`. The direct link is in `download_raw.py`; it goes through the site's file-browser connector. |
+| Why this file | It's the **newest complete list MOE publishes.** Searches of moe.gov.my, data.gov.my and the data.gov.my archive found nothing newer; the archive has only partial or state-level lists. |
+| Downloaded | 2026-11-19 |
+| Licence | Not stated on the MOE download page. It's a public government publication; cite KPM. |
+| Contents | 10,230 schools (7,778 primary, 2,452 secondary), one sheet. A title row comes first, so the header is row 2. Columns include NEGERI, PPD, PERINGKAT, JENIS/LABEL, KODSEKOLAH, NAMASEKOLAH, address, LOKASI (Bandar/Luar Bandar), BANTUAN, MURID, GURU, and **KOORDINATXX (longitude) / KOORDINATYY (latitude)**. It also has school phone numbers and @moe.edu.my emails, which are institutional, not personal; we don't use them. |
+
+**Coordinates are included, so no geocoding was done.** Part 3 of the plan (Nominatim/OSM geocoding) was skipped.
+
+**Sanity check against Parliament**
+
+| | Count |
+|---|---|
+| Schools in the 6 Hansard states (MOE list, Jun 2022) | **5,349** |
+| Parliament (Hansard 11.11.2026) | 5,362 |
+| Difference | **−13 (−0.2%)** |
+
+| State | MOE Jun 2022 | Hansard-derived total (range) |
+|---|---|---|
+| Sarawak | 1,458 | 1,460 (1,446–1,473) |
+| Sabah | 1,296 | 1,264 (1,221–1,311) |
+| Pahang | 741 | 754 (739–770) |
+| Kelantan | 596 | 563 (530–600) |
+| Kedah | 752 | 700 (560–933) |
+| Terengganu | 506 | 400 (267–800) |
+
+Every state's MOE count falls inside the range implied by the Hansard's rounded percentages.
+
+**Caveats**
+- **The list is 4 years older than the Hansard figures,** so schools opened or closed since mid-2022 are missing or still listed.
+- **Coordinate problems in the 6 states (5,349 schools):**
+  - 4 schools have no coordinates.
+  - 61 fall outside every district polygon, mostly on islands and the coast, which the simplified polygons cut off.
+  - 7 fall inside a polygon of a different state. Six of those are near the Kedah–Penang and Pahang–Johor borders; one Pahang school (SJK(C) Poay Chai) plots in Kedah, which is probably a coordinate error.
+  - `build_schools.py` flags all of these rather than dropping them.
+
 ## Raw: district boundaries (`data/raw/boundaries/`)
 
 Downloaded 2026-11-19 by `download_raw.py`.

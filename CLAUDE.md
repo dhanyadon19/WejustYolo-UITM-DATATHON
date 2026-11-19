@@ -37,6 +37,7 @@ In data/raw/ (downloaded 2026-11-19, untouched):
 
 OpenDOSM / data.gov.my Parquet (CC BY 4.0): hh_access_internet (households, state), icths_internet_strata (individuals, state), hh_access_amenities, hh_income_district (RM/month), population_district (thousands of people), schools_district, teachers_district, enrolment_school_district (the three MOE files are hosted on storage.data.gov.my)
 hansard_schools_2026-11-11.csv: schools without fibre in the 6 states, from Hansard DR 11.11.2026 p.33 (official PDF; Bernama omits Sarawak's 52%). Per-state totals are derived from rounded % (marked, with min/max); only the 5,362 / 1,180 totals are exact.
+moe/senarai_sekolah_rendah_menengah_jun2022.xlsx: MOE list of all 10,230 government + aided schools as at 30 Jun 2022 (newest MOE publishes), WITH coordinates (KOORDINATXX = lon, KOORDINATYY = lat), so no geocoding. 6 Hansard states: 5,349 schools vs Parliament's 5,362 (-0.2%).
 boundaries/: DOSM district polygons (2022, DOSM Open Data Licence) and an OpenStreetMap Sarawak snapshot (ODbL)
 DOSM ICTHS report tables, 2024 and 2025: icths_{year}_table{1,2,3,6,7}.xlsx. Table 1 (1.2 mobile vs fixed broadband), 2 (2.4/2.5 ICT skills), 3 (by district), 6 (time series: 2024 file = 2021-2024, 2025 file = 2022-2025), 7 (relative standard errors, national/urban/rural only). Licence not stated on DOSM release pages. Only Table 3 is cleaned so far.
 
@@ -53,12 +54,11 @@ Columns include small_sample_flag, implied_sample_n, internet_moe95_pp (inferred
 ookla_my_{fixed,mobile}_2026q3.parquet: Ookla tiles clipped to Malaysia's bbox (CC BY-NC-SA 4.0, non-commercial)
 ookla_district_2026q3.csv: per district x type: dl_mbps, ul_mbps (test-weighted mean), latency_median_ms (test-weighted median), n_tiles, tests, devices (upper bound), low_sample (tests < 50). Fixed-speed tests only come from homes that already have fixed broadband: always read speed together with DOSM access.
 
-To collect:
+All planned raw data is collected.
 
-MOE school lists (data.gov.my archive), to geocode
 Method
 Clean and merge by state and district.
-Geocode schools; attach Ookla speeds from tiles within 1-2 km.
+Schools come with MOE coordinates (no geocoding); attach Ookla speeds from tiles within 1-2 km.
 Flag "likely weak" schools: speeds far below fibre level (300-800 Mbps) or almost no tests nearby; add a confidence level.
 Validate: sum flags per state, compare with the six Hansard totals; report the error.
 Connectivity Gap Index per district: CGI_d = sum_i(w_i * S_di), min-max normalised indicators (district household access gap, speed gap, share of likely weak schools, population affected, low income). Weights documented in config/weights.yaml; include a sensitivity check.
