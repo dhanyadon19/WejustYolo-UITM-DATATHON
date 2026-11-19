@@ -54,14 +54,15 @@ def footer(sources: list[str], osm: bool = False, basemap: bool = False) -> None
 
 
 def style(fig: go.Figure, height: int = 420, legend: bool = True, **layout) -> go.Figure:
-    fig.update_layout(
+    base = dict(
         height=height, template="none", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family='system-ui, -apple-system, "Segoe UI", sans-serif', color=INK_2, size=13),
         margin=dict(l=10, r=20, t=30, b=10), showlegend=legend,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, title=None),
         hoverlabel=dict(bgcolor="white", font_color=INK, bordercolor=MUTED_LIGHT),
-        **layout,
     )
+    base.update(layout)  # caller overrides win
+    fig.update_layout(**base)
     axis = dict(gridcolor=GRID, linecolor=MUTED_LIGHT, zerolinecolor=MUTED_LIGHT, tickfont=dict(color=MUTED),
                 title_font=dict(color=INK_2))
     fig.update_xaxes(**axis)
