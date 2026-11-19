@@ -106,6 +106,8 @@ with right:
             "tests are nearby). Use it to screen, never to count.",
             data=f"{HANSARD} · {MOE_LIST} · Ookla {quarter}")
 
+ui.next_step("views/3_Sarawak_map.py", "Sarawak map",
+             "Sarawak has the most schools without fibre. See which of its districts have the deepest gap.")
 ui.footer([
     "Hansard, Dewan Rakyat, 11 Nov 2026, oral question 11 (DR-11112026, p.33)",
     "Ministry of Education, Senarai Sekolah Rendah dan Menengah (as at 30 Jun 2022)",

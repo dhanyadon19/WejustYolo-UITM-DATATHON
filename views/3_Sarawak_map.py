@@ -98,8 +98,24 @@ tooltip = {"html": "<b>{district}</b><br/>Gap Index {cgi} · need rank {need_ran
                    f"Mobile download (Ookla {quarter}) {{mobile}} · fixed tests per 1,000 residents {{fixed_reach}}<br/>"
                    "Median household income {income}<br/>Take-up-gap settlements {takeup}<br/>Colour: {fix_label}",
            "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
-st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=VIEW, map_style=pdk.map_styles.CARTO_LIGHT, tooltip=tooltip),
-                height=MAP_HEIGHT, key="sarawak_map")
+layers[0].id = "districts"
+event = st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=VIEW, map_style=pdk.map_styles.CARTO_LIGHT,
+                                 tooltip=tooltip),
+                        height=MAP_HEIGHT, key="sarawak_map", on_select="rerun", selection_mode="single-object")
+
+# --- click a district (or pick one) to open its detail page
+picked = None
+try:
+    objs = event.selection["objects"].get("districts", [])
+    picked = objs[0]["properties"]["district"] if objs else None
+except (AttributeError, KeyError, TypeError, IndexError):
+    picked = None
+by_need = d.sort_values("rank_sarawak").district.tolist()
+p1, p2 = st.columns([2, 1], vertical_alignment="bottom")
+choice = p1.selectbox("Click a district on the map, or pick one here (sorted by need, highest first)", by_need,
+                      index=by_need.index(picked) if picked in by_need else 0, key=f"sarawak_pick_{picked}")
+if p2.button(f"Open {choice} in District detail", icon=":material/arrow_forward:", width="stretch"):
+    ui.go_to_district(STATE, choice)
 
 weights_txt = ", ".join("{} {}".format(k.replace("_", " "), v["weight"]) for k, v in w.items())
 ui.what("Each Sarawak district drawn in 3D: height is the Connectivity Gap Index (0 = best, 1 = worst nationally; "
@@ -136,6 +152,8 @@ with st.expander("Table view"):
     ui.what("All Sarawak districts on the map, sorted by need.",
             data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · costing (Census 2020, MOE list June 2022)")
 
+ui.next_step("views/5_Priorities.py", "Priorities",
+             "compare every district on need and on estimated beneficiaries per RM1m.")
 ui.footer([
     f"DOSM ICTHS {access_year}, Table 3.1 (household access by district); {ui.INFERRED_N} and {ui.MOE_TXT} are our "
     "estimates (see Method)",

@@ -139,6 +139,7 @@ st.markdown(f"""
 - **No other technologies.** The screen compares tower and satellite only; fibre PoPs appear only as an upper-bound cost sensitivity, not as a recommendation.
 - **Licences.** Ookla data is CC BY-NC-SA 4.0 (non-commercial); OSM-derived boundaries are ODbL.
 """)
+ui.next_step("views/1_Overview.py", "Back to the overview", "start the story again from the national picture.")
 st.markdown(f"Data notes for every file: [data/README.md]({REPO}/blob/main/data/README.md)")
 
 ui.footer([

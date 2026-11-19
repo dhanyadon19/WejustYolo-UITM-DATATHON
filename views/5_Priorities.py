@@ -12,8 +12,9 @@ quarter = dt["ookla_quarter"].dropna().iloc[0]
 access_year = int(dt["access_year"].dropna().iloc[0])
 DATA = f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · Census 2020 · MOE school list, June 2022 · config/costs.yaml"
 
-ui.page("Priorities: need vs estimated beneficiaries per RM1m",
-        "Where is the gap deepest, and where would each ringgit reach the most people? Ranks come with ranges because "
+ui.page("Priorities",
+        "Need (Gap Index) vs estimated beneficiaries per RM1m: where is the gap deepest, and where would each ringgit "
+        "reach the most people? Ranks come with ranges because "
         "the inputs are uncertain.")
 
 c1, c2 = st.columns(2)
@@ -56,24 +57,34 @@ for cat in ["tower", "satellite"]:
                       "<br>Beneficiaries-per-RM1m rank %{y} (range across cost cases %{customdata[7]}–%{customdata[8]})"
                       "<br>%{customdata[2]:,.0f} rural people reached · %{customdata[3]:,.0f} per RM1m (estimate)"
                       "<br>5-year cost RM%{customdata[4]:,.1f}m (estimate)<br>Small sample: %{customdata[9]}<extra></extra>"))
-# label only the top districts on both axes, with alternating offsets so labels don't collide
-lab = d.assign(score=d.need_rank + d.ben_rank).nsmallest(5, "score").sort_values("need_rank")
-# labels stacked in an evenly spaced column left of the cluster (data units), sorted top to bottom, with leader lines
-lab = lab.sort_values("ben_rank")
-col_x = lab.need_rank.max() + max(3, n * 0.18)
-step = max(2.5, n * 0.07)
-for i, r in enumerate(lab.itertuples()):
-    fig.add_annotation(x=r.need_rank, y=r.ben_rank, text=r.district, showarrow=True, arrowhead=0, arrowwidth=1,
-                       arrowcolor=ui.MUTED, axref="x", ayref="y", ax=col_x, ay=1 + i * step, xanchor="right",
-                       font=dict(size=11, color=ui.INK), bgcolor="rgba(252,252,251,0.85)")
+# label the five districts highest on both axes, right next to their bubble (no leader lines)
+lab = d.assign(score=d.need_rank + d.ben_rank).nsmallest(5, "score")
+fig.add_trace(go.Scatter(x=lab.need_rank, y=lab.ben_rank, mode="text", text=[f"{t}  " for t in lab.district], textposition="middle left",
+                         textfont=dict(size=11, color=ui.INK), hoverinfo="skip", showlegend=False, cliponaxis=False))
 mid = (n + 1) / 2
 fig.add_hline(y=mid, line_color=ui.GRID, line_width=1)
 fig.add_vline(x=mid, line_color=ui.GRID, line_width=1)
+# quadrant names (corners of the plot; axes are reversed so rank 1 is top-right)
+for qx, qy, xa, ya, txt in ((1, 1, "right", "top", "<b>Act first</b>"),
+                            (0, 1, "left", "top", "Cheap, lower need"),
+                            (1, 0, "right", "bottom", "<b>High need, costly</b>"),
+                            (0, 0, "left", "bottom", "Lower priority")):
+    fig.add_annotation(x=qx, y=qy, xref="paper", yref="paper", xanchor=xa, yanchor=ya, text=txt, showarrow=False,
+                       font=dict(size=11, color=ui.MUTED), bgcolor="rgba(252,252,251,0.8)")
 ui.style(fig, height=560)
 fig.update_xaxes(title="Need rank (1 = largest gap)  → higher need", range=[n + 1.5, 0.4], zeroline=False)
 fig.update_yaxes(title="Estimated beneficiaries per RM1m, rank (1 = most)  → more", range=[n + 1.5, 0.4], zeroline=False)
-st.plotly_chart(fig, width="stretch")
-ui.what(f"Each bubble is a district ({'Sarawak' if scope == 'Sarawak' else 'all Malaysia'}, {n} with costed settlements). Right = higher need (Gap Index); "
+ev = st.plotly_chart(fig, width="stretch", on_select="rerun", selection_mode="points", key="prio_chart")
+try:
+    pts = ev.selection["points"]
+    sel = pts[0]["customdata"] if pts and "customdata" in pts[0] else None
+except (AttributeError, KeyError, TypeError, IndexError):
+    sel = None
+if sel is not None:
+    if st.button(f"Open {sel[0]} ({sel[1]}) in District detail", icon=":material/arrow_forward:"):
+        ui.go_to_district(sel[1], sel[0])
+ui.what(f"Click a bubble to open that district. Corners: top-right = high need and many people reached per RM1m (act first); "
+        f"bottom-right = high need but costly to reach (may need a different fix, e.g. take-up support). Each bubble is a district ({'Sarawak' if scope == 'Sarawak' else 'all Malaysia'}, {n} with costed settlements). Right = higher need (Gap Index); "
         "top = more estimated beneficiaries per RM1m (rural people without home internet reached per RM1m of five-year "
         "infrastructure cost). Bubble size = rural people reached; colour = main fix. Labels mark the five districts "
         "highest on both. Settlements with a fixed network likely nearby are a take-up gap and are not costed here.",
@@ -121,6 +132,8 @@ ui.what("Need range: 5th–95th percentile rank over 1,000 random index weightin
         + (f" Not shown ({len(excluded)}): {why_txt}." if len(excluded) else ""),
         data=DATA)
 
+ui.next_step("views/6_Method.py", "Method & limitations",
+             "how the index and costs are built, and how sure we are.")
 ui.footer([
     f"Need: Connectivity Gap Index (DOSM ICTHS {access_year}, Ookla {quarter}, OpenDOSM income and population); see Method",
     "Estimated beneficiaries per RM1m: costing on rural MOE schools (June 2022) and DOSM Census 2020; costs from "
