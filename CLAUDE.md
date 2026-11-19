@@ -27,12 +27,14 @@ Full per-file notes (source, URL, licence, units, caveats): data/README.md.
 Environment: Python 3.12 venv in .venv (py -3.12 -m venv .venv; pip install -r requirements.txt). Run scripts with .venv\Scripts\python.
 
 Pipeline (rerun in order):
-scripts/download_raw.py   downloads + validates all raw files; skips existing ones (--force to re-download)
-scripts/extract_t3.py     ICTHS Table 3 -> data/processed/, then runs the 2024 checks (exits non-zero on failure)
+scripts/download_raw.py      downloads + validates all raw files except Ookla; skips existing ones (--force to re-download)
+scripts/extract_t3.py        ICTHS Table 3 -> data/processed/ + district_aliases.csv, then runs the 2024 checks (exits non-zero on failure)
+scripts/build_boundaries.py  -> data/processed/districts.geojson (needs district_aliases.csv from extract_t3.py)
 
 In data/raw/ (downloaded 2026-11-19, untouched):
 
 OpenDOSM / data.gov.my Parquet (CC BY 4.0): hh_access_internet (households, state), icths_internet_strata (individuals, state), hh_access_amenities, hh_income_district (RM/month), population_district (thousands of people), schools_district, teachers_district, enrolment_school_district (the three MOE files are hosted on storage.data.gov.my)
+boundaries/: DOSM district polygons (2022, DOSM Open Data Licence) and an OpenStreetMap Sarawak snapshot (ODbL)
 DOSM ICTHS report tables, 2024 and 2025: icths_{year}_table{1,2,3,6,7}.xlsx. Table 1 (1.2 mobile vs fixed broadband), 2 (2.4/2.5 ICT skills), 3 (by district), 6 (time series: 2024 file = 2021-2024, 2025 file = 2022-2025), 7 (relative standard errors, national/urban/rural only). Licence not stated on DOSM release pages. Only Table 3 is cleaned so far.
 
 In data/processed/ (written by extract_t3.py):
@@ -40,7 +42,8 @@ In data/processed/ (written by extract_t3.py):
 dosm_hh_ict_district_{2024,2025}.csv: household ICT access, Table 3.1 (178 rows: 162 districts, 13 states, 3 territories; 7 indicators)
 dosm_ind_ict_district_{2024,2025}.csv: individual ICT use, Table 3.2 (172 rows; DOSM omits Membakut, Gedong, Lingga, Pantu, Sebuyau, Siburan)
 dosm_hh_internet_district_2024_2025.csv: household internet both years, 165 rows all matched, with change and change_beyond_noise
-district_aliases.csv: Seberang Prai X (2024) -> Seberang Perai X (2025/OpenDOSM). Apply before joining per-year files to other data.
+district_aliases.csv: spelling-only aliases -> Table 3 (2025) spelling (Seberang Prai->Perai, Ulu Langat/Selangor->Hulu, Kecil Lojing->Lojing, Meradong->Maradong). Apply before joining anything to the Table 3 files.
+districts.geojson: 164 polygons named like Table 3. DOSM 2022 polygons everywhere except Sarawak, which uses OSM (has the new districts Gedong, Lingga, Pantu, Sebuyau). ODbL because of the OSM part. Join on dosm_district (Perlis links to its state row). Siburan and Membakut have no polygon anywhere: table only; their area sits inside Kuching and Beaufort (contains_unmapped column).
 Naming follows OpenDOSM: title-case states, territories as "W.P. Kuala Lumpur" (state = district), state rows have district "All Districts".
 Columns include small_sample_flag, implied_sample_n, internet_moe95_pp (inferred from the published percentages; method in data/README.md). Districts with small_sample_flag = True must be shown as low confidence with their margin of error, never ranked as precise. No flagged district's 2024->2025 change exceeds its MOE (change_beyond_noise is False for all 31), so don't present those changes as real trends.
 
@@ -48,7 +51,6 @@ To collect:
 
 Ookla Open Data performance tiles (AWS s3://ookla-open-data), CC BY-NC-SA 4.0, latest quarter, Malaysia only
 MOE school lists (data.gov.my archive), to geocode
-District boundary files (GeoJSON/shapefile); district names must match DOSM spelling
 Hansard 11 Nov 2026 state counts of schools without fibre -> data/raw/hansard_schools_2026-11-11.csv
 Method
 Clean and merge by state and district.

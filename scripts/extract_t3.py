@@ -48,13 +48,22 @@ TOL_PP = 0.02
 MIN_INTERIOR = 3
 WP_HEADER = "WILAYAH PERSEKUTUAN"
 
-# DOSM spelled these "Seberang Prai ..." in the 2024 Table 3 and "Seberang Perai ..." in 2025.
-# "Perai" is the canonical spelling (also used by OpenDOSM population/income/school files).
-# Written to data/processed/district_aliases.csv and applied only when combining years;
-# the per-year CSVs keep DOSM's spelling for that year.
+# Spelling aliases -> canonical = spelling in DOSM ICTHS Table 3 (2025). Same unit, different
+# spelling only; no merges or splits. Written to data/processed/district_aliases.csv.
+#  - "Seberang Prai ..." appears in the 2024 Table 3 (2025 and OpenDOSM files use "Perai").
+#    Applied when combining years; per-year CSVs keep DOSM's spelling for that year.
+#  - "Ulu ..." / "Kecil Lojing" appear in the DOSM boundary file and OpenDOSM population,
+#    income and school files. Applied by build_boundaries.py and any later joins.
+#  - "Meradong" is OpenStreetMap's spelling (Sarawak boundaries). Applied by build_boundaries.py.
+T3_2024 = "ICTHS Table 3 (2024)"
+OTHER = "DOSM boundaries; OpenDOSM population/income/schools"
 ALIASES = [
-    ("Pulau Pinang", f"Seberang Prai {p}", f"Seberang Perai {p}")
-    for p in ("Utara", "Tengah", "Selatan")
+    *[("Pulau Pinang", f"Seberang Prai {p}", f"Seberang Perai {p}", T3_2024)
+      for p in ("Utara", "Tengah", "Selatan")],
+    ("Selangor", "Ulu Langat", "Hulu Langat", OTHER),
+    ("Selangor", "Ulu Selangor", "Hulu Selangor", OTHER),
+    ("Kelantan", "Kecil Lojing", "Lojing", OTHER),
+    ("Sarawak", "Meradong", "Maradong", "OpenStreetMap boundaries; GADM"),
 ]
 
 
@@ -152,17 +161,16 @@ def add_small_sample(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_aliases(hh: dict[int, pd.DataFrame]) -> pd.DataFrame:
-    """Write the alias table, recording which year's file uses each spelling (validated)."""
+    """Write the alias table. Canonical names must exist in Table 3 2025; Table 3 aliases must
+    exist in Table 3 2024 (other aliases are checked by the scripts that apply them)."""
     names = {y: set(zip(hh[y]["state"], hh[y]["district"])) for y in YEARS}
     rows = []
-    for state, alias, canonical in ALIASES:
-        alias_years = [y for y in YEARS if (state, alias) in names[y]]
-        canon_years = [y for y in YEARS if (state, canonical) in names[y]]
-        assert alias_years and canon_years, f"alias {alias!r} -> {canonical!r} not seen in the data"
+    for state, alias, canonical, found_in in ALIASES:
+        assert (state, canonical) in names[2025], f"canonical {state}/{canonical} not in Table 3 2025"
+        if found_in == T3_2024:
+            assert (state, alias) in names[2024], f"alias {state}/{alias} not in Table 3 2024"
         rows.append({"state": state, "alias": alias, "canonical": canonical,
-                     "alias_used_in": ";".join(map(str, alias_years)),
-                     "canonical_used_in": ";".join(map(str, canon_years)),
-                     "source": "DOSM ICTHS Table 3 spelling change 2024->2025"})
+                     "alias_found_in": found_in, "canonical_source": "ICTHS Table 3 (2025)"})
     df = pd.DataFrame(rows)
     dest = OUT / "district_aliases.csv"
     df.to_csv(dest, index=False)

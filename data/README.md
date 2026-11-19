@@ -49,6 +49,53 @@ OpenDOSM names the federal territories `W.P. Kuala Lumpur`, `W.P. Labuan` and `W
 | `icths_2024_table6.xlsx` / `icths_2025_table6.xlsx` | 13947 / 19021 | Table 6: time series, 4 years per edition | 2024 file covers 2021–2024; 2025 file covers 2022–2025. Older years are rounded to one decimal. |
 | `icths_2024_table7.xlsx` / `icths_2025_table7.xlsx` | 13948 / 19022 | Table 7: relative standard errors (7.1 household access, 7.2 individual use), with SE and 95% CI | National and urban/rural only, not district |
 
+## Raw: district boundaries (`data/raw/boundaries/`)
+
+Downloaded 2026-11-19 by `download_raw.py`.
+
+| File | Source | Licence | Data date | Notes |
+|---|---|---|---|---|
+| `dosm_administrative_2_district.geojson` | DOSM, [github.com/dosm-malaysia/data-open](https://github.com/dosm-malaysia/data-open/blob/main/datasets/geodata/administrative_2_district.geojson) | DOSM Open Data Licence (repo `LICENSE.md`: copying, adaptation and commercial use allowed) | last commit 2022-06-22 | 160 polygons, EPSG:4326, simplified for web maps. 7 polygons are invalid as published (repaired in processing). It predates 6 newer districts (see below). |
+| `dosm_state_district.csv` | same repo | same | 2022 | State/district codes for the polygons above. |
+| `osm_sarawak_admin6.json` | OpenStreetMap via the Overpass API (relations with `admin_level=6` in Sarawak, with geometry) | **ODbL 1.0**, © OpenStreetMap contributors | live OSM snapshot, 2026-11-19 | 44 Sarawak districts, including the newer Gedong, Lingga, Pantu and Sebuyau. Community-maintained, not official; only Gedong cites a source (Samarahan Division website). |
+| `osm_new_district_towns.json` | OpenStreetMap via Overpass (`place=town` nodes named Siburan, Membakut) | ODbL 1.0 | 2026-11-19 | Town points only, used to record which polygon contains each of the two districts that have no boundary. |
+
+**Why these sources.** Candidates were compared against the 165 DOSM Table 3 districts and territories:
+
+| Candidate | Licence | Year | Polygons | Exact name matches |
+|---|---|---|---|---|
+| DOSM data-open (chosen) | DOSM Open Data Licence | 2022 | 160 | 156 |
+| geoBoundaries gbOpen ADM2 | CC BY 3.0 | 2020 | 159 | 149 (no state field) |
+| GADM 4.1 | non-commercial only, no redistribution | 2022 | 144 | 91 |
+| HDX COD-AB Malaysia (UNHCR) | CC BY-IGO | 2021 (reviewed 2025) | 144 | derived from GADM, so not used |
+
+The site-wide catalogue pages of OpenDOSM and data.gov.my list no boundary dataset. The DOSM GitHub repo above is the official source.
+
+---
+
+## Processed (from `scripts/build_boundaries.py`)
+
+**`districts.geojson`**: 164 polygons, EPSG:4326, **ODbL 1.0** because it includes OSM data.
+
+| Column | Meaning |
+|---|---|
+| state, district | Table 3 (2025) spelling, after `district_aliases.csv` |
+| boundary_source | `DOSM 2022` (120 polygons, every state except Sarawak) or `OpenStreetMap` (44, Sarawak) |
+| source_id | `dosm:<code_state_district>` or `osm:relation/<id>` |
+| boundary_district | name as written in the source |
+| dosm_level, dosm_district | join keys into the Table 3 CSVs |
+| dosm_match | True for all 164 |
+| contains_unmapped | DOSM districts with no polygon whose town lies inside this one |
+
+**Caveats**
+- **Mixed sources:** Sarawak uses OSM because the 2022 DOSM file predates Gedong, Lingga, Pantu and Sebuyau, all of which OSM has. OSM polygons are trimmed to the DOSM Sarawak outline so the coast and state borders match the rest of the map. They cover **99.44%** of that outline; a 708 km² gap (0.56%) along the edges belongs to no district. No polygons overlap.
+- **Perlis:** it's a single-district state, and DOSM publishes only its state row. The Perlis polygon links to that row (`dosm_level = state`, `dosm_district = All Districts`).
+- **No boundary in any source:**
+  - **Siburan** (Sarawak): its town lies inside the **Kuching** polygon.
+  - **Membakut** (Sabah): its town lies inside the **Beaufort** polygon.
+  - Both appear only in tables. The Kuching and Beaufort polygons still cover their area, so any area-based value for Kuching or Beaufort (e.g. Ookla speeds) includes them. Their DOSM survey values are Kuching's and Beaufort's own, without Siburan and Membakut. Siburan's or Membakut's part of the parent polygon is unknown.
+- **Edges differ between OSM and DOSM:** e.g. OSM Serian is 1,853 km² against 1,490 km² in DOSM 2022. Use the polygons for maps and spatial joins, not as official areas.
+
 ---
 
 ## Processed (from `scripts/extract_t3.py`)
@@ -60,7 +107,7 @@ Sources: `icths_{2024,2025}_table3.xlsx`, sheets 3.1 and 3.2.
 | `dosm_hh_ict_district_{2024,2025}.csv` | 178 (162 districts + 13 states + 3 territories) | year, level, state, district, internet_pct, computer_pct, mobile_phone_pct, pay_tv_channel_pct, television_pct, radio_pct, fixed_line_telephone_pct, implied_sample_n, small_sample_flag, internet_moe95_pp |
 | `dosm_ind_ict_district_{2024,2025}.csv` | 172 | year, level, state, district, internet_pct, computer_pct, mobile_phone_pct, implied_sample_n, small_sample_flag, internet_moe95_pp |
 | `dosm_hh_internet_district_2024_2025.csv` | 165 (162 districts + 3 territories), all `matched = True` | level, state, district, internet_2024, internet_2025, internet_change_pp, small_sample_flag_2024, internet_moe95_pp_2024, small_sample_flag_2025, internet_moe95_pp_2025, change_beyond_noise, matched |
-| `district_aliases.csv` | 3 | state, alias, canonical, alias_used_in, canonical_used_in, source |
+| `district_aliases.csv` | 7 | state, alias, canonical, alias_found_in, canonical_source |
 
 **Parsing rules**
 - **Repeated page headers:** each printed page repeats the title, "(%)" and header rows. They are skipped.
@@ -71,10 +118,16 @@ Sources: `icths_{2024,2025}_table3.xlsx`, sheets 3.1 and 3.2.
 
 **Caveats**
 - **Districts missing from 3.2:** sheet 3.2 (individuals) has no rows for Membakut (Sabah) or Gedong, Lingga, Pantu, Sebuyau and Siburan (Sarawak), in either year. Those districts appear only in the household file.
-- **Penang spelling change:** DOSM spells the three Penang districts "Seberang **Prai** Utara/Tengah/Selatan" in 2024 and "Seberang **Perai** …" in 2025.
-  - `district_aliases.csv` maps each Prai name to its Perai name. "Perai" is the standard spelling here because OpenDOSM's population, income, amenities and schools files also use it.
-  - The table is written by `extract_t3.py`, which first checks that both spellings actually appear in the data.
-  - Aliases are applied **only in the combined file**. The per-year CSVs keep that year's DOSM spelling, so apply the alias table before joining them to anything else.
+- **Alias table (`district_aliases.csv`):** maps other spellings of the same district to the spelling in DOSM Table 3 (2025). It covers spelling only, never merges or splits. It's written by `extract_t3.py`, which checks that every standard spelling exists in Table 3 (2025).
+
+  | Alias | Standard spelling | Where the alias appears |
+  |---|---|---|
+  | Seberang Prai Utara / Tengah / Selatan | Seberang Perai … | Table 3 (2024) |
+  | Ulu Langat, Ulu Selangor | Hulu Langat, Hulu Selangor | DOSM boundaries; OpenDOSM population, income and schools |
+  | Kecil Lojing | Lojing | DOSM boundaries; OpenDOSM population, income and schools |
+  | Meradong | Maradong | OpenStreetMap boundaries; GADM |
+
+  The 2024→2025 combined file and `build_boundaries.py` apply it. The per-year CSVs keep each year's DOSM spelling, so apply the table before joining them to anything else.
 - **Another Penang spelling in the income file:** `hh_income_district.parquet` contains both "Seberang Perai …" and abbreviated "S.P. Selatan", "S.P.Tengah", "S.P.Utara" rows. Those abbreviations are **not** in the alias table yet; deal with them when cleaning the income file.
 - **`change_beyond_noise`** (combined file, an estimate):
   - **True** when |internet_change_pp| is larger than **every available** 95% MOE (the larger one when both years have one). **False** otherwise.

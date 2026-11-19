@@ -1,0 +1,43 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-11-19T05:37:17Z",
+    "timestamp_areas_base": "2026-11-18T23:29:01Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 369492802,
+  "lat": 5.4752882,
+  "lon": 115.8034703,
+  "tags": {
+    "is_in": "Sabah, Malaysia",
+    "name": "Membakut",
+    "name:ms-Arab": "ممباكوت",
+    "name:zh": "王麻骨",
+    "place": "town",
+    "wikidata": "Q1736429",
+    "wikipedia": "en:Membakut"
+  }
+},
+{
+  "type": "node",
+  "id": 1990609104,
+  "lat": 1.3614996,
+  "lon": 110.4043453,
+  "tags": {
+    "ele": "46",
+    "name": "Siburan",
+    "name:zh": "新生村",
+    "place": "town",
+    "source": "ele @ floodmap",
+    "wikidata": "Q7507309",
+    "wikipedia": "en:Siburan"
+  }
+}
+
+  ]
+}

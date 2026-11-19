@@ -4,6 +4,8 @@ Sources (all official links, found on each dataset's catalogue / release page):
   - OpenDOSM / data.gov.my Parquet files (storage.dosm.gov.my, storage.data.gov.my)
   - DOSM "ICT Use and Access by Individuals and Households Survey Report"
     2024 and 2025, Tables 1, 2, 3, 6, 7 (release-document-log links)
+  - DOSM district boundaries (github.com/dosm-malaysia/data-open)
+  - OpenStreetMap Sarawak district boundaries + two town points (Overpass API snapshot)
 
 Existing files are kept as-is (raw data stays untouched); pass --force to re-download.
 Each file is validated (Parquet magic bytes / real .xlsx zip with a workbook) before
@@ -14,7 +16,9 @@ Usage:  python scripts/download_raw.py [--force]
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -49,6 +53,48 @@ XLSX = {
 }
 
 
+# District boundaries (see data/README.md for the choice between candidates)
+DOSM_GEO = "https://raw.githubusercontent.com/dosm-malaysia/data-open/main/datasets/geodata/"
+BOUNDARIES = {
+    "boundaries/dosm_administrative_2_district.geojson": DOSM_GEO + "administrative_2_district.geojson",
+    "boundaries/dosm_state_district.csv": DOSM_GEO + "state_district.csv",
+}
+
+# OpenStreetMap snapshot (ODbL) via Overpass: Sarawak district relations (admin_level 6) with
+# geometry, plus the town points of the two new districts that have no boundary anywhere.
+# Overpass returns the live OSM state, so the saved file is the reproducible snapshot.
+OVERPASS = "https://overpass-api.de/api/interpreter"
+OSM_QUERIES = {
+    "boundaries/osm_sarawak_admin6.json": (
+        '[out:json][timeout:180];area["name:en"="Sarawak"]["admin_level"="4"]->.s;'
+        'rel(area.s)["boundary"="administrative"]["admin_level"="6"];out geom;'
+    ),
+    "boundaries/osm_new_district_towns.json": (
+        '[out:json][timeout:60];area["ISO3166-1"="MY"][admin_level=2]->.my;'
+        'node(area.my)["place"="town"]["name"~"^(Siburan|Membakut)$"];out;'
+    ),
+}
+
+
+def is_geojson(p: Path) -> bool:
+    try:
+        return len(json.loads(p.read_text(encoding="utf-8"))["features"]) > 0
+    except (ValueError, KeyError):
+        return False
+
+
+def is_csv(p: Path) -> bool:
+    head = p.read_text(encoding="utf-8", errors="replace")[:200]
+    return "," in head and "<html" not in head.lower()
+
+
+def is_overpass(p: Path) -> bool:
+    try:
+        return len(json.loads(p.read_text(encoding="utf-8"))["elements"]) > 0
+    except (ValueError, KeyError):
+        return False
+
+
 def is_parquet(p: Path) -> bool:
     if p.stat().st_size < 12:
         return False
@@ -66,7 +112,7 @@ def is_xlsx(p: Path) -> bool:
         return "xl/workbook.xml" in z.namelist()
 
 
-def fetch(name: str, url: str, check, force: bool) -> None:
+def fetch(name: str, url: str, check, force: bool, post_query: str | None = None) -> None:
     dest = RAW / name
     if dest.exists() and not force:
         status = "ok" if check(dest) else "INVALID"
@@ -74,8 +120,12 @@ def fetch(name: str, url: str, check, force: bool) -> None:
         if status != "ok":
             sys.exit(f"Existing file {dest} failed validation; rerun with --force.")
         return
+    dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_suffix(dest.suffix + ".part")
-    req = urllib.request.Request(url, headers=UA)
+    data = urllib.parse.urlencode({"data": post_query}).encode() if post_query else None
+    # Overpass rejects browser-like User-Agents (HTTP 406); it gets a plain client name.
+    headers = {"User-Agent": "datathon-pipeline/1.0"} if post_query else UA
+    req = urllib.request.Request(url, data=data, headers=headers)
     with urllib.request.urlopen(req, timeout=120) as r, part.open("wb") as out:
         out.write(r.read())
         ctype = r.headers.get("Content-Type", "")
@@ -95,7 +145,13 @@ def main() -> None:
         fetch(name, url, is_parquet, args.force)
     for name, url in XLSX.items():
         fetch(name, url, is_xlsx, args.force)
-    print(f"All {len(PARQUET) + len(XLSX)} files present and valid in {RAW}")
+    for name, url in BOUNDARIES.items():
+        fetch(name, url, is_geojson if name.endswith(".geojson") else is_csv, args.force)
+    for name, query in OSM_QUERIES.items():
+        fetch(name, OVERPASS, is_overpass, args.force, post_query=query)
+    n = len(PARQUET) + len(XLSX) + len(BOUNDARIES) + len(OSM_QUERIES)
+    print(f"All {n} files present and valid in {RAW}")
+    print("Ookla tiles are large and handled separately: python scripts/download_ookla.py")
 
 
 if __name__ == "__main__":

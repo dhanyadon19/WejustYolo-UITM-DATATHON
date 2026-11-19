@@ -1,4 +1,8 @@
-state,alias,canonical,alias_used_in,canonical_used_in,source
-Pulau Pinang,Seberang Prai Utara,Seberang Perai Utara,2024,2025,DOSM ICTHS Table 3 spelling change 2024->2025
-Pulau Pinang,Seberang Prai Tengah,Seberang Perai Tengah,2024,2025,DOSM ICTHS Table 3 spelling change 2024->2025
-Pulau Pinang,Seberang Prai Selatan,Seberang Perai Selatan,2024,2025,DOSM ICTHS Table 3 spelling change 2024->2025
+state,alias,canonical,alias_found_in,canonical_source
+Pulau Pinang,Seberang Prai Utara,Seberang Perai Utara,ICTHS Table 3 (2024),ICTHS Table 3 (2025)
+Pulau Pinang,Seberang Prai Tengah,Seberang Perai Tengah,ICTHS Table 3 (2024),ICTHS Table 3 (2025)
+Pulau Pinang,Seberang Prai Selatan,Seberang Perai Selatan,ICTHS Table 3 (2024),ICTHS Table 3 (2025)
+Selangor,Ulu Langat,Hulu Langat,DOSM boundaries; OpenDOSM population/income/schools,ICTHS Table 3 (2025)
+Selangor,Ulu Selangor,Hulu Selangor,DOSM boundaries; OpenDOSM population/income/schools,ICTHS Table 3 (2025)
+Kelantan,Kecil Lojing,Lojing,DOSM boundaries; OpenDOSM population/income/schools,ICTHS Table 3 (2025)
+Sarawak,Meradong,Maradong,OpenStreetMap boundaries; GADM,ICTHS Table 3 (2025)
