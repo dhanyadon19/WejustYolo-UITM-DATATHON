@@ -62,6 +62,8 @@ gap_index_districts.csv: 164 districts (Siburan, Membakut not indexed: no Ookla)
 
 All planned raw data is collected.
 
+Costing: docs/costing_method.md is a PROPOSAL awaiting review (not built). Key points: costs.yaml break-even (144/228) is households per tower, so decide per settlement cluster, not per district; household size from DOSM Census 2020 by district (census_district.csv, DOSM data-open; not yet downloaded); unsourced items listed in its section 5 (tower radius, fibre PoP opex, "fibre nearby" distance, etc.).
+
 Method
 Clean and merge by state and district.
 Schools come with MOE coordinates (no geocoding); attach Ookla speeds from tiles within 1-2 km.

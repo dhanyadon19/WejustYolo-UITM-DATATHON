@@ -245,6 +245,8 @@ Weights are in `config/weights.yaml`: access_gap 0.4, mobile_speed 0.2, fixed_re
   - **State-level cross-check:** the school list is within −5.7% to +3.2% of 2025 enrolment for every state except Labuan (−8.1%) and Putrajaya (−13.9%).
   - **Missing schools:** 18 schools with missing or suspect coordinates are not placed in any district.
 
+Costs and the value ranking are not built yet. The proposed method is in [`docs/costing_method.md`](../docs/costing_method.md).
+
 **`gap_index_sensitivity.csv`**: for each district, the baseline ranks plus three sensitivity checks:
 - **Equal weights:** `cgi_equal`, `rank_*_equal`.
 - **Random weights:** **1,000 Dirichlet(1,1,1,1) weight sets** (seed 42): `rank_*_dirichlet_median/_p05/_p95`.
