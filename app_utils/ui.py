@@ -91,11 +91,76 @@ def style(fig: go.Figure, height: int = 420, legend: bool = True, **layout) -> g
     return fig
 
 
+# --- safe formatting helpers (NaN / None -> "–") ---
+DASH = "–"
+
+
+def isnum(v) -> bool:
+    """True for a real, finite number (not None / NaN / pd.NA)."""
+    try:
+        return v is not None and v == v and float(v) not in (float("inf"), float("-inf"))
+    except (TypeError, ValueError):
+        return False
+
+
+def fmt_num(v, fmt: str = ",.0f", prefix: str = "", suffix: str = "") -> str:
+    return f"{prefix}{v:{fmt}}{suffix}" if isnum(v) else DASH
+
+
+def fmt_int(v) -> str:
+    return f"{int(v):,}" if isnum(v) else DASH
+
+
 def fmt_pct(v, d: int = 1) -> str:
-    return "–" if v is None or v != v else f"{v:.{d}f}%"
+    return f"{v:.{d}f}%" if isnum(v) else DASH
 
 
 def fmt_rm(v) -> str:
-    if v is None or v != v:
-        return "–"
+    """RM amounts: RMx.xxbn at or above RM1bn, otherwise RMx.xm."""
+    if not isnum(v):
+        return DASH
     return f"RM{v / 1e9:,.2f}bn" if abs(v) >= 1e9 else f"RM{v / 1e6:,.1f}m"
+
+
+def range_text(lo, hi) -> str:
+    return f"{int(round(lo))}–{int(round(hi))}" if isnum(lo) and isnum(hi) else DASH
+
+
+def rank_range(rank, lo, hi) -> str:
+    """'12 (range 9–14)'; just the rank if the range is missing; '–' if no rank."""
+    if not isnum(rank):
+        return DASH
+    return f"{int(rank)} (range {range_text(lo, hi)})" if isnum(lo) and isnum(hi) else f"{int(rank)}"
+
+
+def safe_div(num, den):
+    return num / den if isnum(num) and isnum(den) and den != 0 else float("nan")
+
+
+def moe_text(moe) -> str:
+    """Caption for an access figure; empty when there is no inferred margin."""
+    return f"Approx. margin of error ±{moe:.1f} pp (simple random-sampling formula; our estimate)" if isnum(moe) else ""
+
+
+def moe_badge(col, moe) -> None:
+    """Margin-of-error caption under a metric, only when one exists."""
+    t = moe_text(moe)
+    if t:
+        col.caption(t)
+
+
+def small_sample_banner(name: str, n, moe) -> None:
+    """Low-confidence warning for small-sample districts (degrades gracefully if n or MOE is missing)."""
+    parts = []
+    if isnum(n):
+        parts.append(f"{INFERRED_N} about {int(n)} households")
+    if isnum(moe):
+        parts.append(f"{MOE_TXT} ±{moe:.1f} percentage points")
+    detail = (": " + ", ".join(parts) + ".") if parts else "."
+    st.warning(f"**Low confidence.** {name}'s DOSM estimate appears to rest on a small sample{detail} "
+               f"{NOT_DOSM} Treat its ranks as ranges, not exact positions.", icon="⚠️")
+
+
+def fallback(text: str) -> None:
+    """Short message shown instead of a chart or figure that cannot be computed."""
+    st.info(text, icon="ℹ️")

@@ -62,7 +62,7 @@ ui.what(f"Sarawak's 15 highest-need districts: blue dot = rank with the chosen w
 moe = sens[sens.rank_sarawak_moe_min.notna() & (sens.state == "Sarawak")].sort_values("rank_sarawak").head(10)
 st.markdown(f"**Survey uncertainty.** {nsmall} districts have a small {ui.INFERRED_N} (our estimate, not a DOSM figure). "
             f"Setting each one's access to the low and high end of its {ui.MOE_TXT} moves its Sarawak rank as follows: "
-            + "; ".join(f"{r.district} {int(r.rank_sarawak_moe_min)}–{int(r.rank_sarawak_moe_max)}" for r in moe.itertuples()) + ".")
+            + "; ".join(f"{r.district} {ui.range_text(r.rank_sarawak_moe_min, r.rank_sarawak_moe_max)}" for r in moe.itertuples()) + ".")
 
 # --- 3. School proxy validation
 st.header("3. School screening layer: validation")

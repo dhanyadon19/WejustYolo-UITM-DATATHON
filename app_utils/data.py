@@ -45,9 +45,35 @@ def district_geojson(state: str | None = None, simplify_deg: float = 0.002) -> d
 
 
 @st.cache_data(show_spinner=False)
+def boundary_keys() -> set[tuple[str, str]]:
+    """(state, district) pairs that have a polygon in districts.geojson."""
+    g = json.loads((PROC / "districts.geojson").read_text(encoding="utf-8"))
+    return {(f["properties"]["state"], f["properties"]["district"]) for f in g["features"]}
+
+
+@st.cache_data(show_spinner=False)
+def unmapped_host() -> dict[tuple[str, str], str]:
+    """Districts without a polygon -> the polygon that contains their town (contains_unmapped)."""
+    g = json.loads((PROC / "districts.geojson").read_text(encoding="utf-8"))
+    out = {}
+    for f in g["features"]:
+        p = f["properties"]
+        for name in filter(None, (p.get("contains_unmapped") or "").split(";")):
+            out[(p["state"], name)] = p["district"]
+    return out
+
+
+@st.cache_data(show_spinner=False)
 def district_table() -> pd.DataFrame:
-    """One row per district joining index, costing, Ookla, access 2024/25 and amenities."""
+    """One row per district joining index, costing, Ookla, access 2024/25 and amenities.
+
+    Includes every DOSM Table 3 district: those without a boundary (Siburan, Membakut) have no
+    index, Ookla or costing values (NaN). Columns `indexed` and `has_boundary` say which is which."""
     gi = csv("gap_index_districts")
+    t3 = csv("dosm_hh_ict_district_2025")
+    extra = t3[(t3["level"] != "state")][["state", "district", "level"]]
+    extra = extra[~extra.set_index(["state", "district"]).index.isin(gi.set_index(["state", "district"]).index)]
+    gi = pd.concat([gi, extra], ignore_index=True)
     co = csv("costing_districts")
     ok = csv(latest("ookla_district_"))
     acc = csv("dosm_hh_internet_district_2024_2025")
@@ -66,6 +92,10 @@ def district_table() -> pd.DataFrame:
                                                  "people_without_home_internet", "population_k", "access_gap",
                                                  "household_size", "ookla_quarter"] if c in co.columns]),
                    on=key, how="left"))
+    df = df.copy()  # de-fragment after the joins
+    df["indexed"] = df["cgi"].notna()
+    keys = boundary_keys()
+    df["has_boundary"] = [(s, d) in keys for s, d in zip(df["state"], df["district"])]
     return df
 
 

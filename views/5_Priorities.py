@@ -23,7 +23,11 @@ case = "main" if plan.startswith("Residential") else "lite"
 fix_col = "main_fix" if case == "main" else "main_fix_lite"
 
 d = dt if scope == "All Malaysia" else dt[dt.state == "Sarawak"]
-d = d[d[f"people_per_rm_m_{case}"].notna()].copy()
+need_col = "rank_national" if scope == "All Malaysia" else "rank_sarawak"
+d = d[d[f"people_per_rm_m_{case}"].notna() & d[need_col].notna()].copy()
+if d.empty:
+    ui.fallback("No district in this selection has costed settlements, so there is nothing to rank.")
+    st.stop()
 need, p05, p95 = (("rank_national", "rank_national_dirichlet_p05", "rank_national_dirichlet_p95") if scope == "All Malaysia"
                   else ("rank_sarawak", "rank_sarawak_dirichlet_p05", "rank_sarawak_dirichlet_p95"))
 d["need_rank"] = d[need].rank(method="min").astype(int)  # re-ranked among districts that have a cost
@@ -81,8 +85,8 @@ tbl = d.sort_values(["need_rank"])[["district", "state", "need_rank", p05, p95, 
                                      f"people_per_rm_m_{case}", f"students_per_rm_m_{case}", f"cost_{case}_rm",
                                      "planned_people_without_internet", "share_settlements_takeup_gap", fix_col,
                                      "small_sample_flag"]].copy()
-tbl["Need range (weights)"] = tbl[p05].round().astype(int).astype(str) + "–" + tbl[p95].round().astype(int).astype(str)
-tbl["Beneficiaries rank range (cost cases)"] = tbl.ben_lo.astype(str) + "–" + tbl.ben_hi.astype(str)
+tbl["Need range (weights)"] = [ui.range_text(a, b) for a, b in zip(tbl[p05], tbl[p95])]
+tbl["Beneficiaries rank range (cost cases)"] = [ui.range_text(a, b) for a, b in zip(tbl.ben_lo, tbl.ben_hi)]
 tbl[f"cost_{case}_rm"] = (tbl[f"cost_{case}_rm"] / 1e6).round(1)
 tbl["share_settlements_takeup_gap"] = (100 * tbl.share_settlements_takeup_gap).round(0)
 tbl[fix_col] = tbl[fix_col].map(ui.FIX_LABELS)
@@ -103,10 +107,18 @@ st.dataframe(out[cols], hide_index=True, width="stretch",
                             "Rural people reached": st.column_config.NumberColumn(format="%.0f")})
 excluded = (dt if scope == "All Malaysia" else dt[dt.state == "Sarawak"])
 excluded = excluded[excluded[f"people_per_rm_m_{case}"].isna()]
+why = {
+    "with all settlements in the take-up group (no infrastructure cost)":
+        excluded.has_boundary & excluded.rural_settlements.notna(),
+    "with no rural school": excluded.has_boundary & excluded.rural_settlements.isna(),
+    "with no map boundary": ~excluded.has_boundary,
+}
+why_txt = "; ".join(f"{int(m.sum())} {k}" + (f" ({', '.join(excluded[m].district)})" if 0 < m.sum() <= 3 else "")
+                    for k, m in why.items() if m.sum())
 ui.what("Need range: 5th–95th percentile rank over 1,000 random index weightings. Beneficiaries rank range: lowest and "
         "highest rank across the Residential, Lite and upper-bound cost cases (scaling all costs ±30% leaves ranks "
         "unchanged). Small-sample districts carry extra uncertainty from their approximate margin of error."
-        + (f" Not shown ({len(excluded)}): districts with no costed settlements." if len(excluded) else ""),
+        + (f" Not shown ({len(excluded)}): {why_txt}." if len(excluded) else ""),
         data=DATA)
 
 ui.footer([

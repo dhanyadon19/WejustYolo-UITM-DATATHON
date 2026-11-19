@@ -103,6 +103,9 @@ place = c1.selectbox("Area", ["Malaysia"] + sorted(s for s in trend.state.unique
 ind_lab = {"internet": "Internet access", "fixed_broadband": "Fixed broadband", "mobile_broadband": "Mobile broadband"}
 ind = c2.selectbox("Indicator", list(ind_lab), format_func=ind_lab.get, key="trend_ind")
 t = trend[(trend.state == place) & (trend.indicator == ind)].dropna(subset=["pct"])
+if t.empty:
+    ui.fallback(f"No DOSM trend data for {place} on this indicator.")
+    st.stop()
 fig = go.Figure()
 styles = {"total": (ui.MUTED_LIGHT, "dot", "Total"), "urban": (ui.MUTED, "solid", "Urban"), "rural": (ui.ACCENT, "solid", "Rural")}
 for s, (col, dash, lab) in styles.items():

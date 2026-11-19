@@ -54,7 +54,9 @@ elif state != "All Malaysia":
     pts = pts[pts.state == state]
 pts["students"] = pts["students"].fillna(0).astype(int)
 pts["district"] = pts["district"].fillna("(not placed)")
-layers = [pdk.Layer("ScatterplotLayer", data=pts[["lon", "lat", "school_name", "district", "level", "urban_rural", "students"]],
+# send only the columns the layer and tooltip use, coordinates rounded to ~1 m
+MAP_COLS = ["lon", "lat", "school_name", "district", "level", "urban_rural", "students"]
+layers = [pdk.Layer("ScatterplotLayer", data=pts[MAP_COLS].round({"lon": 5, "lat": 5}),
                     get_position="[lon, lat]", get_fill_color=ui.hex_rgb(ui.MUTED, 150), get_radius=250,
                     radius_min_pixels=1.5, radius_max_pixels=5, pickable=True)]
 flag = conn[(conn.likely_no_fibre == True) & conn.lon.notna()]  # noqa: E712
@@ -65,10 +67,14 @@ if screen:
               "confidence"]].copy()
     f["students"] = f["students"].fillna(0).astype(int)
     f["nearest_fixed_tile_km"] = f["nearest_fixed_tile_km"].round(1)
+    f = f.round({"lon": 5, "lat": 5})
     layers.append(pdk.Layer("ScatterplotLayer", data=f, get_position="[lon, lat]",
                             get_fill_color=ui.hex_rgb(ui.ACCENT, 230), get_line_color=[255, 255, 255, 255],
                             stroked=True, line_width_min_pixels=1, get_radius=600, radius_min_pixels=3.5,
                             radius_max_pixels=9, pickable=True))
+if pts.empty:
+    ui.fallback("No schools with coordinates in this selection.")
+    st.stop()
 view = pdk.data_utils.compute_view(pts[["lon", "lat"]].values.tolist(), view_proportion=0.95)
 tooltip = {"html": "<b>{school_name}</b><br/>{district} · {level} · {urban_rural}<br/>{students} pupils"
                    + ("<br/>Nearest fixed tile: {nearest_fixed_tile_km} km · confidence {confidence}" if screen else ""),
