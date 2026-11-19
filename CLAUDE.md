@@ -36,6 +36,7 @@ scripts/build_ookla.py       tiles -> districts -> ookla_district_{y}q{q}.csv (n
 In data/raw/ (downloaded 2026-11-19, untouched):
 
 OpenDOSM / data.gov.my Parquet (CC BY 4.0): hh_access_internet (households, state), icths_internet_strata (individuals, state), hh_access_amenities, hh_income_district (RM/month), population_district (thousands of people), schools_district, teachers_district, enrolment_school_district (the three MOE files are hosted on storage.data.gov.my)
+hansard_schools_2026-11-11.csv: schools without fibre in the 6 states, from Hansard DR 11.11.2026 p.33 (official PDF; Bernama omits Sarawak's 52%). Per-state totals are derived from rounded % (marked, with min/max); only the 5,362 / 1,180 totals are exact.
 boundaries/: DOSM district polygons (2022, DOSM Open Data Licence) and an OpenStreetMap Sarawak snapshot (ODbL)
 DOSM ICTHS report tables, 2024 and 2025: icths_{year}_table{1,2,3,6,7}.xlsx. Table 1 (1.2 mobile vs fixed broadband), 2 (2.4/2.5 ICT skills), 3 (by district), 6 (time series: 2024 file = 2021-2024, 2025 file = 2022-2025), 7 (relative standard errors, national/urban/rural only). Licence not stated on DOSM release pages. Only Table 3 is cleaned so far.
 
@@ -55,7 +56,6 @@ ookla_district_2026q3.csv: per district x type: dl_mbps, ul_mbps (test-weighted 
 To collect:
 
 MOE school lists (data.gov.my archive), to geocode
-Hansard 11 Nov 2026 state counts of schools without fibre -> data/raw/hansard_schools_2026-11-11.csv
 Method
 Clean and merge by state and district.
 Geocode schools; attach Ookla speeds from tiles within 1-2 km.

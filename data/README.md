@@ -49,6 +49,28 @@ OpenDOSM names the federal territories `W.P. Kuala Lumpur`, `W.P. Labuan` and `W
 | `icths_2024_table6.xlsx` / `icths_2025_table6.xlsx` | 13947 / 19021 | Table 6: time series, 4 years per edition | 2024 file covers 2021–2024; 2025 file covers 2022–2025. Older years are rounded to one decimal. |
 | `icths_2024_table7.xlsx` / `icths_2025_table7.xlsx` | 13948 / 19022 | Table 7: relative standard errors (7.1 household access, 7.2 individual use), with SE and 95% CI | National and urban/rural only, not district |
 
+## Raw: Hansard, schools without fibre (`hansard_schools_2026-11-11.csv`)
+
+| | |
+|---|---|
+| Source | **Hansard, Dewan Rakyat, 11 Nov 2026**, oral question 11 from Nurul Amin Hamid [Padang Terap], answered by Deputy Education Minister Wong Kah Woh. Corrected edition `DR-11112026 - pembetulan Tumpat.pdf`, **printed page 33 (PDF page 39)**. |
+| URL | https://www.parlimen.gov.my/files/hindex/pdf/DR-11112026%20-%20pembetulan%20Tumpat.pdf (linked from the [Dewan Rakyat Hansard index](https://www.parlimen.gov.my/hansard-dewan-rakyat.html?uweb=dr&lang=bm)). A copy is at `data/raw/hansard/DR-11112026_pembetulan_Tumpat.pdf`, gitignored and re-downloaded by `download_raw.py`. |
+| Secondary source | Bernama, 11 Nov 2026, https://bernama.com/en/news.php?id=2632735. Its figures match the Hansard, but it **omits Sarawak's 52%**. It also describes the answer as given in the question-and-answer session, i.e. an oral reply, not a written one. |
+| Transcribed | 2026-11-19, by hand from the Hansard text |
+| Licence | Parliamentary record; public. Cite as Hansard DR 11.11.2026, p.33. |
+
+**Columns**
+
+| Column | Meaning |
+|---|---|
+| `schools_without_fibre`, `pct_without_fibre` | As stated in the Hansard. The six counts sum to the stated 1,180. |
+| `schools_total` | For each state, **derived** as count ÷ percentage × 100, rounded half-up. Marked by `schools_total_derived = True`. The "Total (6 states)" row (5,362 schools, 1,180 without fibre, 22%) is stated, not derived. |
+| `schools_total_min` / `_max` | The range each derived total could fall in, because the Hansard rounds percentages to whole numbers (p ± 0.5). Small counts give wide ranges: Terengganu (4 schools, "1%") is 267–800, Kedah (14, "2%") is 560–933. |
+
+**Caveats**
+- **Derived totals don't add up exactly:** they sum to **5,141**, against the stated 5,362 (−221, −4.1%). The gap comes from the rounded percentages and is within their combined range (4,763–5,887). So use the per-state totals only as approximations; the 5,362 total is the exact figure.
+- **What "without fibre" means:** the Hansard says these 1,180 schools have **wireless broadband or satellite** instead of fibre, so they are not offline. The 4,182 with fibre get 300–800 Mbps.
+
 ## Raw: district boundaries (`data/raw/boundaries/`)
 
 Downloaded 2026-11-19 by `download_raw.py`.

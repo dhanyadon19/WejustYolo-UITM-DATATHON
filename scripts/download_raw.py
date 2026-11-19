@@ -76,6 +76,21 @@ OSM_QUERIES = {
 }
 
 
+# Hansard Dewan Rakyat 11.11.2026 (corrected edition), linked from
+# https://www.parlimen.gov.my/hansard-dewan-rakyat.html?uweb=dr&lang=bm . Source of
+# data/raw/hansard_schools_2026-11-11.csv (oral question 11, printed p.33 / PDF p.39).
+# PDFs are gitignored; this keeps the original re-downloadable.
+HANSARD = {
+    "hansard/DR-11112026_pembetulan_Tumpat.pdf":
+        "https://www.parlimen.gov.my/files/hindex/pdf/DR-11112026%20-%20pembetulan%20Tumpat.pdf",
+}
+
+
+def is_pdf(p: Path) -> bool:
+    with p.open("rb") as f:
+        return f.read(5) == b"%PDF-"
+
+
 def is_geojson(p: Path) -> bool:
     try:
         return len(json.loads(p.read_text(encoding="utf-8"))["features"]) > 0
@@ -149,7 +164,9 @@ def main() -> None:
         fetch(name, url, is_geojson if name.endswith(".geojson") else is_csv, args.force)
     for name, query in OSM_QUERIES.items():
         fetch(name, OVERPASS, is_overpass, args.force, post_query=query)
-    n = len(PARQUET) + len(XLSX) + len(BOUNDARIES) + len(OSM_QUERIES)
+    for name, url in HANSARD.items():
+        fetch(name, url, is_pdf, args.force)
+    n = len(PARQUET) + len(XLSX) + len(BOUNDARIES) + len(OSM_QUERIES) + len(HANSARD)
     print(f"All {n} files present and valid in {RAW}")
     print("Ookla tiles are large and handled separately: python scripts/download_ookla.py")
 
