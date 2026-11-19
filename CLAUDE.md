@@ -30,6 +30,8 @@ Pipeline (rerun in order):
 scripts/download_raw.py      downloads + validates all raw files except Ookla; skips existing ones (--force to re-download)
 scripts/extract_t3.py        ICTHS Table 3 -> data/processed/ + district_aliases.csv, then runs the 2024 checks (exits non-zero on failure)
 scripts/build_boundaries.py  -> data/processed/districts.geojson (needs district_aliases.csv from extract_t3.py)
+scripts/download_ookla.py    latest Ookla quarter (fixed + mobile) -> data/raw/ookla/ (gitignored, ~550 MB) -> ookla_my_{type}_{y}q{q}.parquet
+scripts/build_ookla.py       tiles -> districts -> ookla_district_{y}q{q}.csv (needs districts.geojson)
 
 In data/raw/ (downloaded 2026-11-19, untouched):
 
@@ -47,9 +49,11 @@ districts.geojson: 164 polygons named like Table 3. DOSM 2022 polygons everywher
 Naming follows OpenDOSM: title-case states, territories as "W.P. Kuala Lumpur" (state = district), state rows have district "All Districts".
 Columns include small_sample_flag, implied_sample_n, internet_moe95_pp (inferred from the published percentages; method in data/README.md). Districts with small_sample_flag = True must be shown as low confidence with their margin of error, never ranked as precise. No flagged district's 2024->2025 change exceeds its MOE (change_beyond_noise is False for all 31), so don't present those changes as real trends.
 
+ookla_my_{fixed,mobile}_2026q3.parquet: Ookla tiles clipped to Malaysia's bbox (CC BY-NC-SA 4.0, non-commercial)
+ookla_district_2026q3.csv: per district x type: dl_mbps, ul_mbps (test-weighted mean), latency_median_ms (test-weighted median), n_tiles, tests, devices (upper bound), low_sample (tests < 50). Fixed-speed tests only come from homes that already have fixed broadband: always read speed together with DOSM access.
+
 To collect:
 
-Ookla Open Data performance tiles (AWS s3://ookla-open-data), CC BY-NC-SA 4.0, latest quarter, Malaysia only
 MOE school lists (data.gov.my archive), to geocode
 Hansard 11 Nov 2026 state counts of schools without fibre -> data/raw/hansard_schools_2026-11-11.csv
 Method

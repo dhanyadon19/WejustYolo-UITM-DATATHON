@@ -71,6 +71,48 @@ Downloaded 2026-11-19 by `download_raw.py`.
 
 The site-wide catalogue pages of OpenDOSM and data.gov.my list no boundary dataset. The DOSM GitHub repo above is the official source.
 
+## Raw: Ookla performance tiles (`data/raw/ookla/`, gitignored)
+
+| | |
+|---|---|
+| Source | Ookla for Good Open Data, *Speedtest by Ookla Global Fixed and Mobile Network Performance Maps*, public AWS bucket `s3://ookla-open-data` (read over HTTPS, no credentials) |
+| Files | `2026-07-01_performance_fixed_tiles.parquet` (365 MB), `2026-07-01_performance_mobile_tiles.parquet` (190 MB), global |
+| URLs | https://ookla-open-data.s3.amazonaws.com/parquet/performance/type={fixed,mobile}/year=2026/quarter=3/2026-07-01_performance_{fixed,mobile}_tiles.parquet |
+| Quarter | **2026 Q3** (Jul–Sep 2026), the latest available for both types, published 2026-10-09 |
+| Downloaded | 2026-11-19 by `scripts/download_ookla.py` (rerun it to fetch again; the files are too big for git) |
+| Licence | **CC BY-NC-SA 4.0**: attribution required, **non-commercial use only**, and derived data must be shared under the same licence |
+| Units | `avg_d_kbps`, `avg_u_kbps` in kilobits per second; `avg_lat_ms` in milliseconds; `tests` and `devices` are counts per tile |
+
+## Processed: Ookla (from `download_ookla.py` and `build_ookla.py`), CC BY-NC-SA 4.0
+
+**`ookla_my_{fixed,mobile}_2026q3.parquet`**: the global tiles clipped to a Malaysia bounding box.
+- **Box:** taken from the DOSM boundary file, plus 0.1°.
+- **Size:** 55,381 fixed and 70,503 mobile tiles.
+- **Columns:** the same as Ookla's.
+- **Coverage:** the box also covers parts of Brunei, Singapore, southern Thailand and Kalimantan.
+
+**`ookla_district_2026q3.csv`**: 328 rows (164 polygons × fixed/mobile). Columns:
+
+| Column | Meaning |
+|---|---|
+| year, quarter, type | |
+| state, district, dosm_district, boundary_source, contains_unmapped | from `districts.geojson` |
+| n_tiles | number of tiles |
+| tests | total tests |
+| devices | total devices; an **upper bound**, since a device testing in several tiles is counted in each |
+| dl_mbps, ul_mbps | test-weighted mean of tile download/upload speeds, in Mbps (kbps ÷ 1000) |
+| latency_median_ms | test-weighted median of tile average latency (each test takes its tile's average, the finest detail Ookla publishes) |
+| low_sample | tests < 50 |
+
+**Method and caveats**
+- **Assignment:** a tile (zoom 16, ~600 m) is assigned to the district polygon that contains its centre.
+- **Tiles dropped:** 19,129 fixed and 15,870 mobile tiles in the box fall outside every polygon, almost all in neighbouring countries or at sea. Only 15 fixed and 30 mobile tiles (37 and 115 tests) fall inside DOSM's Malaysia outline but in the gap between the OSM and DOSM edges in Sarawak.
+- **Edge overlaps:** the simplified DOSM 2022 polygons overlap by slivers along shared edges (mostly under 1 km²). A tile centre inside two polygons goes to the one it lies deepest inside; that affected 3 fixed and 4 mobile tiles this quarter.
+- **Low samples:** 4 fixed districts have `low_sample`: Lingga (13 tests), Pantu (15), Pakan (29) and Tebedu (36), all in Sarawak. Every polygon has at least one tile of each type.
+- **Spot-check:** three districts were recomputed independently from the raw global files, using tile WKT centres. Tiles, tests and download speed matched exactly: Bukit Mabong fixed 85.09 Mbps from 222 tests; Subis mobile 53.48 Mbps from 1,035 tests; Kanowit fixed 205.97 Mbps from 106 tests.
+- **Selection bias:** Speedtest data comes from user-run tests. Fixed results describe **households that already have fixed broadband**, so a high fixed speed doesn't mean good coverage. For example, Kanowit has the lowest household internet access in Sarawak (DOSM) but 206 Mbps fixed from just 106 tests. Read speed together with access, and treat test counts as a rough measure of reach, not of population.
+- **Siburan and Membakut:** their tiles are counted under Kuching and Beaufort (see `contains_unmapped`).
+
 ---
 
 ## Processed (from `scripts/build_boundaries.py`)
