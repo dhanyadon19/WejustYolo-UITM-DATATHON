@@ -1,0 +1,72 @@
+# Indicative connectivity intervention costs, Malaysia (RM)
+# All figures are ESTIMATES derived from public statements and news reports, not engineering quotes.
+# Per-site values are simple averages (total budget / number of sites); MCMC has said real per-site
+# costs vary with terrain, typology and population density. Label them as estimates in the app.
+# Compiled: 2026-11-19.
+
+tower:
+  description: New rural 4G/5G tower (government-funded, Sarawak)
+  capex_per_site_rm:
+    central: 1557143        # JENDELA 2 Sarawak: RM545m for ~350 locations
+    low: 1557143
+    high: 2650000           # first 300 SMART towers: RM795m
+  capex_notes:
+    - "JENDELA 2 stage 1 in Sarawak: six clusters, RM545m, about 350 locations (Bernama/The Star, 15 Oct 2026)"
+    - "Sarawak minister: one SMART tower costs about RM2.5m to build (The Star, 27 Jul 2026)"
+    - "SMART 600 towers over RM1b = ~RM1.6m each; first 300 towers RM795m = ~RM2.65m each (SoyaCincau, May 2023)"
+  opex_per_site_per_year_rm: 115000   # RM207m over 3 years (2024-2026) for ~600 SMART towers
+  opex_source: "Sarawak Utility and Telecommunication Minister, Nov 2023 (New Sarawak Tribune / NST)"
+  residents_per_site: 80              # JENDELA 2: 2,700 sites targeting 217,000 residents
+  residents_source: "MCMC JENDELA 2 call for draft plans (The Sun via Newswav, 1 Apr 2026)"
+  coverage_radius_km: null            # not sourced; use line-of-sight simulator instead
+  sources:
+    - https://bernama.com/en/news.php?id=2620800
+    - https://www.thestar.com.my/news/nation/2026/07/27/five-perimeter-walls-each-costing-rm100000-built-to-curb-vandalism-of-telco-tower-sites-in-sarawak
+    - https://soyacincau.com/2023/05/22/why-sarawak-has-nearly-500-naked-telco-towers/
+    - https://newsarawaktribune.com.my/?p=360757
+    - https://newswav.com/article/mcmc-invites-draft-plans-for-jendela-2-to-boost-national-connectivity-A2604_u6cmH1
+
+fibre_pop:
+  description: Fibre point of presence (PoP), typically sited near a rural school
+  capex_per_site_rm:
+    central: 1468429        # Sarawak: RM1b for 681 PoPs
+    low: 1468429
+    high: 1572327           # Sabah: up to RM1b for 636 PoPs
+  premises_per_site: 107    # Sarawak: 73,000 premises / 681 PoPs
+  capex_per_premise_rm: 13699
+  coverage_radius_km: 3     # minister: each PoP covers a radius of about 3 km
+  notes:
+    - "4,323 of 4,370 PoPs under the 12th Malaysia Plan were placed near rural schools"
+    - "Sabah offer: 300 Mbps for RM35/month on a 2-year contract (user price, not build cost)"
+  sources:
+    - https://www.thevibes.com/articles/news/73707/rm1-bil-to-be-spent-building-fibre-optic-infra-in-swak-within-three-years-annuar
+    - https://newswav.com/article/sabah-among-fastest-states-in-rolling-out-fibre-optic-infra-A2511_qBVcDj
+
+satellite:
+  description: Starlink satellite kit, per household or per school/community hotspot
+  kit_rm: 1600              # Standard V4 kit
+  monthly_rm:
+    residential: 220
+    residential_lite: 129
+    business_from: 318      # 40 GB priority data + unlimited standard
+  five_year_cost_per_terminal_rm:
+    residential: 14800      # 1,600 + 220 x 60
+    residential_lite: 9340  # 1,600 + 129 x 60
+  notes:
+    - "Retail prices; government or bulk pricing may differ"
+    - "About 300 Sabah schools were equipped with Starlink during 2025"
+  sources:
+    - https://soyacincau.com/2025/01/14/starlink-standard-v4-kit-finally-available-in-malaysia-priced-at-rm1600/
+    - https://www.lowyat.net/2025/353738/starlink-residential-lite-plan-malaysia/
+    - https://api.starlink.com/public-files/Critical_Info_Summary_Priority_Malaysia.pdf
+
+decision_rule:
+  # Five-year cost of one tower (capex + 5 x opex) = RM2.13m.
+  # Break-even number of households where one tower costs the same as one Starlink terminal per household:
+  breakeven_households_vs_starlink:
+    residential: 144
+    residential_lite: 228
+  interpretation: >
+    Below roughly 150-230 households within reach, satellite is likely cheaper over five years;
+    above that, a tower is likely better value (and also serves mobile users). Treat as a screening
+    rule, not an engineering decision. Fibre PoP is preferred where a fibre route already passes nearby.
