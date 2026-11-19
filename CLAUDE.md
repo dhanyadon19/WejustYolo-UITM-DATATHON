@@ -34,6 +34,8 @@ scripts/download_ookla.py    latest Ookla quarter (fixed + mobile) -> data/raw/o
 scripts/build_ookla.py       tiles -> districts -> ookla_district_{y}q{q}.csv (needs districts.geojson)
 scripts/build_schools.py     MOE schools (6 Hansard states) + Ookla -> schools_connectivity.csv, prints Hansard validation
 scripts/build_index.py       CGI per district (weights from config/weights.yaml) -> gap_index_districts.csv + gap_index_sensitivity.csv
+scripts/extract_t1_t6.py     ICTHS Table 1.2 + Tables 6.4-6.6 -> dosm_hh_internet_state.csv, dosm_hh_internet_trend.csv
+scripts/build_app_data.py    hansard_schools.csv, schools_all.csv, amenities_district.csv (needs districts.geojson)
 scripts/build_costing.py     fix per rural-school cluster + 5-yr cost + value ranking (config/costs.yaml) -> costing_clusters.csv + costing_districts.csv (needs gap_index_districts.csv)
 
 In data/raw/ (downloaded 2026-11-19, untouched):
@@ -78,11 +80,15 @@ App structure (Streamlit)
 
 User journey: national overview -> six Hansard states and validation -> Sarawak -> pick a district -> problems -> recommended fix, cost, beneficiaries -> priority on both rankings.
 
-Pages: 1 National Overview, 2 Validation, 3 Sarawak Gap Map (pydeck 3D, height = CGI), 4 Prioritisation (need vs value scatter), 5 Fix Recommender, 6 Tower Simulator (bonus, one area, only if pages 1-5 are done by 26 Nov).
+Pages (built; app.py uses st.navigation): 1 Overview (coverage 99.71% from config/facts.yaml vs DOSM household access, urban/rural, rural mobile vs fixed broadband, 2021-2025 trend), 2 Schools (Hansard by state, MOE school map, low-confidence screening layer + validation table), 3 Sarawak map (pydeck 3D, height = CGI, colour = largest settlement group or main fix, small-sample outlines, Siburan listed as no boundary), 4 District detail, 5 Priorities (need vs value scatter, rank ranges, Residential/Lite toggle), 6 Method & limitations. Optional bonus: Tower Simulator, only if time allows.
+Design: app_utils/ui.py holds the palette (one accent #2a78d6, muted greys; fix colours tower #2a78d6 / satellite #eb6834 / take-up gap #1baf7a, validated), what() captions under every chart, footer() sources on every page, OSM credit where Sarawak boundaries or basemaps appear. app_utils/data.py reads data/processed and config only, via st.cache_data. Pages must not contain typed statistics.
+Run locally: .venv\Scripts\streamlit run app.py. Headless check: streamlit.testing.v1.AppTest per page.
 
 Repo layout
-app.py              Streamlit entry
+app.py              Streamlit entry (st.navigation)
+app_utils/          data.py (cached loaders), ui.py (palette, chart style, captions, footers)
 pages/              one file per page
+.streamlit/         config.toml (theme)
 scripts/            download and cleaning scripts
 config/             facts.yaml, weights.yaml, costs.yaml
 data/raw/           untouched downloads
