@@ -14,12 +14,31 @@ MUTED_LIGHT = "#c3c2b7"      # context marks, baseline
 GRID = "#e1e0d9"
 SURFACE = "#fcfcfb"
 
-# Fix categories: categorical slots 1-3 (validated all-pairs, light + dark). Fixed mapping,
-# never cycled. Aqua is below 3:1 on light, so it always appears with labels / tooltips / tables.
-FIX_COLOURS = {"tower": "#2a78d6", "satellite": "#eb6834", "takeup_gap": "#1baf7a"}
+# Fix categories: deep blue / orange / lighter green, chosen for strong lightness contrast and
+# validated all-pairs (dataviz validator: lightness, chroma, CVD >= 10, normal-vision >= 25).
+# Fixed mapping, never cycled. The green is below 3:1 on light, so it always appears with labels,
+# tooltips or tables.
+FIX_COLOURS = {"tower": "#1c5cab", "satellite": "#eb6834", "takeup_gap": "#58b98c"}
 FIX_LABELS = {"tower": "Tower", "satellite": "Satellite", "takeup_gap": "Take-up gap (fixed network likely nearby)",
               "none (take-up gap only)": "Take-up gap only"}
 FIX_COLOURS["none (take-up gap only)"] = FIX_COLOURS["takeup_gap"]
+
+# --- shared wording (reviewed) ---
+BENEFIT = "estimated beneficiaries per RM1m"
+BENEFIT_RANK = "estimated-beneficiaries-per-RM1m rank"
+INFERRED_N = "inferred sample size"
+MOE_TXT = "approximate margin of error (simple random-sampling formula)"
+NOT_DOSM = "These are our estimates from DOSM's published percentages, not figures DOSM publishes."
+TAKEUP_TXT = ("Our proxy suggests many rural settlements already have a fixed network nearby, so take-up support may "
+              "matter as much as new infrastructure.")
+COST_SCREEN = ("Cost screen, not a full cost-benefit comparison: households are assumed equal across a district's "
+               "rural schools, and towers and satellite are different services (a tower also serves mobile users and "
+               "roads; satellite serves single homes).")
+
+
+def caveat(text: str = COST_SCREEN) -> None:
+    st.markdown(f"<div style='border-left:3px solid {MUTED_LIGHT};padding:2px 10px;color:{INK_2};font-size:0.85rem'>"
+                f"{text}</div>", unsafe_allow_html=True)
 
 OSM_CREDIT = "© OpenStreetMap contributors"
 BASEMAP_CREDIT = "Basemap © OpenStreetMap contributors © CARTO"
@@ -36,9 +55,11 @@ def page(title: str, intro: str | None = None) -> None:
         st.markdown(f"<p style='color:{INK_2};margin-top:-0.6rem'>{intro}</p>", unsafe_allow_html=True)
 
 
-def what(text: str) -> None:
-    """Short 'what this shows' line under a chart."""
-    st.markdown(f"<p style='color:{INK_2};font-size:0.88rem;margin-top:-0.4rem'><b>What this shows:</b> {text}</p>",
+def what(text: str, data: str | None = None) -> None:
+    """Short 'what this shows' line under a chart or table, with the data source and year."""
+    chip = (f"<span style='background:#f3f2ee;border-radius:4px;padding:1px 6px;margin-right:6px;"
+            f"color:{INK_2};display:inline;line-height:1.7'>Data: {data}</span>") if data else ""
+    st.markdown(f"<p style='color:{INK_2};font-size:0.88rem;margin-top:-0.4rem'>{chip}<b>What this shows:</b> {text}</p>",
                 unsafe_allow_html=True)
 
 

@@ -5,11 +5,15 @@ import streamlit as st
 
 from app_utils import data, ui
 
+st.set_page_config(page_title="Schools · Beyond Coverage", layout="wide")
+
 h = data.csv("hansard_schools")
 schools = data.csv("schools_all")
 conn = data.csv("schools_connectivity")
 val = data.csv("schools_validation")
 quarter = conn["ookla_quarter"].iloc[0]
+HANSARD = "Hansard, Dewan Rakyat, 11 Nov 2026"
+MOE_LIST = "MOE school list, June 2022"
 
 total = h[h.state.str.startswith("Total")].iloc[0]
 by_state = h[~h.state.str.startswith("Total")].sort_values("schools_without_fibre")
@@ -24,24 +28,24 @@ fig = go.Figure(go.Bar(
     x=by_state.schools_without_fibre, y=by_state.state, orientation="h",
     marker_color=[ui.ACCENT if s == "Sarawak" else ui.MUTED_LIGHT for s in by_state.state], marker_line_width=0,
     text=[f"{int(n):,} ({int(p)}%)" for n, p in zip(by_state.schools_without_fibre, by_state.pct_without_fibre)],
-    textposition="outside", textfont=dict(color=ui.INK_2),
+    textposition="outside", textfont=dict(color=ui.INK_2), cliponaxis=False,
     customdata=by_state[["pct_without_fibre", "schools_total", "schools_total_min", "schools_total_max"]],
     hovertemplate="%{y}: %{x:,} schools without fibre (%{customdata[0]}% of schools)<br>"
                   "Total schools (derived from rounded %): ~%{customdata[1]:,} "
                   "(range %{customdata[2]:,}–%{customdata[3]:,})<extra></extra>"))
-ui.style(fig, height=330, legend=False)
-fig.update_xaxes(title="Schools without fibre", range=[0, by_state.schools_without_fibre.max() * 1.18])
+ui.style(fig, height=330, legend=False, margin=dict(l=10, r=60, t=30, b=10))
+fig.update_xaxes(title="Schools without fibre", range=[0, by_state.schools_without_fibre.max() * 1.2])
 st.plotly_chart(fig, width="stretch")
 ui.what("Number of schools without fibre in each state, with the share of that state's schools in brackets, "
         "as stated in Parliament. These schools use wireless broadband or satellite instead. "
-        "State totals in the tooltip are derived from rounded percentages and are approximate.")
+        "State totals in the tooltip are derived from rounded percentages and are approximate.", data=HANSARD)
 
 # --- Map
 st.subheader("Where the schools are")
 c1, c2 = st.columns([1, 2])
 state = c1.selectbox("State", ["All six Hansard states"] + data.SIX_STATES + ["All Malaysia"], index=0)
-screen = c2.toggle(f"Show screening layer: far from fixed broadband (no Ookla fixed tile within 2 km, {quarter}). "
-                   "LOW CONFIDENCE", value=False)
+screen = c2.toggle("Screening layer (low confidence): no fixed broadband nearby", value=False,
+                   help=f"Schools with no Ookla fixed tile within 2 km ({quarter}). A screen, not a count: see the table.")
 
 pts = schools.dropna(subset=["lon", "lat"]).copy()
 if state == "All six Hansard states":
@@ -70,28 +74,31 @@ tooltip = {"html": "<b>{school_name}</b><br/>{district} · {level} · {urban_rur
                    + ("<br/>Nearest fixed tile: {nearest_fixed_tile_km} km · confidence {confidence}" if screen else ""),
            "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
 
-left, right = st.columns([3, 2])
+left, right = st.columns([1, 1], gap="medium")
 with left:
     st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view, map_style=pdk.map_styles.CARTO_LIGHT,
-                             tooltip=tooltip), height=520)
-    msg = (f"Grey: {len(pts):,} MOE schools (list as at 30 Jun 2022)."
-           + (f" Blue: {len(flag):,} schools with no Ookla fixed tile within 2 km — a low-confidence screen, not a count "
+                             tooltip=tooltip), height=520, key=f"schools_map_{state}")
+    msg = (f"Grey: {len(pts):,} MOE schools."
+           + (f" Blue: {len(flag):,} schools with no Ookla fixed tile within 2 km: a low-confidence screen, not a count "
               "of schools without fibre." if screen else ""))
-    ui.what(msg)
+    ui.what(msg, data=MOE_LIST + (f" · Ookla {quarter}" if screen else ""))
 with right:
     st.markdown("**Does the screening layer match Parliament?**")
-    v = val.rename(columns={"state": "State", "schools_moe": "MOE schools", "hansard_no_fibre": "Hansard",
-                            "est_2km": "Screen (2 km)", "pct_diff_2km": "% diff (2 km)",
-                            "est_1km": "Screen (1 km)", "pct_diff_1km": "% diff (1 km)"})
-    st.dataframe(v[["State", "MOE schools", "Hansard", "Screen (2 km)", "% diff (2 km)", "Screen (1 km)", "% diff (1 km)"]],
-                 hide_index=True, width="stretch")
+    v = val.rename(columns={"state": "State", "hansard_no_fibre": "Hansard", "est_2km": "Screen 2 km",
+                            "pct_diff_2km": "Diff 2 km", "est_1km": "Screen 1 km", "pct_diff_1km": "Diff 1 km"})
+    st.dataframe(v[["State", "Hansard", "Screen 2 km", "Diff 2 km", "Diff 1 km"]],
+                 hide_index=True, width="stretch",
+                 column_config={
+                                "Diff 2 km": st.column_config.NumberColumn(format="%+.0f%%"),
+                                "Diff 1 km": st.column_config.NumberColumn(format="%+.0f%%")})
     tot = val[val.state.str.startswith("Total")].iloc[0]
     conf = conn[conn.likely_no_fibre == True]["confidence"].value_counts()  # noqa: E712
-    st.caption(f"The 2 km screen finds {int(tot.est_2km):,} schools against Parliament's {int(tot.hansard_no_fibre):,} "
-               f"({tot.pct_diff_2km:+.1f}%). The 1 km total looks close ({tot.pct_diff_1km:+.1f}%) only because "
-               f"state errors cancel out. Of the flagged schools, {int(conf.get('low', 0)):,} are low confidence, "
-               f"{int(conf.get('medium', 0)):,} medium and {int(conf.get('high', 0)):,} high (based on how many mobile "
-               "tests are nearby). Use it to screen, never to count.")
+    ui.what(f"The 2 km screen finds {int(tot.est_2km):,} schools against Parliament's {int(tot.hansard_no_fibre):,} "
+            f"({tot.pct_diff_2km:+.1f}%). The 1 km total looks close ({tot.pct_diff_1km:+.1f}%) only because state "
+            f"errors cancel out. Of the flagged schools, {int(conf.get('low', 0)):,} are low confidence, "
+            f"{int(conf.get('medium', 0)):,} medium and {int(conf.get('high', 0)):,} high (based on how many mobile "
+            "tests are nearby). Use it to screen, never to count.",
+            data=f"{HANSARD} · {MOE_LIST} · Ookla {quarter}")
 
 ui.footer([
     "Hansard, Dewan Rakyat, 11 Nov 2026, oral question 11 (DR-11112026, p.33)",

@@ -5,6 +5,8 @@ import streamlit as st
 
 from app_utils import data, ui
 
+st.set_page_config(page_title="Method & limitations · Beyond Coverage", layout="wide")
+
 w = data.yaml_config("weights")["weights"]
 costs = data.yaml_config("costs")
 facts = data.yaml_config("facts")["official_coverage_populated_areas"]
@@ -26,7 +28,10 @@ labels = {"access_gap": ("100 − household internet access %", f"DOSM ICTHS {in
           "low_income": ("Median household income (inverted)",
                          f"OpenDOSM HIES {int(gi.income_year.max())} ({int(gi.income_year.min())} where {int(gi.income_year.max())} is missing)")}
 st.dataframe(pd.DataFrame([{"Indicator": k, "Definition": labels[k][0], "Source": labels[k][1], "Weight": v["weight"],
-                            "Why this weight": v["reason"]} for k, v in w.items()]), hide_index=True, width="stretch")
+                            "Why this weight": v["reason"]} for k, v in w.items()]), hide_index=True, width="stretch",
+             column_config={"Why this weight": st.column_config.TextColumn(width="large")})
+ui.what("The four indicators, their sources and weights (config/weights.yaml).",
+        data=f"DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · HIES {int(gi.income_year.max())} · population {int(gi.population_year.max())}")
 nsmall = int(gi.small_sample_flag.sum())
 st.markdown(f"Computed for **{len(gi)} districts and territories**. Each indicator is scaled 0–1 across all of them "
             "(1 = worst). Need rank 1 = highest index. Districts without a boundary have no Ookla data and are not indexed.")
@@ -52,10 +57,11 @@ fig.update_yaxes(autorange="reversed")
 st.plotly_chart(fig, width="stretch")
 n_runs = int(sens.n_runs.iloc[0])
 ui.what(f"Sarawak's 15 highest-need districts: blue dot = rank with the chosen weights, grey bar = 5th–95th percentile "
-        f"rank over {n_runs:,} random weightings (Dirichlet), open diamond = rank with equal weights.")
+        f"rank over {n_runs:,} random weightings (Dirichlet), open diamond = rank with equal weights.",
+        data=f"Gap Index from DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · HIES {int(gi.income_year.max())}")
 moe = sens[sens.rank_sarawak_moe_min.notna() & (sens.state == "Sarawak")].sort_values("rank_sarawak").head(10)
-st.markdown(f"**Survey uncertainty.** {nsmall} districts have small-sample access estimates. Setting each one's access to "
-            "the low and high end of its margin of error moves its Sarawak rank as follows: "
+st.markdown(f"**Survey uncertainty.** {nsmall} districts have a small {ui.INFERRED_N} (our estimate, not a DOSM figure). "
+            f"Setting each one's access to the low and high end of its {ui.MOE_TXT} moves its Sarawak rank as follows: "
             + "; ".join(f"{r.district} {int(r.rank_sarawak_moe_min)}–{int(r.rank_sarawak_moe_max)}" for r in moe.itertuples()) + ".")
 
 # --- 3. School proxy validation
@@ -63,7 +69,9 @@ st.header("3. School screening layer: validation")
 st.dataframe(val.rename(columns={"state": "State", "schools_moe": "MOE schools", "hansard_no_fibre": "Hansard",
                                  "est_2km": "Screen 2 km", "diff_2km": "Diff 2 km", "pct_diff_2km": "% diff 2 km",
                                  "est_1km": "Screen 1 km", "diff_1km": "Diff 1 km", "pct_diff_1km": "% diff 1 km"}),
-             hide_index=True, width="stretch")
+             hide_index=True, width="stretch", column_config={"State": st.column_config.TextColumn(width="medium")})
+ui.what("Schools with no Ookla fixed tile within 1 or 2 km, compared with the schools Parliament says lack fibre.",
+        data=f"Hansard, 11 Nov 2026 · MOE school list, June 2022 · Ookla {gi.ookla_quarter.iloc[0]}")
 tot = val[val.state.str.startswith("Total")].iloc[0]
 st.markdown(f"Flagging schools with no Ookla fixed tile within 2 km gives {int(tot.est_2km):,} against Parliament's "
             f"{int(tot.hansard_no_fibre):,} ({tot.pct_diff_2km:+.1f}%). The 1 km version's total ({tot.pct_diff_1km:+.1f}%) "
@@ -83,43 +91,52 @@ rows = [
     ("Satellite kit / month (Residential, Lite)", f"RM{s['kit_rm']:,} / RM{s['monthly_rm']['residential']} , RM{s['monthly_rm']['residential_lite']}", "; ".join(s["notes"])),
     ("Satellite, 5-year per household", f"RM{sat5['residential']:,} (Lite RM{sat5['residential_lite']:,})", "kit + 60 months"),
     ("Satellite, 5-year per school (Business from)", f"RM{school5:,}", "kit + 60 × Business 'from' price (derived)"),
-    ("Fibre PoP capex (upper bound only)", f"RM{f['capex_per_site_rm']['central']:,}", "; ".join(f["notes"]) + "; running cost UNSOURCED"),
+    ("Fibre PoP capex (upper-bound cost sensitivity only; not a recommendation)", f"RM{f['capex_per_site_rm']['central']:,}", "; ".join(f["notes"]) + "; running cost UNSOURCED"),
     ("Break-even households per tower", f"{tower5 / sat5['residential']:.1f} (Lite {tower5 / sat5['residential_lite']:.1f})",
      "tower 5-year cost ÷ satellite 5-year cost per terminal"),
 ]
-st.dataframe(pd.DataFrame(rows, columns=["Item", "Value", "Basis / source"]), hide_index=True, width="stretch")
+st.dataframe(pd.DataFrame(rows, columns=["Item", "Amount (estimate)", "Basis / source"]), hide_index=True, width="stretch",
+             column_config={"Item": st.column_config.TextColumn(width="medium"),
+                            "Basis / source": st.column_config.TextColumn(width="large")})
+ui.what("Unit costs used by the costing (all estimates).", data="config/costs.yaml (sources below; compiled Nov 2026)")
 srcs = sorted(set(t["sources"] + f["sources"] + s["sources"]))
 st.markdown("Sources: " + " · ".join(f"[{i + 1}]({u})" for i, u in enumerate(srcs)))
 cases = {"Main (Residential)": "cost_main_rm", "Lite plan": "cost_lite_rm",
-         "Upper bound (+1 fibre PoP per take-up settlement)": "cost_upper_bound_rm"}
+         "Upper bound: cost sensitivity, +1 fibre PoP per take-up-gap settlement (not a recommendation)": "cost_upper_bound_rm"}
 sar = co.state == "Sarawak"
 st.dataframe(pd.DataFrame([{"Case": k, "Malaysia": ui.fmt_rm(co[c].sum()), "Sarawak": ui.fmt_rm(co.loc[sar, c].sum())}
-                           for k, c in cases.items()]), hide_index=True, width="stretch")
+                           for k, c in cases.items()]), hide_index=True, width="stretch",
+             column_config={"Case": st.column_config.TextColumn(width="large")})
+ui.what("Estimated five-year cost to provide service under each case.",
+        data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · config/costs.yaml")
 take = cl.category_main.eq("takeup_gap")
 hh = co.loc[sar, "household_size"]
 res_site = t["residents_per_site"]
 st.markdown(
     f"**Settlements.** One per rural MOE school ({len(cl):,}). {int(take.sum()):,} ({100 * take.mean():.0f}%) have an Ookla fixed "
-    "tile within 2 km and are treated as a **take-up gap** (fixed network likely nearby; a proxy), not costed. The rest get "
-    "a tower if their households reach the break-even, otherwise satellite.  \n"
+    "tile within 2 km and are treated as a **take-up gap** (fixed network likely nearby; a proxy), not costed. "
+    f"{ui.TAKEUP_TXT} The rest are screened for a tower if their households reach the break-even, otherwise satellite.  \n"
     f"**JENDELA comparison.** JENDELA 2 plans about {res_site} residents per tower site, roughly "
     f"{res_site / hh.max():.0f}–{res_site / hh.min():.0f} households at Sarawak household sizes — well below the "
     f"break-even of {tower5 / sat5['residential']:.0f}–{tower5 / sat5['residential_lite']:.0f}. Real towers serve more than "
     f"households (roads, safety, mobile users), so our rule is a cost screen, not a verdict. "
     f"Full method: [docs/costing_method.md]({REPO}/blob/main/docs/costing_method.md).")
+ui.caveat()
 
 # --- 5. Limitations
 st.header("5. Limitations")
 st.markdown(f"""
 - **Coverage vs access.** The official {facts['value_pct']}% is network coverage of populated areas; DOSM measures households online. They are different things and are shown side by side, not as a contradiction.
-- **Survey precision.** DOSM does not publish district sample sizes. We infer small samples from the published percentages ({nsmall} districts flagged); their margins (±{gi.internet_moe95_pp.min():.0f}–{gi.internet_moe95_pp.max():.0f} pp) are a simple-random-sampling approximation and probably understate the true error. Districts not flagged are not necessarily precise.
+- **Survey precision.** DOSM does not publish district sample sizes or margins of error. Our **inferred sample size** comes from the published percentages ({nsmall} districts flagged), and our **approximate margin of error (simple random-sampling formula)** (±{gi.internet_moe95_pp.min():.0f}–{gi.internet_moe95_pp.max():.0f} pp) probably understates the true error. Neither is a DOSM figure. Districts not flagged are not necessarily precise.
 - **Ookla is crowd-sourced.** Tests are run by users who choose to test. Fixed results only come from homes that already have fixed broadband, and fixed wireless or satellite home links can count as "fixed".
 - **Proxies.** "Fixed tests per 1,000 residents" and "fixed network likely nearby" (a fixed tile within 2 km) are proxies, not coverage maps. There is no public fibre-route data.
 - **School screen failed validation.** It is shown only as a low-confidence layer and never drives costs.
 - **Boundaries.** Sarawak uses OpenStreetMap boundaries (unofficial) because DOSM's 2022 file predates new districts; Siburan and Membakut have no boundary anywhere. Polygons from the two sources do not line up exactly at the edges.
 - **Dates differ.** Household access 2025, Ookla {gi.ookla_quarter.iloc[0]}, income 2024, population 2026, Census 2020 households, MOE school list June 2022.
 - **Costs are estimates** from public statements and news (simple averages of budgets ÷ sites), not engineering quotes. Fibre PoP running cost, government satellite prices and users' mobile plan costs are unsourced or excluded.
-- **Settlement model.** Each rural school stands for one settlement and households are spread evenly across them; real settlements vary widely in size.
+- **Settlement model.** Each rural school stands for one settlement and households are assumed equal across a district's rural schools; real settlements vary widely in size.
+- **Cost screen, not cost-benefit.** Towers and satellite are different services (a tower also serves mobile users and roads). Estimated beneficiaries per RM1m count rural people without home internet only; wider benefits are not valued.
+- **No other technologies.** The screen compares tower and satellite only; fibre PoPs appear only as an upper-bound cost sensitivity, not as a recommendation.
 - **Licences.** Ookla data is CC BY-NC-SA 4.0 (non-commercial); OSM-derived boundaries are ODbL.
 """)
 st.markdown(f"Data notes for every file: [data/README.md]({REPO}/blob/main/data/README.md)")

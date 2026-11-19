@@ -4,6 +4,8 @@ import streamlit as st
 
 from app_utils import data, ui
 
+st.set_page_config(page_title="Overview · Beyond Coverage", layout="wide")
+
 facts = data.yaml_config("facts")["official_coverage_populated_areas"]
 st_int = data.csv("dosm_hh_internet_state")
 trend = data.csv("dosm_hh_internet_trend")
@@ -47,7 +49,8 @@ fig.update_xaxes(range=[lo - 3, 100.5], title="% of households with internet acc
 st.plotly_chart(fig, width="stretch")
 ui.what(f"Share of households with internet access in {year}, by state (grey bars; Sabah and Sarawak highlighted), "
         f"against the official {facts['value_pct']}% network coverage of populated areas (dotted line). "
-        "The two measures differ: coverage is about the network, access is about households.")
+        "The two measures differ: coverage is about the network, access is about households.",
+        data=f"DOSM ICTHS {year} (Table 1.2) · official coverage as at {facts['as_of']}")
 
 # --- 2. Urban vs rural, and 3. rural mobile vs fixed broadband
 left, right = st.columns(2)
@@ -78,7 +81,8 @@ with left:
     st.plotly_chart(fig, width="stretch")
     gap = m.assign(g=m.pct_a - m.pct_b).sort_values("g", ascending=False).iloc[0]
     ui.what(f"Household internet access in urban (grey) and rural (blue) areas, {year}. The widest gap is in "
-            f"{gap.state}: {gap.pct_a:.1f}% urban vs {gap.pct_b:.1f}% rural. Kuala Lumpur and Putrajaya have no rural strata.")
+            f"{gap.state}: {gap.pct_a:.1f}% urban vs {gap.pct_b:.1f}% rural. Kuala Lumpur and Putrajaya have no rural strata.",
+            data=f"DOSM ICTHS {year}, Table 1.2")
 
 with right:
     st.subheader("Rural homes: mobile vs fixed broadband")
@@ -88,7 +92,8 @@ with right:
     st.plotly_chart(fig, width="stretch")
     ui.what(f"Rural households with mobile broadband (grey) vs fixed (wired) broadband (blue), {year} (DOSM Table 1.2). "
             f"Nationally {val('Malaysia', 'mobile_broadband', 'rural'):.1f}% of rural homes have mobile broadband but only "
-            f"{val('Malaysia', 'fixed_broadband', 'rural'):.1f}% have fixed broadband.")
+            f"{val('Malaysia', 'fixed_broadband', 'rural'):.1f}% have fixed broadband.",
+            data=f"DOSM ICTHS {year}, Table 1.2")
 
 # --- 4. Trend
 st.subheader(f"Trend, {int(trend.year.min())}–{int(trend.year.max())}")
@@ -115,7 +120,8 @@ fig.update_xaxes(dtick=1, range=[t.year.min() - 0.2, t.year.max() + 0.8])
 fig.update_yaxes(ticksuffix="%", title=f"% of households ({ind_lab[ind].lower()})")
 st.plotly_chart(fig, width="stretch")
 ui.what(f"{ind_lab[ind]} among households in {place}, by urban/rural strata. Years before the latest edition are "
-        "rounded to one decimal by DOSM; each year comes from the newest DOSM edition that reports it.")
+        "rounded to one decimal by DOSM; each year comes from the newest DOSM edition that reports it.",
+        data=f"DOSM ICTHS {int(t.year.min())}–{int(t.year.max())}, Tables 6.4–6.6")
 
 ui.footer([
     f"Official coverage: [{facts['source_name']}]({facts['source_url']}) ({facts['published']})",
