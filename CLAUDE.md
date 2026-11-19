@@ -34,6 +34,7 @@ scripts/download_ookla.py    latest Ookla quarter (fixed + mobile) -> data/raw/o
 scripts/build_ookla.py       tiles -> districts -> ookla_district_{y}q{q}.csv (needs districts.geojson)
 scripts/build_schools.py     MOE schools (6 Hansard states) + Ookla -> schools_connectivity.csv, prints Hansard validation
 scripts/build_index.py       CGI per district (weights from config/weights.yaml) -> gap_index_districts.csv + gap_index_sensitivity.csv
+scripts/build_costing.py     fix per rural-school cluster + 5-yr cost + value ranking (config/costs.yaml) -> costing_clusters.csv + costing_districts.csv (needs gap_index_districts.csv)
 
 In data/raw/ (downloaded 2026-11-19, untouched):
 
@@ -41,6 +42,7 @@ OpenDOSM / data.gov.my Parquet (CC BY 4.0): hh_access_internet (households, stat
 hansard_schools_2026-11-11.csv: schools without fibre in the 6 states, from Hansard DR 11.11.2026 p.33 (official PDF; Bernama omits Sarawak's 52%). Per-state totals are derived from rounded % (marked, with min/max); only the 5,362 / 1,180 totals are exact.
 moe/senarai_sekolah_rendah_menengah_jun2022.xlsx: MOE list of all 10,230 government + aided schools as at 30 Jun 2022 (newest MOE publishes), WITH coordinates (KOORDINATXX = lon, KOORDINATYY = lat), so no geocoding. 6 Hansard states: 5,349 schools vs Parliament's 5,362 (-0.2%).
 boundaries/: DOSM district polygons (2022, DOSM Open Data Licence) and an OpenStreetMap Sarawak snapshot (ODbL)
+census/census_district.csv: DOSM Census by district 1970-2020 (household_size_avg, rural population in column density_rural, area); 160 districts in 2020
 DOSM ICTHS report tables, 2024 and 2025: icths_{year}_table{1,2,3,6,7}.xlsx. Table 1 (1.2 mobile vs fixed broadband), 2 (2.4/2.5 ICT skills), 3 (by district), 6 (time series: 2024 file = 2021-2024, 2025 file = 2022-2025), 7 (relative standard errors, national/urban/rural only). Licence not stated on DOSM release pages. Only Table 3 is cleaned so far.
 
 In data/processed/ (written by extract_t3.py):
@@ -48,7 +50,7 @@ In data/processed/ (written by extract_t3.py):
 dosm_hh_ict_district_{2024,2025}.csv: household ICT access, Table 3.1 (178 rows: 162 districts, 13 states, 3 territories; 7 indicators)
 dosm_ind_ict_district_{2024,2025}.csv: individual ICT use, Table 3.2 (172 rows; DOSM omits Membakut, Gedong, Lingga, Pantu, Sebuyau, Siburan)
 dosm_hh_internet_district_2024_2025.csv: household internet both years, 165 rows all matched, with change and change_beyond_noise
-district_aliases.csv: 13 spelling-only aliases -> Table 3 (2025) spelling (Seberang Prai/S.P.->Seberang Perai, Ulu->Hulu, Kecil Lojing->Lojing, Meradong->Maradong, Larut & Matang, Lubok antu, Terengganu "Hulu"). Apply before joining anything to the Table 3 files.
+district_aliases.csv: 14 spelling-only aliases (incl. Census "Larut dan Matang") -> Table 3 (2025) spelling (Seberang Prai/S.P.->Seberang Perai, Ulu->Hulu, Kecil Lojing->Lojing, Meradong->Maradong, Larut & Matang, Lubok antu, Terengganu "Hulu"). Apply before joining anything to the Table 3 files.
 districts.geojson: 164 polygons named like Table 3. DOSM 2022 polygons everywhere except Sarawak, which uses OSM (has the new districts Gedong, Lingga, Pantu, Sebuyau). ODbL because of the OSM part. Join on dosm_district (Perlis links to its state row). Siburan and Membakut have no polygon anywhere: table only; their area sits inside Kuching and Beaufort (contains_unmapped column).
 Naming follows OpenDOSM: title-case states, territories as "W.P. Kuala Lumpur" (state = district), state rows have district "All Districts".
 Columns include small_sample_flag, implied_sample_n, internet_moe95_pp (inferred from the published percentages; method in data/README.md). Districts with small_sample_flag = True must be shown as low confidence with their margin of error, never ranked as precise. No flagged district's 2024->2025 change exceeds its MOE (change_beyond_noise is False for all 31), so don't present those changes as real trends.
@@ -60,9 +62,9 @@ schools_connectivity.csv: 5,349 schools in the 6 states with district, fixed til
 
 gap_index_districts.csv: 164 districts (Siburan, Membakut not indexed: no Ookla). CGI from access_gap (2025), mobile_speed + fixed_reach (Ookla 2026Q3, fixed_reach is a PROXY), low_income (2024; 2022 for Perlis + territories); ranks national + Sarawak with Dirichlet p05-p95; people_without_home_internet (ESTIMATE, household rate applied to individuals); students from MOE school list 2022 (enrolment file is by PPD, not district). gap_index_sensitivity.csv: equal weights, 1,000 Dirichlet runs, MOE rank range for small-sample districts. Only Sarawak's top 3 (Kanowit, Song, Tebedu) are stable; always show rank ranges.
 
-All planned raw data is collected.
+costing_clusters.csv / costing_districts.csv (ESTIMATES; method in docs/costing_method.md): one cluster per rural MOE school; households = Census 2020 rural households / rural schools (4 new Sarawak districts: parent values, split by 2026 population); fix = fibre PoP if any Ookla fixed tile within 2 km (PROXY), else tower if households >= break-even (144.1 Residential / 228.3 Lite), else satellite; 5-yr cost (PoP capex only, opex unsourced); value = people w/o home internet per RM1m and students per RM1m, separately. Sensitivity: +/-30% changes no fix (break-even is a ratio); Lite flips 8 Sarawak districts tower -> satellite. PoP share (80% of clusters) is probably overstated. JENDELA's ~80 residents/site is far below break-even: present the rule as a cost screen.
 
-Costing: docs/costing_method.md is a PROPOSAL awaiting review (not built). Key points: costs.yaml break-even (144/228) is households per tower, so decide per settlement cluster, not per district; household size from DOSM Census 2020 by district (census_district.csv, DOSM data-open; not yet downloaded); unsourced items listed in its section 5 (tower radius, fibre PoP opex, "fibre nearby" distance, etc.).
+All planned raw data is collected.
 
 Method
 Clean and merge by state and district.

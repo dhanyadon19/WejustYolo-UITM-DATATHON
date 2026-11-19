@@ -245,7 +245,23 @@ Weights are in `config/weights.yaml`: access_gap 0.4, mobile_speed 0.2, fixed_re
   - **State-level cross-check:** the school list is within −5.7% to +3.2% of 2025 enrolment for every state except Labuan (−8.1%) and Putrajaya (−13.9%).
   - **Missing schools:** 18 schools with missing or suspect coordinates are not placed in any district.
 
-Costs and the value ranking are not built yet. The proposed method is in [`docs/costing_method.md`](../docs/costing_method.md).
+## Processed: costing (from `scripts/build_costing.py`), ESTIMATES
+
+The method, sources, sensitivity results and unsourced assumptions are in [`docs/costing_method.md`](../docs/costing_method.md). Costs come from `config/costs.yaml`.
+
+| File | Rows | Content |
+|---|---|---|
+| `costing_clusters.csv` | 4,322 | One row per **rural MOE school** (cluster anchor): households, unconnected households, `hh_source`, fixed tiles within 2 km, and fix and five-year cost under main / cost_minus30 / cost_plus30 / lite |
+| `costing_districts.csv` | 150 | Per district: rural schools, students, unconnected rural households, number of each fix, dominant fix and cost per scenario, `people_per_rm_m_*`, `students_per_rm_m_*`, value rank (national, Sarawak, per scenario), need rank and CGI from the index, `fibre_pop_opex_unsourced` |
+
+**Raw input added:** `data/raw/census/census_district.csv`, the DOSM Population and Housing Census by district (1970–2020) from [github.com/dosm-malaysia/data-open](https://github.com/dosm-malaysia/data-open/blob/main/datasets/census/census_district.csv). DOSM Open Data Licence; downloaded 2026-11-19.
+- **Columns used (2020):** `household_size_avg`, `density_rural` (rural population, not a density), `population_total`.
+- **Coverage:** 160 districts. Gedong, Lingga, Pantu and Sebuyau post-date it. "Larut dan Matang" is aliased.
+
+**Caveats**
+- **Mostly fibre PoPs:** 80% of clusters get a PoP, because a fixed Ookla tile within 2 km is the "fibre nearby" proxy. Some of those areas may already be served, so the PoP cost is probably overstated.
+- **Uniform ±30% doesn't change any fix:** the Lite plan changes 8 Sarawak districts from tower to satellite.
+- **No value rank:** 14 urban districts have no rural school, so no cost.
 
 **`gap_index_sensitivity.csv`**: for each district, the baseline ranks plus three sensitivity checks:
 - **Equal weights:** `cgi_equal`, `rank_*_equal`.
@@ -293,7 +309,7 @@ Sources: `icths_{2024,2025}_table3.xlsx`, sheets 3.1 and 3.2.
 | `dosm_hh_ict_district_{2024,2025}.csv` | 178 (162 districts + 13 states + 3 territories) | year, level, state, district, internet_pct, computer_pct, mobile_phone_pct, pay_tv_channel_pct, television_pct, radio_pct, fixed_line_telephone_pct, implied_sample_n, small_sample_flag, internet_moe95_pp |
 | `dosm_ind_ict_district_{2024,2025}.csv` | 172 | year, level, state, district, internet_pct, computer_pct, mobile_phone_pct, implied_sample_n, small_sample_flag, internet_moe95_pp |
 | `dosm_hh_internet_district_2024_2025.csv` | 165 (162 districts + 3 territories), all `matched = True` | level, state, district, internet_2024, internet_2025, internet_change_pp, small_sample_flag_2024, internet_moe95_pp_2024, small_sample_flag_2025, internet_moe95_pp_2025, change_beyond_noise, matched |
-| `district_aliases.csv` | 13 | state, alias, canonical, alias_found_in, canonical_source |
+| `district_aliases.csv` | 14 | state, alias, canonical, alias_found_in, canonical_source |
 
 **Parsing rules**
 - **Repeated page headers:** each printed page repeats the title, "(%)" and header rows. They are skipped.
@@ -316,6 +332,7 @@ Sources: `icths_{2024,2025}_table3.xlsx`, sheets 3.1 and 3.2.
   | S.P. Selatan, S.P.Tengah, S.P.Utara | Seberang Perai Selatan / Tengah / Utara | OpenDOSM income (2024) |
   | Lubok antu | Lubok Antu | OpenDOSM income (2024) |
   | Hulu | Hulu Terengganu | OpenDOSM income (2024), Terengganu |
+  | Larut dan Matang | Larut Dan Matang | DOSM Census 2020 |
 
   The 2024→2025 combined file and `build_boundaries.py` apply it. The per-year CSVs keep each year's DOSM spelling, so apply the table before joining them to anything else.
 - **Another Penang spelling in the income file:** `hh_income_district.parquet` contains both "Seberang Perai …" and abbreviated "S.P. Selatan", "S.P.Tengah", "S.P.Utara" rows. Those abbreviations are **not** in the alias table yet; deal with them when cleaning the income file.

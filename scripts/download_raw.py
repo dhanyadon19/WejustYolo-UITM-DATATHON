@@ -58,6 +58,10 @@ DOSM_GEO = "https://raw.githubusercontent.com/dosm-malaysia/data-open/main/datas
 BOUNDARIES = {
     "boundaries/dosm_administrative_2_district.geojson": DOSM_GEO + "administrative_2_district.geojson",
     "boundaries/dosm_state_district.csv": DOSM_GEO + "state_district.csv",
+    # Population and Housing Census by district, 1970-2020 (household size, households, area,
+    # urban/rural population). Same DOSM repo and licence. Used by build_costing.py.
+    "census/census_district.csv":
+        "https://raw.githubusercontent.com/dosm-malaysia/data-open/main/datasets/census/census_district.csv",
 }
 
 # OpenStreetMap snapshot (ODbL) via Overpass: Sarawak district relations (admin_level 6) with

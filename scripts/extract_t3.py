@@ -70,6 +70,7 @@ ALIASES = [
     ("Pulau Pinang", "S.P.Utara", "Seberang Perai Utara", "OpenDOSM income (2024)"),
     ("Sarawak", "Lubok antu", "Lubok Antu", "OpenDOSM income (2024)"),
     ("Terengganu", "Hulu", "Hulu Terengganu", "OpenDOSM income (2024)"),
+    ("Perak", "Larut dan Matang", "Larut Dan Matang", "DOSM Census 2020 (census_district.csv)"),
 ]
 
 

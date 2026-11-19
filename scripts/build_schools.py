@@ -118,7 +118,7 @@ def assign_districts(s: gpd.GeoDataFrame, d: gpd.GeoDataFrame) -> gpd.GeoDataFra
 def tile_metrics(s: gpd.GeoDataFrame, fixed: pd.DataFrame, mobile: pd.DataFrame) -> pd.DataFrame:
     """Per school: fixed tiles/tests within 1 and 2 km, nearest fixed tile, mobile within 2 km."""
     rows = []
-    for st in STATES:
+    for st in sorted(s["state"].unique()):
         sub = s[(s["state"] == st) & (s["coord_flag"] != "missing")]
         if sub.empty:
             continue
