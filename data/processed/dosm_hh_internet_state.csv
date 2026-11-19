@@ -1,0 +1,307 @@
+year,state,indicator,strata,pct
+2024,Malaysia,internet,total,96.80513066829383
+2024,Malaysia,internet,urban,98.75154782542435
+2024,Malaysia,internet,rural,90.30705685711787
+2024,Malaysia,mobile_broadband,total,95.72368264334389
+2024,Malaysia,mobile_broadband,urban,97.77238304392965
+2024,Malaysia,mobile_broadband,rural,88.88413831893091
+2024,Malaysia,fixed_broadband,total,47.56226602569388
+2024,Malaysia,fixed_broadband,urban,54.40751921684795
+2024,Malaysia,fixed_broadband,rural,24.70952845638331
+2024,Johor,internet,total,98.97222017333578
+2024,Johor,internet,urban,99.26105132830051
+2024,Johor,internet,rural,97.89457843150083
+2024,Johor,mobile_broadband,total,97.89253180896182
+2024,Johor,mobile_broadband,urban,98.29041827710581
+2024,Johor,mobile_broadband,rural,96.40799822029129
+2024,Johor,fixed_broadband,total,53.85832565000922
+2024,Johor,fixed_broadband,urban,57.46802834244301
+2024,Johor,fixed_broadband,rural,40.39031890809637
+2024,Kedah,internet,total,96.35249189748953
+2024,Kedah,internet,urban,97.75350076862136
+2024,Kedah,internet,rural,93.46045962571478
+2024,Kedah,mobile_broadband,total,95.70971629726759
+2024,Kedah,mobile_broadband,urban,97.02341540705453
+2024,Kedah,mobile_broadband,rural,92.99796395771965
+2024,Kedah,fixed_broadband,total,34.863644556915496
+2024,Kedah,fixed_broadband,urban,43.422227585374685
+2024,Kedah,fixed_broadband,rural,17.196932940564892
+2024,Kelantan,internet,total,94.935956489626
+2024,Kelantan,internet,urban,95.99132971972814
+2024,Kelantan,internet,rural,94.06233585170565
+2024,Kelantan,mobile_broadband,total,93.99298999529981
+2024,Kelantan,mobile_broadband,urban,94.67963848133695
+2024,Kelantan,mobile_broadband,rural,93.42459364859624
+2024,Kelantan,fixed_broadband,total,25.19831330155106
+2024,Kelantan,fixed_broadband,urban,34.63328035487659
+2024,Kelantan,fixed_broadband,rural,17.38820243197204
+2024,Melaka,internet,total,96.77199216051211
+2024,Melaka,internet,urban,96.97608257610264
+2024,Melaka,internet,rural,94.62572054883493
+2024,Melaka,mobile_broadband,total,95.96728141787572
+2024,Melaka,mobile_broadband,urban,96.19174084567933
+2024,Melaka,mobile_broadband,rural,93.60696598197613
+2024,Melaka,fixed_broadband,total,55.735762728592974
+2024,Melaka,fixed_broadband,urban,57.593357472071894
+2024,Melaka,fixed_broadband,rural,36.20074896484533
+2024,Negeri Sembilan,internet,total,96.43568756054425
+2024,Negeri Sembilan,internet,urban,98.72134866944799
+2024,Negeri Sembilan,internet,rural,90.7598518228065
+2024,Negeri Sembilan,mobile_broadband,total,95.19076439064708
+2024,Negeri Sembilan,mobile_broadband,urban,97.76540398583847
+2024,Negeri Sembilan,mobile_broadband,rural,88.79731299852442
+2024,Negeri Sembilan,fixed_broadband,total,47.839810642754095
+2024,Negeri Sembilan,fixed_broadband,urban,53.795646826122365
+2024,Negeri Sembilan,fixed_broadband,rural,33.050169743372784
+2024,Pahang,internet,total,95.77889257986017
+2024,Pahang,internet,urban,96.67275929427436
+2024,Pahang,internet,rural,94.72924398066253
+2024,Pahang,mobile_broadband,total,93.92029433350072
+2024,Pahang,mobile_broadband,urban,94.38174804325185
+2024,Pahang,mobile_broadband,rural,93.37838759966617
+2024,Pahang,fixed_broadband,total,32.30520201630036
+2024,Pahang,fixed_broadband,urban,40.12567441319906
+2024,Pahang,fixed_broadband,rural,23.121767247035603
+2024,Pulau Pinang,internet,total,99.66582393424747
+2024,Pulau Pinang,internet,urban,99.70650968169178
+2024,Pulau Pinang,internet,rural,99.13525885558583
+2024,Pulau Pinang,mobile_broadband,total,97.70349271518296
+2024,Pulau Pinang,mobile_broadband,urban,97.77831860902843
+2024,Pulau Pinang,mobile_broadband,rural,96.72771117166212
+2024,Pulau Pinang,fixed_broadband,total,55.75854649030728
+2024,Pulau Pinang,fixed_broadband,urban,56.52102522107347
+2024,Pulau Pinang,fixed_broadband,rural,45.813324250681205
+2024,Perak,internet,total,95.6269649121776
+2024,Perak,internet,urban,96.98277668775087
+2024,Perak,internet,rural,91.84662047471966
+2024,Perak,mobile_broadband,total,92.34858056213383
+2024,Perak,mobile_broadband,urban,94.11197847535064
+2024,Perak,mobile_broadband,rural,87.43172774577734
+2024,Perak,fixed_broadband,total,40.76104023552502
+2024,Perak,fixed_broadband,urban,45.91111501436107
+2024,Perak,fixed_broadband,rural,26.401318974872694
+2024,Perlis,internet,total,96.224402888354
+2024,Perlis,internet,urban,98.83041383840595
+2024,Perlis,internet,rural,92.85715094072712
+2024,Perlis,mobile_broadband,total,95.3703141393569
+2024,Perlis,mobile_broadband,urban,97.6608276768119
+2024,Perlis,mobile_broadband,rural,92.41072287452256
+2024,Perlis,fixed_broadband,total,32.634721965068195
+2024,Perlis,fixed_broadband,urban,38.88889862053865
+2024,Perlis,fixed_broadband,rural,24.553571650869994
+2024,Selangor,internet,total,99.517423891128
+2024,Selangor,internet,urban,99.59648604085591
+2024,Selangor,internet,rural,97.6859843763498
+2024,Selangor,mobile_broadband,total,99.44466517816105
+2024,Selangor,mobile_broadband,urban,99.52058111380144
+2024,Selangor,mobile_broadband,rural,97.6859843763498
+2024,Selangor,fixed_broadband,total,60.164438674726114
+2024,Selangor,fixed_broadband,urban,60.8472178937022
+2024,Selangor,fixed_broadband,rural,44.34782984289963
+2024,Terengganu,internet,total,95.19710322019378
+2024,Terengganu,internet,urban,96.28712353414998
+2024,Terengganu,internet,rural,93.30217502000437
+2024,Terengganu,mobile_broadband,total,93.402653721253
+2024,Terengganu,mobile_broadband,urban,95.03420752565565
+2024,Terengganu,mobile_broadband,rural,90.5663599330763
+2024,Terengganu,fixed_broadband,total,28.911927799656002
+2024,Terengganu,fixed_broadband,urban,30.191593526722666
+2024,Terengganu,fixed_broadband,rural,26.687313595693606
+2024,Sabah,internet,total,91.01098437625986
+2024,Sabah,internet,urban,98.22991126931254
+2024,Sabah,internet,rural,82.0528829314668
+2024,Sabah,mobile_broadband,total,90.88384843917657
+2024,Sabah,mobile_broadband,urban,98.22991126931254
+2024,Sabah,mobile_broadband,rural,81.767981141831
+2024,Sabah,fixed_broadband,total,31.667305509554733
+2024,Sabah,fixed_broadband,urban,43.02918637028541
+2024,Sabah,fixed_broadband,rural,17.568105120949134
+2024,Sarawak,internet,total,91.05475816415246
+2024,Sarawak,internet,urban,98.87290482822901
+2024,Sarawak,internet,rural,80.4323705910288
+2024,Sarawak,mobile_broadband,total,90.2518265432193
+2024,Sarawak,mobile_broadband,urban,98.87290482822901
+2024,Sarawak,mobile_broadband,rural,78.5385096921815
+2024,Sarawak,fixed_broadband,total,33.373514741996004
+2024,Sarawak,fixed_broadband,urban,44.6901396516388
+2024,Sarawak,fixed_broadband,rural,17.997837787275685
+2024,W.P. Kuala Lumpur,internet,total,100.0
+2024,W.P. Kuala Lumpur,internet,urban,100.0
+2024,W.P. Kuala Lumpur,internet,rural,
+2024,W.P. Kuala Lumpur,mobile_broadband,total,97.74266149421834
+2024,W.P. Kuala Lumpur,mobile_broadband,urban,97.74266149421834
+2024,W.P. Kuala Lumpur,mobile_broadband,rural,
+2024,W.P. Kuala Lumpur,fixed_broadband,total,74.26636052008112
+2024,W.P. Kuala Lumpur,fixed_broadband,urban,74.26636052008112
+2024,W.P. Kuala Lumpur,fixed_broadband,rural,
+2024,W.P. Labuan,internet,total,99.69662877909225
+2024,W.P. Labuan,internet,urban,100.0
+2024,W.P. Labuan,internet,rural,96.87499004380724
+2024,W.P. Labuan,mobile_broadband,total,94.87864377947885
+2024,W.P. Labuan,mobile_broadband,urban,95.0
+2024,W.P. Labuan,mobile_broadband,rural,93.75
+2024,W.P. Labuan,fixed_broadband,total,42.16987551225547
+2024,W.P. Labuan,fixed_broadband,urban,42.00000000000001
+2024,W.P. Labuan,fixed_broadband,rural,43.75
+2024,W.P. Putrajaya,internet,total,100.0
+2024,W.P. Putrajaya,internet,urban,100.0
+2024,W.P. Putrajaya,internet,rural,
+2024,W.P. Putrajaya,mobile_broadband,total,100.0
+2024,W.P. Putrajaya,mobile_broadband,urban,100.0
+2024,W.P. Putrajaya,mobile_broadband,rural,
+2024,W.P. Putrajaya,fixed_broadband,total,76.0
+2024,W.P. Putrajaya,fixed_broadband,urban,76.0
+2024,W.P. Putrajaya,fixed_broadband,rural,
+2025,Malaysia,internet,total,97.07286751376446
+2025,Malaysia,internet,urban,98.97221356864831
+2025,Malaysia,internet,rural,90.71895112322848
+2025,Malaysia,mobile_broadband,total,96.04073277906872
+2025,Malaysia,mobile_broadband,urban,98.05214079695331
+2025,Malaysia,mobile_broadband,rural,89.31192832883568
+2025,Malaysia,fixed_broadband,total,48.03963128621467
+2025,Malaysia,fixed_broadband,urban,54.86523176798932
+2025,Malaysia,fixed_broadband,rural,25.20580527843957
+2025,Johor,internet,total,99.04856029116833
+2025,Johor,internet,urban,99.32688649188835
+2025,Johor,internet,rural,98.01010830942373
+2025,Johor,mobile_broadband,total,98.06371611991261
+2025,Johor,mobile_broadband,urban,98.39471126737965
+2025,Johor,mobile_broadband,rural,96.82875309470768
+2025,Johor,fixed_broadband,total,54.190732611558346
+2025,Johor,fixed_broadband,urban,57.78943170305717
+2025,Johor,fixed_broadband,rural,40.76375803341216
+2025,Kedah,internet,total,96.68512636232207
+2025,Kedah,internet,urban,98.08260979472655
+2025,Kedah,internet,rural,93.80043661146904
+2025,Kedah,mobile_broadband,total,95.99541606427935
+2025,Kedah,mobile_broadband,urban,97.30219408890885
+2025,Kedah,mobile_broadband,rural,93.29796070496779
+2025,Kedah,fixed_broadband,total,35.190968360765126
+2025,Kedah,fixed_broadband,urban,43.780070058141035
+2025,Kedah,fixed_broadband,rural,17.461317288749267
+2025,Kelantan,internet,total,95.35436752629496
+2025,Kelantan,internet,urban,96.32654617555097
+2025,Kelantan,internet,rural,94.54961298280031
+2025,Kelantan,mobile_broadband,total,94.34528949025379
+2025,Kelantan,mobile_broadband,urban,95.06496782406184
+2025,Kelantan,mobile_broadband,rural,93.749550826964
+2025,Kelantan,fixed_broadband,total,25.75870011663032
+2025,Kelantan,fixed_broadband,urban,35.19719714434883
+2025,Kelantan,fixed_broadband,rural,17.945655889751087
+2025,Melaka,internet,total,97.33058905659469
+2025,Melaka,internet,urban,97.54478660224376
+2025,Melaka,internet,rural,95.07790099009901
+2025,Melaka,mobile_broadband,total,96.49258047987016
+2025,Melaka,mobile_broadband,urban,96.71853639982375
+2025,Melaka,mobile_broadband,rural,94.11635643564357
+2025,Melaka,fixed_broadband,total,56.11963395887712
+2025,Melaka,fixed_broadband,urban,57.97074230709845
+2025,Melaka,fixed_broadband,rural,36.65285544554455
+2025,Negeri Sembilan,internet,total,96.9517876803616
+2025,Negeri Sembilan,internet,urban,99.2472790525657
+2025,Negeri Sembilan,internet,rural,91.25155925155926
+2025,Negeri Sembilan,mobile_broadband,total,95.73419481949354
+2025,Negeri Sembilan,mobile_broadband,urban,98.35097173791118
+2025,Negeri Sembilan,mobile_broadband,rural,89.23605756615466
+2025,Negeri Sembilan,fixed_broadband,total,48.25155009561337
+2025,Negeri Sembilan,fixed_broadband,urban,54.16351695156347
+2025,Negeri Sembilan,fixed_broadband,rural,33.57078699311708
+2025,Pahang,internet,total,96.06312820780651
+2025,Pahang,internet,urban,96.96520454855143
+2025,Pahang,internet,rural,95.0038402576689
+2025,Pahang,mobile_broadband,total,94.284988533798
+2025,Pahang,mobile_broadband,urban,94.78683610181933
+2025,Pahang,mobile_broadband,rural,93.69568022628616
+2025,Pahang,fixed_broadband,total,32.545278441166275
+2025,Pahang,fixed_broadband,urban,40.288825104065474
+2025,Pahang,fixed_broadband,rural,23.452207890077787
+2025,Pulau Pinang,internet,total,99.67426082778135
+2025,Pulau Pinang,internet,urban,99.7144693107887
+2025,Pulau Pinang,internet,rural,99.14965858883386
+2025,Pulau Pinang,mobile_broadband,total,98.08135566072635
+2025,Pulau Pinang,mobile_broadband,urban,98.15909898109805
+2025,Pulau Pinang,mobile_broadband,rural,97.067425358147
+2025,Pulau Pinang,fixed_broadband,total,56.111284842059504
+2025,Pulau Pinang,fixed_broadband,urban,56.86415119905234
+2025,Pulau Pinang,fixed_broadband,rural,46.29171241130004
+2025,Perak,internet,total,96.11202463460272
+2025,Perak,internet,urban,97.48544586842812
+2025,Perak,internet,rural,92.28259851843691
+2025,Perak,mobile_broadband,total,92.87995428990148
+2025,Perak,mobile_broadband,urban,94.70674452047217
+2025,Perak,mobile_broadband,rural,87.78641257951698
+2025,Perak,fixed_broadband,total,41.360718683712
+2025,Perak,fixed_broadband,urban,46.49316145446501
+2025,Perak,fixed_broadband,rural,27.050240960537547
+2025,Perlis,internet,total,96.85529256277785
+2025,Perlis,internet,urban,99.42528613141796
+2025,Perlis,internet,rural,93.53449367960121
+2025,Perlis,mobile_broadband,total,95.83122672113421
+2025,Perlis,mobile_broadband,urban,98.27585839425393
+2025,Perlis,mobile_broadband,rural,92.6724133182782
+2025,Perlis,fixed_broadband,total,33.09953141895951
+2025,Perlis,fixed_broadband,urban,39.367825401223385
+2025,Perlis,fixed_broadband,rural,25.0
+2025,Selangor,internet,total,99.5723256513341
+2025,Selangor,internet,urban,99.64768797509811
+2025,Selangor,internet,rural,97.82653602333261
+2025,Selangor,mobile_broadband,total,99.39952430754529
+2025,Selangor,mobile_broadband,urban,99.4674270837723
+2025,Selangor,mobile_broadband,rural,97.82653602333261
+2025,Selangor,fixed_broadband,total,60.5744766909201
+2025,Selangor,fixed_broadband,urban,61.257216704828
+2025,Selangor,fixed_broadband,rural,44.75869549497433
+2025,Terengganu,internet,total,95.41829564245593
+2025,Terengganu,internet,urban,96.49587783446859
+2025,Terengganu,internet,rural,93.54498060567241
+2025,Terengganu,mobile_broadband,total,93.7849849420586
+2025,Terengganu,mobile_broadband,urban,95.2982237074414
+2025,Terengganu,mobile_broadband,rural,91.1543183516601
+2025,Terengganu,fixed_broadband,total,29.383651006624195
+2025,Terengganu,fixed_broadband,urban,30.729083400287603
+2025,Terengganu,fixed_broadband,rural,27.04469591829472
+2025,Sabah,internet,total,91.57755369772428
+2025,Sabah,internet,urban,98.77185049523126
+2025,Sabah,internet,rural,82.64997504935887
+2025,Sabah,mobile_broadband,total,91.42780034176779
+2025,Sabah,mobile_broadband,urban,98.77185049523126
+2025,Sabah,mobile_broadband,rural,82.3143916382808
+2025,Sabah,fixed_broadband,total,32.22318502418031
+2025,Sabah,fixed_broadband,urban,43.52258918970898
+2025,Sabah,fixed_broadband,rural,18.20146557896335
+2025,Sarawak,internet,total,91.6813472787873
+2025,Sarawak,internet,urban,99.47885592589984
+2025,Sarawak,internet,rural,81.08699814897555
+2025,Sarawak,mobile_broadband,total,90.77062314049338
+2025,Sarawak,mobile_broadband,urban,99.32461106021813
+2025,Sarawak,mobile_broadband,rural,79.14845783423048
+2025,Sarawak,fixed_broadband,total,33.97057563334101
+2025,Sarawak,fixed_broadband,urban,45.32570199683158
+2025,Sarawak,fixed_broadband,rural,18.542550867712034
+2025,W.P. Kuala Lumpur,internet,total,100.0
+2025,W.P. Kuala Lumpur,internet,urban,100.0
+2025,W.P. Kuala Lumpur,internet,rural,
+2025,W.P. Kuala Lumpur,mobile_broadband,total,98.2942456441289
+2025,W.P. Kuala Lumpur,mobile_broadband,urban,98.2942456441289
+2025,W.P. Kuala Lumpur,mobile_broadband,rural,
+2025,W.P. Kuala Lumpur,fixed_broadband,total,74.84009148520514
+2025,W.P. Kuala Lumpur,fixed_broadband,urban,74.84009148520514
+2025,W.P. Kuala Lumpur,fixed_broadband,rural,
+2025,W.P. Labuan,internet,total,99.7573109370862
+2025,W.P. Labuan,internet,urban,100.0
+2025,W.P. Labuan,internet,rural,97.5
+2025,W.P. Labuan,mobile_broadband,total,95.34729315628192
+2025,W.P. Labuan,mobile_broadband,urban,95.38463149956007
+2025,W.P. Labuan,mobile_broadband,rural,95.0
+2025,W.P. Labuan,fixed_broadband,total,42.80055233987818
+2025,W.P. Labuan,fixed_broadband,urban,42.5640843004986
+2025,W.P. Labuan,fixed_broadband,rural,45.0
+2025,W.P. Putrajaya,internet,total,100.0
+2025,W.P. Putrajaya,internet,urban,100.0
+2025,W.P. Putrajaya,internet,rural,
+2025,W.P. Putrajaya,mobile_broadband,total,100.0
+2025,W.P. Putrajaya,mobile_broadband,urban,100.0
+2025,W.P. Putrajaya,mobile_broadband,rural,
+2025,W.P. Putrajaya,fixed_broadband,total,76.38191345406385
+2025,W.P. Putrajaya,fixed_broadband,urban,76.38191345406385
+2025,W.P. Putrajaya,fixed_broadband,rural,

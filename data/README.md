@@ -175,6 +175,19 @@ The site-wide catalogue pages of OpenDOSM and data.gov.my list no boundary datas
 - **Selection bias:** Speedtest data comes from user-run tests. Fixed results describe **households that already have fixed broadband**, so a high fixed speed doesn't mean good coverage. For example, Kanowit has the lowest household internet access in Sarawak (DOSM) but 206 Mbps fixed from just 106 tests. Read speed together with access, and treat test counts as a rough measure of reach, not of population.
 - **Siburan and Membakut:** their tiles are counted under Kuching and Beaufort (see `contains_unmapped`).
 
+## Processed: tables for the dashboard
+
+| File | Script | Content |
+|---|---|---|
+| `dosm_hh_internet_state.csv` | `extract_t1_t6.py` | ICTHS **Table 1.2**, 2024 and 2025 editions. Household internet, mobile broadband and fixed broadband by state × total / urban / rural (long format; "n.a." is blank where there's no rural strata, i.e. KL and Putrajaya). |
+| `dosm_hh_internet_trend.csv` | `extract_t1_t6.py` | ICTHS **Tables 6.4–6.6**, 2021–2025, same indicators. Each year comes from the newest edition that reports it (`edition` column). The overlapping years agree between editions within rounding, and Table 1.2 (2025) equals Table 6.4 (2025). |
+| `hansard_schools.csv` | `build_app_data.py` | copy of `data/raw/hansard_schools_2026-11-11.csv`, so the app reads only `data/processed` |
+| `schools_all.csv` | `build_app_data.py` | all 10,230 MOE schools (Jun 2022) with coordinates, district (as in `build_schools.py`), level, urban/rural, students, coord_flag |
+| `amenities_district.csv` | `build_app_data.py` | household access to electricity, piped water and sanitation, latest year per district (OpenDOSM `hh_access_amenities`, 2024), Table 3 spelling |
+| `schools_validation.csv` | `build_schools.py` | the screening-layer validation table against Hansard (2 km and 1 km rules) |
+
+`config/facts.yaml` holds the one typed headline figure, **official coverage of populated areas: 99.71% as at 31 Dec 2025** (Communications Minister; [RTM, 4 Feb 2026](https://berita.rtm.gov.my/nasional/senarai-berita-nasional/senarai-artikel/liputan-internet-negara-cecah-99-71-peratus-setakat-akhir-2025/)). It measures network coverage, not household take-up, and excludes 5G.
+
 ## Processed: schools (from `scripts/build_schools.py`), an ESTIMATE
 
 **`schools_connectivity.csv`**: 5,349 schools in Kelantan, Terengganu, Pahang, Kedah, Sabah and Sarawak (MOE list, Jun 2022), compared against Ookla 2026 Q3 tiles. Inherits CC BY-NC-SA 4.0 from Ookla.
