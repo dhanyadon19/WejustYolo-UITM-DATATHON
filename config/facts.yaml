@@ -7,7 +7,7 @@ official_coverage_populated_areas:
   baseline_pct: 91.8          # before JENDELA, same source
   definition: >
     Internet and communications coverage of populated areas (network coverage, not household
-    take-up). Excludes 5G.
+    take-up).
   said_by: "Communications Minister Fahmi Fadzil"
   published: "2026-02-04"
   source_name: "RTM, 'Liputan internet negara cecah 99.71 peratus setakat akhir 2025'"

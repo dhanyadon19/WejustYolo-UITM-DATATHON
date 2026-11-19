@@ -5,7 +5,9 @@ Status: **built** in `scripts/build_costing.py`, 19 Nov 2026. Outputs are `data/
 Per district:
 - **(a)** each rural settlement is either a **take-up gap** or gets an **infrastructure fix** (tower or satellite)
 - **(b)** a five-year infrastructure cost
-- **(c)** a value ranking: beneficiaries per RM1m
+- **(c)** a ranking by **estimated beneficiaries per RM1m**
+
+Nothing here recommends solar-hybrid power or fibre extension; fibre PoPs appear only as an upper-bound cost sensitivity.
 
 ## 1. The break-even is per settlement, not per district
 
@@ -35,13 +37,15 @@ Siburan and Membakut have no polygon. Their schools fall inside Kuching and Beau
 Applied in order:
 
 1. **"Fixed network likely nearby: take-up gap"** (`takeup_gap`), if **any Ookla fixed tile lies within 2 km of the school**.
-   - **Why:** an Ookla fixed tile means someone nearby ran a speed test on a home fixed connection, so a fixed network very likely already reaches the area. Households there that still lack home internet are more likely held back by **take-up**: price, awareness, digital skills or the last-metre connection. **Building new infrastructure isn't the likely fix.**
+   - **Why:** an Ookla fixed tile means someone nearby ran a speed test on a home fixed connection, so a fixed network probably reaches the area. Our proxy suggests many rural settlements already have a fixed network nearby, so take-up support may matter as much as new infrastructure. Households there that still lack home internet may be held back by price, awareness, digital skills or the last-metre connection.
    - **This is a PROXY.** A fixed tile doesn't prove that fibre, rather than fixed wireless or satellite, is available to every household in the settlement.
    - These settlements are **excluded from the infrastructure cost**. For each district we report how many there are (`n_takeup_gap`, `share_settlements_takeup_gap`) and how many people without home internet they hold (`takeup_gap_people_without_internet`).
 2. **Tower**, if households in the settlement ≥ the break-even (144.1 Residential; 228.3 Lite).
 3. **Satellite** otherwise: one terminal per unconnected household, plus one Business terminal for the school.
 
 The tower test uses **all households** in the settlement, as the break-even does. But satellite cost counts only **unconnected** households, because connected ones need no terminal.
+
+**Caveat:** this is a cost screen, not a full cost-benefit comparison. Households are assumed equal across a district's rural schools, and towers and satellite are different services (a tower also serves mobile users and roads; satellite serves single homes).
 
 A district's `main_fix` is tower or satellite, whichever serves more unconnected households among its **planned** (tower or satellite) settlements. It's "none (take-up gap only)" when every settlement is in the take-up group: 24 districts, none of them in Sarawak.
 
@@ -62,28 +66,30 @@ Users' mobile plans are excluded.
 |---|---|---|---|
 | **Main** (Residential, central) | **RM1.73bn** | **RM0.82bn** | 866 planned settlements (804 tower, 62 satellite). 3,456 settlements are in the take-up group. |
 | **Lite plan** | **RM1.26bn** | **RM0.44bn** | 253 settlements switch from tower to satellite; the main fix changes in 24 districts |
-| **Upper bound** (+1 PoP per take-up settlement) | **RM6.81bn** | **RM1.96bn** | PoP running cost unsourced |
+| **Upper bound** (cost sensitivity: +1 fibre PoP per take-up settlement; not a recommendation) | **RM6.81bn** | **RM1.96bn** | PoP running cost unsourced |
 | All costs −30% / +30% | RM1.21bn / RM2.25bn | RM0.57bn / RM1.06bn | **no category changes**: the break-even is a ratio of two costs, so scaling every cost alike moves totals only |
 
-**Take-up group:** 3,456 of 4,322 rural settlements (80%) hold an estimated **467,809** rural people without home internet. That's about four times the **120,493** in planned settlements. **Most of the rural gap looks like a take-up problem, not a coverage problem** (proxy). In Sarawak, 778 of 1,214 settlements are in the take-up group.
+**Take-up group:** 3,456 of 4,322 rural settlements (80%) hold an estimated **467,809** rural people without home internet, against an estimated **120,493** in planned settlements. Our proxy suggests many rural settlements already have a fixed network nearby, so take-up support may matter as much as new infrastructure. In Sarawak, 778 of 1,214 settlements are in the take-up group.
 
-## 5. (c) Value ranking
+## 5. (c) Estimated beneficiaries per RM1m
 
 The main metric covers the same people the cost pays for:
 
 | Column | Definition | Role |
 |---|---|---|
-| `people_per_rm_m_main` | **rural people without home internet in planned settlements ÷ (cost / RM1m)** | **MAIN value metric**; `value_rank_national`, `value_rank_sarawak` |
-| `people_per_rm_m_district_main` | whole-district people without home internet (urban included) ÷ (cost / RM1m) | secondary; overstates value because the plan doesn't reach urban or take-up-gap areas |
+| `people_per_rm_m_main` | **rural people without home internet in planned settlements ÷ (cost / RM1m)** | **MAIN metric: estimated beneficiaries per RM1m**; ranks in `value_rank_national`, `value_rank_sarawak` (column names kept for compatibility) |
+| `people_per_rm_m_district_main` | whole-district people without home internet (urban included) ÷ (cost / RM1m) | secondary; overstates beneficiaries because the plan doesn't reach urban or take-up-gap areas |
 | `students_per_rm_m_main` | pupils of planned settlements' schools ÷ (cost / RM1m) | reported separately, never added to people |
 | `people_per_rm_m_upper_bound` | all rural people without home internet ÷ upper-bound cost | sensitivity |
 
-Districts with no planned settlements (cost 0) have **no value rank**. Value ranks are also given per case (`value_rank_national_lite`, `_upper_bound`, `_cost_minus30`, `_cost_plus30`).
+Districts with no planned settlements (cost 0) have **no estimated-beneficiaries-per-RM1m rank**. Ranks are also given per case (`value_rank_national_lite`, `_upper_bound`, `_cost_minus30`, `_cost_plus30`).
+
+**Caveat:** this is a cost screen, not a full cost-benefit comparison. Households are assumed equal across a district's rural schools, and towers and satellite are different services (a tower also serves mobile users and roads; satellite serves single homes).
 
 ## 6. Findings to state in the app
 
 - **JENDELA towers sit far below the break-even.** JENDELA 2 targets ~**80 residents per site** (2,700 sites for 217,000 residents; `costs.yaml`). That's about **17–29 households** at Sarawak's 2020 household sizes (2.8–4.7), **well below the 144–228 break-even**. Government towers are evidently justified by more than household cost: mobile coverage on roads, safety, and future demand. So our rule is a **cost screen, not a verdict**.
-- **Take-up dominates (proxy):** 80% of rural settlements have a fixed network likely nearby. For them, affordability, devices and skills programmes are likely to matter more than towers or PoPs. That points to a different policy lever, which this costing doesn't price.
+- **Take-up (proxy):** Our proxy suggests many rural settlements already have a fixed network nearby, so take-up support may matter as much as new infrastructure. Affordability, devices and skills programmes are a different policy lever, which this costing doesn't price.
 - **The cost bases differ:** satellite cost includes the service subscription for 5 years; tower cost doesn't include what users later pay for mobile plans. This favours towers over satellite.
 
 ## 7. Unsourced assumptions (label in the app)
@@ -91,6 +97,6 @@ Districts with no planned settlements (cost 0) have **no value rank**. Value ran
 1. **Fibre PoP running cost:** missing from `costs.yaml`. PoPs appear only in the upper bound, as capex.
 2. **"Fixed network likely nearby" = any Ookla fixed tile within 2 km:** a proxy. There's no fibre-route or coverage data, and fixed tiles also include fixed wireless and satellite home connections.
 3. **Household size and rural share of the 4 post-2020 districts:** taken from the parent district (Census 2020), with households split by 2026 population.
-4. **Households spread evenly across a district's rural schools:** each rural school stands for one settlement of equal size.
+4. **Equal households per rural school:** each rural school stands for one settlement, and a district's rural households are split equally across them.
 5. **Satellite plan for schools** (Business "from RM318") and **government or bulk satellite prices** (retail prices used).
 6. **Mobile user subscription price:** excluded from the cost basis, so tower costs omit users' payments.

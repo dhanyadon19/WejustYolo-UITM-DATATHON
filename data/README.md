@@ -186,7 +186,7 @@ The site-wide catalogue pages of OpenDOSM and data.gov.my list no boundary datas
 | `amenities_district.csv` | `build_app_data.py` | household access to electricity, piped water and sanitation, latest year per district (OpenDOSM `hh_access_amenities`, 2024), Table 3 spelling |
 | `schools_validation.csv` | `build_schools.py` | the screening-layer validation table against Hansard (2 km and 1 km rules) |
 
-`config/facts.yaml` holds the one typed headline figure, **official coverage of populated areas: 99.71% as at 31 Dec 2025** (Communications Minister; [RTM, 4 Feb 2026](https://berita.rtm.gov.my/nasional/senarai-berita-nasional/senarai-artikel/liputan-internet-negara-cecah-99-71-peratus-setakat-akhir-2025/)). It measures network coverage, not household take-up, and excludes 5G.
+`config/facts.yaml` holds the one typed headline figure, **official coverage of populated areas: 99.71% as at 31 Dec 2025** (Communications Minister; [RTM, 4 Feb 2026](https://berita.rtm.gov.my/nasional/senarai-berita-nasional/senarai-artikel/liputan-internet-negara-cecah-99-71-peratus-setakat-akhir-2025/)). It measures network coverage, not household take-up.
 
 ## Processed: schools (from `scripts/build_schools.py`), an ESTIMATE
 
@@ -265,24 +265,25 @@ The method, sources, sensitivity results and unsourced assumptions are in [`docs
 | File | Rows | Content |
 |---|---|---|
 | `costing_clusters.csv` | 4,322 | One row per **rural MOE school** (settlement anchor): households, unconnected households and people, `hh_source`, fixed tiles within 2 km, `fixed_nearby`, and category (`takeup_gap` / `tower` / `satellite`) and five-year cost under main / lite / cost_minus30 / cost_plus30, plus `cost_upper_bound` |
-| `costing_districts.csv` | 150 | Per district: settlements; take-up group (`n_takeup_gap`, `share_settlements_takeup_gap`, `takeup_gap_people_without_internet`); planned settlements (`n_tower`, `n_satellite`, `planned_people_without_internet`, `planned_students`); `main_fix` (and `_lite`); cost per case incl. `cost_upper_bound_rm`; **main value `people_per_rm_m_*` (rural people in planned settlements)**, secondary `people_per_rm_m_district_*`, `students_per_rm_m_*`; value ranks; need rank and CGI from the index |
+| `costing_districts.csv` | 150 | Per district: settlements; take-up group (`n_takeup_gap`, `share_settlements_takeup_gap`, `takeup_gap_people_without_internet`); planned settlements (`n_tower`, `n_satellite`, `planned_people_without_internet`, `planned_students`); `main_fix` (and `_lite`); cost per case incl. `cost_upper_bound_rm`; **main metric, estimated beneficiaries per RM1m: `people_per_rm_m_*` (rural people in planned settlements)**, secondary `people_per_rm_m_district_*`, `students_per_rm_m_*`; estimated-beneficiaries-per-RM1m ranks (`value_rank_*` columns); need rank and CGI from the index |
 
 **Raw input added:** `data/raw/census/census_district.csv`, the DOSM Population and Housing Census by district (1970–2020) from [github.com/dosm-malaysia/data-open](https://github.com/dosm-malaysia/data-open/blob/main/datasets/census/census_district.csv). DOSM Open Data Licence; downloaded 2026-11-19.
 - **Columns used (2020):** `household_size_avg`, `density_rural` (rural population, not a density), `population_total`.
 - **Coverage:** 160 districts. Gedong, Lingga, Pantu and Sebuyau post-date it. "Larut dan Matang" is aliased.
 
 **Caveats**
-- **Take-up group (proxy):** settlements with an Ookla fixed tile within 2 km are labelled **"fixed network likely nearby: take-up gap"**. They're **excluded from infrastructure cost**: 3,456 of 4,322 settlements (80%), holding ~468k rural people without home internet, against ~120k in planned settlements. They're costed as fibre PoPs only in the upper-bound case.
+- **Take-up group (proxy):** settlements with an Ookla fixed tile within 2 km are labelled **"fixed network likely nearby: take-up gap"**. They're **excluded from infrastructure cost**: 3,456 of 4,322 settlements (80%), holding an estimated ~468k rural people without home internet, against ~120k in planned settlements. Our proxy suggests many rural settlements already have a fixed network nearby, so take-up support may matter as much as new infrastructure. They're costed as fibre PoPs only in the upper-bound case, a cost sensitivity, not a recommendation.
+- **Cost screen:** equal households per rural school are assumed, and towers and satellite are different services; this is a cost screen, not a full cost-benefit comparison.
 - **Totals (five-year):** main RM1.73bn (Sarawak RM0.82bn); Lite RM1.26bn (Sarawak RM0.44bn); upper bound RM6.81bn (Sarawak RM1.96bn). Uniform ±30% doesn't change any category.
-- **No value rank:** 14 urban districts have no rural school, and 24 districts (none in Sarawak) have only take-up-gap settlements, so they have no infrastructure cost.
+- **No estimated-beneficiaries-per-RM1m rank:** 14 urban districts have no rural school, and 24 districts (none in Sarawak) have only take-up-gap settlements, so they have no infrastructure cost.
 
 **`gap_index_sensitivity.csv`**: for each district, the baseline ranks plus three sensitivity checks:
 - **Equal weights:** `cgi_equal`, `rank_*_equal`.
 - **Random weights:** **1,000 Dirichlet(1,1,1,1) weight sets** (seed 42): `rank_*_dirichlet_median/_p05/_p95`.
-- **Margin of error:** for the 25 small-sample districts, access is set to p − MOE and p + MOE (clipped to 0–100) with everything else unchanged. `rank_*_moe_min/_max` give the resulting range.
+- **Approximate margin of error:** for the 25 small-sample districts, access is set to p − MOE and p + MOE (MOE = our approximate margin of error, simple random-sampling formula; clipped to 0–100) with everything else unchanged. `rank_*_moe_min/_max` give the resulting range.
 
 **Results to keep in mind**
-- **Sarawak's top 3 are robust.** Kanowit, Song and Tebedu stay in Sarawak's top 10 in 98–100% of runs. But all three are **small-sample districts:** their access-margin-of-error ranks span 1–5, 1–7 and 1–8.
+- **Sarawak's top 3 are robust.** Kanowit, Song and Tebedu stay in Sarawak's top 10 in 98–100% of runs. But all three are **small-sample districts:** within their approximate margin of error (simple random-sampling formula) their ranks span 1–5, 1–7 and 1–8.
 - **The rest of the top 10 is not stable.** In a typical run only 7 of the baseline top 10 remain (national and Sarawak). Serian (37%), Subis (37%) and Dalat (48%) are in Sarawak's top 10 in fewer than half of runs. **Present ranks with their p05–p95 range, not as a precise order.**
 - **Kuching and Beaufort** include Siburan's and Membakut's Ookla tests but not their population, so their fixed_reach is slightly overstated (better than reality).
 
@@ -350,29 +351,29 @@ Sources: `icths_{2024,2025}_table3.xlsx`, sheets 3.1 and 3.2.
   The 2024→2025 combined file and `build_boundaries.py` apply it. The per-year CSVs keep each year's DOSM spelling, so apply the table before joining them to anything else.
 - **Another Penang spelling in the income file:** `hh_income_district.parquet` contains both "Seberang Perai …" and abbreviated "S.P. Selatan", "S.P.Tengah", "S.P.Utara" rows. Those abbreviations are **not** in the alias table yet; deal with them when cleaning the income file.
 - **`change_beyond_noise`** (combined file, an estimate):
-  - **True** when |internet_change_pp| is larger than **every available** 95% MOE (the larger one when both years have one). **False** otherwise.
+  - **True** when |internet_change_pp| is larger than **every available** approximate 95% margin of error (simple random-sampling formula; the larger one when both years have one). **False** otherwise.
   - **Blank** when neither year has an MOE (i.e. neither year was small-sample flagged).
   - **Current result:** 0 True, 31 False, 134 blank. No flagged district's change exceeds its sampling noise, even if you compare against the smaller of the two MOEs. The largest change, Sebuyau at +5.83 pp, sits against MOEs of 12.6–16.2 pp.
-  - **Blank does not mean the change is real.** Unflagged districts have no published or inferred MOE at all.
+  - **Blank does not mean the change is real.** DOSM publishes no district margins, and unflagged districts have no inferred one either.
 - **Ranking:** state-level rows are DOSM's published state estimates, not averages of the district rows.
 
-### Small-sample flag (our estimate, not a DOSM figure)
+### Small-sample flag, inferred sample size and approximate margin of error (our estimates, not DOSM figures)
 
 DOSM does not publish district sample sizes or district-level standard errors (Table 7 is national and urban/rural only). We infer a small sample from the published percentages themselves:
 
 - **Rule:** take every indicator of a district or territory that is strictly between 0 and 100. If all of them lie within **0.02 percentage points** of a multiple of 100/n for some **n ≤ 60**, the estimate most likely rests on about n sampled units: households in 3.1, individuals in 3.2.
 - **Minimum:** the rule needs **at least 3** such indicators, otherwise the district is not flagged.
-- **`implied_sample_n`:** the smallest such n.
+- **`implied_sample_n` = inferred sample size:** the smallest such n. Not a DOSM figure.
 - **`small_sample_flag`:** True when such an n exists.
-- **`internet_moe95_pp`:** `1.96 × √(p(1−p)/n) × 100` with p = internet_pct/100. This is a simple-random-sampling approximation that ignores weighting and clustering, so it probably **understates** the true margin. Label it as an estimate.
+- **`internet_moe95_pp` = approximate margin of error (simple random-sampling formula):** `1.96 × √(p(1−p)/n) × 100` with p = internet_pct/100 and n the inferred sample size. It ignores weighting and clustering, so it probably **understates** the true margin. Not a DOSM figure; always label it as our approximation.
 - **Not flagged does not mean precise.** The method only detects samples small enough (n ≤ 60) to leave a visible pattern. Districts with larger but still modest samples get no MOE (blank), not a small one.
 - **Results:**
   - Households 2024: 31 flagged (Sarawak 22, Sabah 7, Kelantan 1, Perak 1).
   - Households 2025: 25 flagged.
   - Individuals: 0 flagged in either year, as expected since individual samples are larger.
-- **Use in the app:** flagged districts must be shown as low confidence with their MOE, never ranked as precise (see CLAUDE.md).
+- **Use in the app:** flagged districts are shown as low confidence with their inferred sample size and approximate margin of error, never ranked as precise (see CLAUDE.md).
 - **Check values (2024):**
-  - Kanowit: 60.71%, n = 56, MOE 12.79 pp.
-  - Song: 64.81%, n = 54.
-  - Tebedu: 66.67%, n = 57.
+  - Kanowit: 60.71%, inferred sample size 56, approximate margin of error 12.79 pp.
+  - Song: 64.81%, inferred sample size 54.
+  - Tebedu: 66.67%, inferred sample size 57.
   - Simunjan: 65.22%, not flagged.
