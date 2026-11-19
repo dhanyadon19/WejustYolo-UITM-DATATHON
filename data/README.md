@@ -218,6 +218,43 @@ The site-wide catalogue pages of OpenDOSM and data.gov.my list no boundary datas
 - **Dense areas over-count:** a school with fibre in a place where few people run home broadband tests gets flagged, which is likely why Terengganu and Kedah come out too high.
 - **Dates differ:** the MOE list is from Jun 2022, Ookla from Jul–Sep 2026, and Hansard from Nov 2026.
 
+## Processed: Connectivity Gap Index (from `scripts/build_index.py`)
+
+Weights are in `config/weights.yaml`: access_gap 0.4, mobile_speed 0.2, fixed_reach 0.2, low_income 0.2, each with a one-line reason.
+
+**`gap_index_districts.csv`**: 164 districts and territories, one row each.
+
+| Indicator | Definition | Source and year | Direction |
+|---|---|---|---|
+| access_gap | 100 − household internet access % | ICTHS Table 3, **2025** | higher = worse |
+| mobile_speed | Ookla mobile test-weighted download (Mbps) | Ookla **2026 Q3** | inverted |
+| fixed_reach | Ookla fixed tests per 1,000 residents, a **PROXY** for fixed-broadband take-up, not coverage | Ookla 2026 Q3 ÷ population 2026 | inverted |
+| low_income | median gross monthly household income (RM) | OpenDOSM HIES, **2024** (2022 for Perlis and the 3 territories, which have no 2024 district row) | inverted |
+
+**How it's built**
+- **Normalisation and score:** each indicator is min-max normalised across all 164 districts, so 1 = worst and 0 = best. `cgi = Σ weight × normalised indicator`.
+- **Ranks:** `rank_national` and `rank_sarawak`, where 1 = worst. `rank_*_p05/_p95` give the 5th–95th percentile rank over the Dirichlet runs.
+- **Years:** each row records the year used per source (`access_year`, `ookla_quarter`, `population_year`, `income_year`).
+- **Not indexed:** **Siburan** and **Membakut** have no boundary, so no Ookla data. Their area and tests are counted under Kuching and Beaufort.
+- **Perlis:** indexed as one district, using DOSM's Perlis state row for access.
+
+**Beneficiaries (ESTIMATES)**
+- **`people_without_home_internet`** = population (thousands × 1,000) × access_gap / 100. It **assumes individuals follow the household rate.**
+- **`students`** = pupils (`MURID`) of MOE schools located in the district, from the **MOE school list of 30 Jun 2022**, not the latest year.
+  - **Why not the enrolment file:** OpenDOSM/MOE `enrolment_school_district` (2025) is organised by education office (PPD). PPD areas don't match administrative districts: some are merged (Kulim/Bandar Baharu, Tatau/Sebauh), split (Kinta Utara/Selatan) or different (Padawan, Baram), so it can't be assigned to districts without merging or splitting.
+  - **State-level cross-check:** the school list is within −5.7% to +3.2% of 2025 enrolment for every state except Labuan (−8.1%) and Putrajaya (−13.9%).
+  - **Missing schools:** 18 schools with missing or suspect coordinates are not placed in any district.
+
+**`gap_index_sensitivity.csv`**: for each district, the baseline ranks plus three sensitivity checks:
+- **Equal weights:** `cgi_equal`, `rank_*_equal`.
+- **Random weights:** **1,000 Dirichlet(1,1,1,1) weight sets** (seed 42): `rank_*_dirichlet_median/_p05/_p95`.
+- **Margin of error:** for the 25 small-sample districts, access is set to p − MOE and p + MOE (clipped to 0–100) with everything else unchanged. `rank_*_moe_min/_max` give the resulting range.
+
+**Results to keep in mind**
+- **Sarawak's top 3 are robust.** Kanowit, Song and Tebedu stay in Sarawak's top 10 in 98–100% of runs. But all three are **small-sample districts:** their access-margin-of-error ranks span 1–5, 1–7 and 1–8.
+- **The rest of the top 10 is not stable.** In a typical run only 7 of the baseline top 10 remain (national and Sarawak). Serian (37%), Subis (37%) and Dalat (48%) are in Sarawak's top 10 in fewer than half of runs. **Present ranks with their p05–p95 range, not as a precise order.**
+- **Kuching and Beaufort** include Siburan's and Membakut's Ookla tests but not their population, so their fixed_reach is slightly overstated (better than reality).
+
 ---
 
 ## Processed (from `scripts/build_boundaries.py`)
@@ -254,7 +291,7 @@ Sources: `icths_{2024,2025}_table3.xlsx`, sheets 3.1 and 3.2.
 | `dosm_hh_ict_district_{2024,2025}.csv` | 178 (162 districts + 13 states + 3 territories) | year, level, state, district, internet_pct, computer_pct, mobile_phone_pct, pay_tv_channel_pct, television_pct, radio_pct, fixed_line_telephone_pct, implied_sample_n, small_sample_flag, internet_moe95_pp |
 | `dosm_ind_ict_district_{2024,2025}.csv` | 172 | year, level, state, district, internet_pct, computer_pct, mobile_phone_pct, implied_sample_n, small_sample_flag, internet_moe95_pp |
 | `dosm_hh_internet_district_2024_2025.csv` | 165 (162 districts + 3 territories), all `matched = True` | level, state, district, internet_2024, internet_2025, internet_change_pp, small_sample_flag_2024, internet_moe95_pp_2024, small_sample_flag_2025, internet_moe95_pp_2025, change_beyond_noise, matched |
-| `district_aliases.csv` | 7 | state, alias, canonical, alias_found_in, canonical_source |
+| `district_aliases.csv` | 13 | state, alias, canonical, alias_found_in, canonical_source |
 
 **Parsing rules**
 - **Repeated page headers:** each printed page repeats the title, "(%)" and header rows. They are skipped.
@@ -272,7 +309,11 @@ Sources: `icths_{2024,2025}_table3.xlsx`, sheets 3.1 and 3.2.
   | Seberang Prai Utara / Tengah / Selatan | Seberang Perai … | Table 3 (2024) |
   | Ulu Langat, Ulu Selangor | Hulu Langat, Hulu Selangor | DOSM boundaries; OpenDOSM population, income and schools |
   | Kecil Lojing | Lojing | DOSM boundaries; OpenDOSM population, income and schools |
-  | Meradong | Maradong | OpenStreetMap boundaries; GADM |
+  | Meradong | Maradong | OpenStreetMap boundaries; GADM; MOE enrolment |
+  | Larut & Matang | Larut Dan Matang | OpenDOSM income (2024) |
+  | S.P. Selatan, S.P.Tengah, S.P.Utara | Seberang Perai Selatan / Tengah / Utara | OpenDOSM income (2024) |
+  | Lubok antu | Lubok Antu | OpenDOSM income (2024) |
+  | Hulu | Hulu Terengganu | OpenDOSM income (2024), Terengganu |
 
   The 2024→2025 combined file and `build_boundaries.py` apply it. The per-year CSVs keep each year's DOSM spelling, so apply the table before joining them to anything else.
 - **Another Penang spelling in the income file:** `hh_income_district.parquet` contains both "Seberang Perai …" and abbreviated "S.P. Selatan", "S.P.Tengah", "S.P.Utara" rows. Those abbreviations are **not** in the alias table yet; deal with them when cleaning the income file.

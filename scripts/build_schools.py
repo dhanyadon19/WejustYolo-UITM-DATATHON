@@ -62,10 +62,19 @@ def latest_quarter() -> tuple[int, int]:
     return max(found)
 
 
-def load_schools() -> gpd.GeoDataFrame:
+MOE_STATE_NAMES = {  # MOE NEGERI -> DOSM / districts.geojson state names
+    "Wilayah Persekutuan Kuala Lumpur": "W.P. Kuala Lumpur",
+    "Wilayah Persekutuan Labuan": "W.P. Labuan",
+    "Wilayah Persekutuan Putrajaya": "W.P. Putrajaya",
+}
+
+
+def load_schools(states: list[str] | None = STATES) -> gpd.GeoDataFrame:
+    """MOE school list (Jun 2022) as points; states=None loads every state."""
     df = pd.read_excel(MOE, header=1, dtype={"KODSEKOLAH": str, "POSKODSURAT": str})
-    df["state"] = df["NEGERI"].str.strip().str.title()
-    df = df[df["state"].isin(STATES)].copy()
+    df["state"] = df["NEGERI"].str.strip().str.title().replace(MOE_STATE_NAMES)
+    if states is not None:
+        df = df[df["state"].isin(states)].copy()
     df["lon"] = pd.to_numeric(df["KOORDINATXX"], errors="coerce")
     df["lat"] = pd.to_numeric(df["KOORDINATYY"], errors="coerce")
     out = pd.DataFrame({

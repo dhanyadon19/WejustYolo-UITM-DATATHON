@@ -63,7 +63,13 @@ ALIASES = [
     ("Selangor", "Ulu Langat", "Hulu Langat", OTHER),
     ("Selangor", "Ulu Selangor", "Hulu Selangor", OTHER),
     ("Kelantan", "Kecil Lojing", "Lojing", OTHER),
-    ("Sarawak", "Meradong", "Maradong", "OpenStreetMap boundaries; GADM"),
+    ("Sarawak", "Meradong", "Maradong", "OpenStreetMap boundaries; GADM; MOE enrolment"),
+    ("Perak", "Larut & Matang", "Larut Dan Matang", "OpenDOSM income (2024)"),
+    ("Pulau Pinang", "S.P. Selatan", "Seberang Perai Selatan", "OpenDOSM income (2024)"),
+    ("Pulau Pinang", "S.P.Tengah", "Seberang Perai Tengah", "OpenDOSM income (2024)"),
+    ("Pulau Pinang", "S.P.Utara", "Seberang Perai Utara", "OpenDOSM income (2024)"),
+    ("Sarawak", "Lubok antu", "Lubok Antu", "OpenDOSM income (2024)"),
+    ("Terengganu", "Hulu", "Hulu Terengganu", "OpenDOSM income (2024)"),
 ]
 
 

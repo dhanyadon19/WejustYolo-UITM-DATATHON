@@ -33,6 +33,7 @@ scripts/build_boundaries.py  -> data/processed/districts.geojson (needs district
 scripts/download_ookla.py    latest Ookla quarter (fixed + mobile) -> data/raw/ookla/ (gitignored, ~550 MB) -> ookla_my_{type}_{y}q{q}.parquet
 scripts/build_ookla.py       tiles -> districts -> ookla_district_{y}q{q}.csv (needs districts.geojson)
 scripts/build_schools.py     MOE schools (6 Hansard states) + Ookla -> schools_connectivity.csv, prints Hansard validation
+scripts/build_index.py       CGI per district (weights from config/weights.yaml) -> gap_index_districts.csv + gap_index_sensitivity.csv
 
 In data/raw/ (downloaded 2026-11-19, untouched):
 
@@ -47,7 +48,7 @@ In data/processed/ (written by extract_t3.py):
 dosm_hh_ict_district_{2024,2025}.csv: household ICT access, Table 3.1 (178 rows: 162 districts, 13 states, 3 territories; 7 indicators)
 dosm_ind_ict_district_{2024,2025}.csv: individual ICT use, Table 3.2 (172 rows; DOSM omits Membakut, Gedong, Lingga, Pantu, Sebuyau, Siburan)
 dosm_hh_internet_district_2024_2025.csv: household internet both years, 165 rows all matched, with change and change_beyond_noise
-district_aliases.csv: spelling-only aliases -> Table 3 (2025) spelling (Seberang Prai->Perai, Ulu Langat/Selangor->Hulu, Kecil Lojing->Lojing, Meradong->Maradong). Apply before joining anything to the Table 3 files.
+district_aliases.csv: 13 spelling-only aliases -> Table 3 (2025) spelling (Seberang Prai/S.P.->Seberang Perai, Ulu->Hulu, Kecil Lojing->Lojing, Meradong->Maradong, Larut & Matang, Lubok antu, Terengganu "Hulu"). Apply before joining anything to the Table 3 files.
 districts.geojson: 164 polygons named like Table 3. DOSM 2022 polygons everywhere except Sarawak, which uses OSM (has the new districts Gedong, Lingga, Pantu, Sebuyau). ODbL because of the OSM part. Join on dosm_district (Perlis links to its state row). Siburan and Membakut have no polygon anywhere: table only; their area sits inside Kuching and Beaufort (contains_unmapped column).
 Naming follows OpenDOSM: title-case states, territories as "W.P. Kuala Lumpur" (state = district), state rows have district "All Districts".
 Columns include small_sample_flag, implied_sample_n, internet_moe95_pp (inferred from the published percentages; method in data/README.md). Districts with small_sample_flag = True must be shown as low confidence with their margin of error, never ranked as precise. No flagged district's 2024->2025 change exceeds its MOE (change_beyond_noise is False for all 31), so don't present those changes as real trends.
@@ -56,6 +57,8 @@ ookla_my_{fixed,mobile}_2026q3.parquet: Ookla tiles clipped to Malaysia's bbox (
 ookla_district_2026q3.csv: per district x type: dl_mbps, ul_mbps (test-weighted mean), latency_median_ms (test-weighted median), n_tiles, tests, devices (upper bound), low_sample (tests < 50). Fixed-speed tests only come from homes that already have fixed broadband: always read speed together with DOSM access.
 
 schools_connectivity.csv: 5,349 schools in the 6 states with district, fixed tiles/tests within 1 and 2 km, nearest fixed tile, mobile tests + speed within 2 km, likely_no_fibre (no fixed tile within 2 km; _1km variant), confidence (mobile tests within 2 km: high >=100, medium 20-99, low <20). ESTIMATE: validation vs Hansard is poor at state level (2 km: 786 vs 1,180, -33%; 1 km total -1.9% only by offsetting errors, e.g. Terengganu 83 vs 4). Present flags as a low-confidence screening list, always with the state-level error; never as a count of schools without fibre.
+
+gap_index_districts.csv: 164 districts (Siburan, Membakut not indexed: no Ookla). CGI from access_gap (2025), mobile_speed + fixed_reach (Ookla 2026Q3, fixed_reach is a PROXY), low_income (2024; 2022 for Perlis + territories); ranks national + Sarawak with Dirichlet p05-p95; people_without_home_internet (ESTIMATE, household rate applied to individuals); students from MOE school list 2022 (enrolment file is by PPD, not district). gap_index_sensitivity.csv: equal weights, 1,000 Dirichlet runs, MOE rank range for small-sample districts. Only Sarawak's top 3 (Kanowit, Song, Tebedu) are stable; always show rank ranges.
 
 All planned raw data is collected.
 

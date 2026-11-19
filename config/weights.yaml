@@ -1,0 +1,18 @@
+# Connectivity Gap Index (CGI) weights. CGI_d = sum_i(weight_i * normalised indicator_i).
+# Indicators are min-max normalised across all districts so that 1 = worst, 0 = best.
+# Weights must sum to 1. Sensitivity: build_index.py also runs equal weights and
+# 1,000 Dirichlet(1,1,1,1) random weight sets.
+
+weights:
+  access_gap:
+    weight: 0.4
+    reason: "Households without home internet is the most direct measure of the gap the project targets (SDG 9.c), and the only official, survey-based indicator."
+  mobile_speed:
+    weight: 0.2
+    reason: "Slow mobile service limits what connected users can do; mobile is the main way rural households get online."
+  fixed_reach:
+    weight: 0.2
+    reason: "PROXY: few Ookla fixed tests per resident suggests few homes on fixed broadband; it is test-based, not a coverage measure, so weighted lower than access."
+  low_income:
+    weight: 0.2
+    reason: "Lower median household income means households are less able to pay for a connection even where service exists (affordability gap)."
