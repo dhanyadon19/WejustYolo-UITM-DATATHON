@@ -16,11 +16,25 @@ host_of = data.unmapped_host()
 
 ui.page("District detail", "Everything we know about one district, with its uncertainty.")
 
-c1, c2 = st.columns(2)
+# Preselection: from the Sarawak map / Priorities (session state) or a shared link (?state=...&district=...)
+qp = st.query_params
 states = sorted(dt.state.unique())
-state = c1.selectbox("State", states, index=states.index("Sarawak"))
-opts = dt[dt.state == state].sort_values(["rank_national", "district"], na_position="last")
-district = c2.selectbox("District (sorted by need, highest first)", opts.district.tolist(), index=0)
+first_load = "sel_state" not in st.session_state
+want_state = st.session_state.pop("detail_state", None) or (qp.get("state") if first_load else None)
+want_district = st.session_state.pop("detail_district", None) or (qp.get("district") if first_load else None)
+if want_state in states:
+    st.session_state["sel_state"] = want_state
+st.session_state.setdefault("sel_state", "Sarawak")
+
+c1, c2 = st.columns(2)
+state = c1.selectbox("State", states, key="sel_state")
+opts = dt[dt.state == state].sort_values(["rank_national", "district"], na_position="last").district.tolist()
+if want_district in opts:
+    st.session_state["sel_district"] = want_district
+if st.session_state.get("sel_district") not in opts:
+    st.session_state["sel_district"] = opts[0]
+district = c2.selectbox("District (sorted by need, highest first)", opts, key="sel_district")
+st.query_params.update(state=state, district=district)  # shareable link to this district
 r = dt[(dt.state == state) & (dt.district == district)].iloc[0]
 small = bool(r.small_sample_flag) if ui.isnum(r.small_sample_flag) else False
 host = host_of.get((state, district))
@@ -186,6 +200,8 @@ else:
             data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {access_year} · Ookla {quarter} · config/costs.yaml")
     ui.caveat()
 
+ui.next_step("views/5_Priorities.py", "Priorities",
+             f"see where {district} sits against other districts on need and estimated beneficiaries per RM1m.")
 ui.footer([
     "DOSM ICTHS 2024 and 2025, Table 3.1; inferred sample sizes and approximate margins of error (simple random-sampling "
     "formula) are our estimates from the published percentages",

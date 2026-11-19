@@ -63,6 +63,21 @@ def what(text: str, data: str | None = None) -> None:
                 unsafe_allow_html=True)
 
 
+def next_step(page: str, label: str, why: str) -> None:
+    """'Next' card at the end of a page that walks the user journey:
+    Overview → Schools → Sarawak map → District detail → Priorities → Method."""
+    st.markdown(f"<div style='margin-top:1.6rem;color:{INK_2};font-size:0.9rem'><b>Next:</b> {why}</div>",
+                unsafe_allow_html=True)
+    st.page_link(page, label=label, icon=":material/arrow_forward:")
+
+
+def go_to_district(state: str, district: str) -> None:
+    """Open District detail with this district preselected."""
+    st.session_state["detail_state"] = state
+    st.session_state["detail_district"] = district
+    st.switch_page("views/4_District_detail.py")
+
+
 def footer(sources: list[str], osm: bool = False, basemap: bool = False) -> None:
     st.divider()
     lines = [f"- {s}" for s in sources]

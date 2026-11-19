@@ -23,31 +23,38 @@ ui.page("Beyond Coverage",
         "and far fewer rural homes have fixed broadband.")
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Official coverage of populated areas", ui.fmt_pct(facts["value_pct"], 2),
+c1.metric("Official network coverage", ui.fmt_pct(facts["value_pct"], 2),
           help=f"{facts['definition']} As at {facts['as_of']}. Source: {facts['source_name']}.")
 c2.metric(f"Households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "total")))
 c3.metric(f"Rural households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "rural")))
-c4.metric(f"Rural households with fixed broadband, {year}", ui.fmt_pct(val("Malaysia", "fixed_broadband", "rural")))
+c4.metric(f"Rural fixed broadband, {year}", ui.fmt_pct(val("Malaysia", "fixed_broadband", "rural")))
 st.caption(f"Coverage measures where the network reaches; household access measures who is online. "
            f"Coverage: [{facts['source_name']}]({facts['source_url']}). Household figures: DOSM ICTHS {year}, Table 1.2.")
 
 # --- 1. Coverage vs household access by state
 st.subheader("Coverage is near-universal; household access is not")
 states = cur[(cur.indicator == "internet") & (cur.strata == "total") & (cur.state != "Malaysia")].sort_values("pct")
-fig = go.Figure(go.Bar(
-    x=states["pct"], y=states["state"], orientation="h", marker_color=ui.MUTED_LIGHT,
-    marker_line_width=0, hovertemplate="%{y}: %{x:.1f}% of households online<extra></extra>", name="Household access"))
-for s in ("Sabah", "Sarawak"):
-    fig.add_trace(go.Bar(x=states[states.state == s]["pct"], y=[s], orientation="h", marker_color=ui.ACCENT,
-                         hovertemplate="%{y}: %{x:.1f}% of households online<extra></extra>", showlegend=False))
+# Dot plot, not bars: the axis does not start at 0, and bar length would exaggerate the gaps.
+hl = states.state.isin(["Sabah", "Sarawak"])
+fig = go.Figure()
+for _, r in states.iterrows():
+    fig.add_shape(type="line", x0=r.pct, x1=facts["value_pct"], y0=r.state, y1=r.state,
+                  line=dict(color=ui.GRID, width=2), layer="below")
+for mask, col, size in ((~hl, ui.MUTED, 10), (hl, ui.ACCENT, 13)):
+    s_ = states[mask]
+    fig.add_trace(go.Scatter(
+        x=s_["pct"], y=s_["state"], mode="markers+text", marker=dict(color=col, size=size),
+        text=[f"{v:.1f}%" for v in s_["pct"]], textposition="middle left", textfont=dict(color=ui.INK_2, size=11),
+        hovertemplate="%{y}: %{x:.1f}% of households online<extra></extra>", showlegend=False))
 fig.add_vline(x=facts["value_pct"], line_color=ui.INK_2, line_dash="dot", line_width=1.5)
-fig.add_annotation(x=facts["value_pct"], y=1.02, yref="paper", text=f"Official coverage {facts['value_pct']}%",
+fig.add_annotation(x=facts["value_pct"], y=1.0, yref="paper", yanchor="bottom", text=f"Official coverage {facts['value_pct']}%",
                    showarrow=False, xanchor="right", font=dict(color=ui.INK_2, size=12))
 lo = float(states["pct"].min())
-ui.style(fig, height=520, legend=False, barmode="overlay", bargap=0.25)
-fig.update_xaxes(range=[lo - 3, 100.5], title="% of households with internet access", ticksuffix="%")
+ui.style(fig, height=520, legend=False, margin=dict(l=10, r=20, t=40, b=10))
+fig.update_xaxes(range=[lo - 6, 101], title="% of households with internet access", ticksuffix="%")
+fig.update_yaxes(categoryorder="array", categoryarray=states["state"].tolist()[::-1])  # lowest access on top
 st.plotly_chart(fig, width="stretch")
-ui.what(f"Share of households with internet access in {year}, by state (grey bars; Sabah and Sarawak highlighted), "
+ui.what(f"Share of households with internet access in {year}, by state (grey dots; Sabah and Sarawak in blue); the line from each dot to the dotted line is the gap, "
         f"against the official {facts['value_pct']}% network coverage of populated areas (dotted line). "
         "The two measures differ: coverage is about the network, access is about households.",
         data=f"DOSM ICTHS {year} (Table 1.2) · official coverage as at {facts['as_of']}")
@@ -126,6 +133,8 @@ ui.what(f"{ind_lab[ind]} among households in {place}, by urban/rural strata. Yea
         "rounded to one decimal by DOSM; each year comes from the newest DOSM edition that reports it.",
         data=f"DOSM ICTHS {int(t.year.min())}–{int(t.year.max())}, Tables 6.4–6.6")
 
+ui.next_step("views/2_Schools.py", "Schools without fibre",
+             "the gap is sharpest in schools. See which states Parliament flagged.")
 ui.footer([
     f"Official coverage: [{facts['source_name']}]({facts['source_url']}) ({facts['published']})",
     "DOSM, ICT Use and Access by Individuals and Households Survey Report 2024 and 2025, Tables 1.2 and 6.4–6.6",
