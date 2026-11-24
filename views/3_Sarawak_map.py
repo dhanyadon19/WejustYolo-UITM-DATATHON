@@ -14,9 +14,13 @@ STATE = "Sarawak"
 # Gap Index view: the tallest district (Gap Index near 1) rises about a quarter of the map's visible height
 # at the initial view. Tuned with screenshots at 1366 px; change here only.
 MAX_BLOCK_M = 40000
-# Terrain view: heights exaggerated so Sarawak's hills read at state scale without looking cartoonish.
-# Tuned with screenshots at 1366 px (whole state, Kanowit, Belaga: x6 too flat inland, x10 spiky); change here only.
-TERRAIN_X = 8
+# Terrain view: heights exaggerated so interior hills read while the coast and plantations stay flat. A district
+# view (?district=) is rendered fresh and closer, so it uses a lower value. Tuned with screenshots at 1366 px
+# (whole state, Kanowit, Belaga, Kuching at max zoom): x8 looked spiky/crumpled, x4 made Kuching's hills peaky
+# up close, x3 made the whole-state relief too faint. Change here only.
+TERRAIN_X = 4
+TERRAIN_X_DISTRICT = 3
+TERRAIN_MAX_ZOOM = 11  # closer than this the 30 m elevation and imagery look crumpled and blurry
 SARAWAK_VIEW = dict(latitude=2.55, longitude=112.85, zoom=6.05)            # Gap Index view
 SARAWAK_TERRAIN_VIEW = dict(latitude=2.3, longitude=112.75, zoom=6.3)     # tilted terrain view
 TERRAIN_PITCH = 50
@@ -42,6 +46,7 @@ cyear = data.census_year()
 # --- focus district from ?district=... (Sarawak districts with a boundary only)
 qp_d = st.query_params.get("district")
 focus = qp_d if qp_d in set(d.district) else None
+tx = TERRAIN_X_DISTRICT if focus else TERRAIN_X  # exaggeration for this render
 
 ui.page("Sarawak: where the gap is deepest, and why it is hard to reach",
         "Rural settlements on Sarawak's terrain, coloured by the fix our cost screen suggests; or the districts as "
@@ -77,7 +82,7 @@ if terrain:
                                    for c in ["takeup_gap", "satellite", "tower"])
     legend += (" &nbsp;&nbsp; <span style='white-space:nowrap'><span style='display:inline-block;width:16px;"
                "border-top:2px solid #fff;outline:1px solid #888;vertical-align:3px;margin-right:5px'></span>"
-               f"District boundary</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Heights exaggerated ×{TERRAIN_X}</span>")
+               f"District boundary</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Heights exaggerated ×{tx:g}</span>")
 else:
     cats = ["tower", "satellite", "takeup_gap"] if key == "largest_group" else ["tower", "satellite"]
     legend = " &nbsp;&nbsp; ".join(swatch(ui.FIX_COLOURS[c], ui.FIX_LABELS[c]) for c in cats)
@@ -153,11 +158,12 @@ else:
     cam = dict(SARAWAK_TERRAIN_VIEW if terrain else SARAWAK_VIEW)
     if mobile:  # portrait screens: zoom out one step so the whole state fits across
         cam["zoom"] -= 1
-VIEW = pdk.ViewState(**cam, pitch=TERRAIN_PITCH if terrain else 40, bearing=0)
+VIEW = pdk.ViewState(**cam, pitch=TERRAIN_PITCH if terrain else 40, bearing=0,
+                     **({"max_zoom": TERRAIN_MAX_ZOOM} if terrain else {}))
 
 if terrain:
     el, im = tiles["elevation"], tiles["imagery"]
-    k = TERRAIN_X
+    k = tx
     dec = el["decoder"]
     terrain_ext = [{"@@type": "TerrainExtension"}]
     pts = data.settlement_points(STATE).copy()
@@ -176,7 +182,7 @@ if terrain:
         pdk.Layer("TerrainLayer", id="terrain", elevation_data=S(el["url"]), texture=S(im["url"]),
                   elevation_decoder={"rScaler": dec["r"] * k, "gScaler": dec["g"] * k, "bScaler": dec["b"] * k,
                                      "offset": dec["offset"] * k},
-                  max_zoom=min(el["max_zoom"], im["max_zoom"]), mesh_max_error=6, operation=S("terrain+draw"),
+                  max_zoom=min(el["max_zoom"], im["max_zoom"]), mesh_max_error=4, operation=S("terrain+draw"),
                   pickable=False),
         # district boundaries draped on the terrain. The fill is invisible (alpha 1) but keeps districts hoverable and
         # clickable; hover and click use a light accent-blue tint (a pale/white tint reads as snow on the forest)
@@ -244,7 +250,7 @@ if p2.button(f"Open {choice} in District detail", icon=":material/arrow_forward:
 weights_txt = ", ".join("{} {}".format(k_.replace("_", " "), v["weight"]) for k_, v in w.items())
 if terrain:
     ui.what("Sarawak's terrain (satellite image on elevation, heights exaggerated "
-            f"×{TERRAIN_X}) with every rural settlement (one per rural MOE school) as a dot. Colour is the fix our cost "
+            f"×{tx:g}) with every rural settlement (one per rural MOE school) as a dot. Colour is the fix our cost "
             "screen suggests: green where our proxy suggests a fixed network is likely nearby (take-up support), "
             "orange for satellite, blue for a tower. Hills and forest are why many inland settlements are far from "
             "any network and costly to reach. Hover a dot for the estimated people without home internet and cost. "
