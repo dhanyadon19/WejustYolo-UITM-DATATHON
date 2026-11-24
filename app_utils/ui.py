@@ -57,8 +57,9 @@ def page(title: str, intro: str | None = None) -> None:
 
 def what(text: str, data: str | None = None) -> None:
     """Short 'what this shows' line under a chart or table, with the data source and year."""
-    chip = (f"<span style='background:#f3f2ee;border-radius:4px;padding:1px 6px;margin-right:6px;"
-            f"color:{INK_2};display:inline;line-height:1.7'>Data: {data}</span>") if data else ""
+    # the data badge sits on its own line; "What this shows:" starts on the next one
+    chip = (f"<span style='background:#f3f2ee;border-radius:4px;padding:1px 6px;color:{INK_2};"
+            f"display:inline-block;line-height:1.6;margin-bottom:3px'>Data: {data}</span><br/>") if data else ""
     st.markdown(f"<p style='color:{INK_2};font-size:0.88rem;margin-top:-0.4rem'>{chip}<b>What this shows:</b> {text}</p>",
                 unsafe_allow_html=True)
 
