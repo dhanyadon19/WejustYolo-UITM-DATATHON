@@ -138,6 +138,7 @@ st.markdown(f"""
 - **Costs are estimates** from public statements and news (simple averages of budgets ÷ sites), not engineering quotes. Fibre PoP running cost, government satellite prices and users' mobile plan costs are unsourced or excluded.
 - **Settlement model.** Each rural school stands for one settlement and households are assumed equal across a district's rural schools; real settlements vary widely in size.
 - **Cost screen, not cost-benefit.** Towers and satellite are different services (a tower also serves mobile users and roads). Estimated beneficiaries per RM1m count rural people without home internet only; wider benefits are not valued.
+- **Satellite in practice.** A terminal needs continuous power and a clear view of the sky (tall forest and hills can block it), and heavy rain can slow it. The monthly fee is a real cost to low-income households: the five-year cost includes the fee, but not who pays it once any subsidy ends.
 - **No other technologies.** The screen compares tower and satellite only; fibre PoPs appear only as an upper-bound cost sensitivity, not as a recommendation.
 - **Licences.** Ookla data is CC BY-NC-SA 4.0 (non-commercial); OSM-derived boundaries are ODbL.
 """)

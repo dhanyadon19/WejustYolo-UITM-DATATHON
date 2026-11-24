@@ -109,6 +109,7 @@ Districts with no planned settlements (cost 0) have **no estimated-beneficiaries
 
 - **JENDELA towers sit far below the break-even.** JENDELA 2 targets ~**80 residents per site** (2,700 sites for 217,000 residents; `costs.yaml`). That's about **17–29 households** at Sarawak's 2020 household sizes (2.8–4.7), **well below the 144–228 break-even**. Government towers are evidently justified by more than household cost: mobile coverage on roads, safety, and future demand. So our rule is a **cost screen, not a verdict**.
 - **Take-up (proxy):** Our proxy suggests many rural settlements already have a fixed network nearby, so take-up support may matter as much as new infrastructure. Affordability, devices and skills programmes are a different policy lever, which this costing doesn't price.
+- **Satellite in practice.** A terminal needs continuous power and a clear view of the sky (tall forest and hills can block it), and heavy rain can slow it. The monthly fee is a real cost to low-income households: the five-year cost includes the fee, but not who pays it once any subsidy ends. Check power, sky view, who pays the monthly fee, and repairs on the ground before choosing satellite (the District detail page lists these in its action plan box).
 - **The cost bases differ:** satellite cost includes the service subscription for 5 years; tower cost doesn't include what users later pay for mobile plans. This favours towers over satellite.
 
 ## 7. Unsourced assumptions (label in the app)
