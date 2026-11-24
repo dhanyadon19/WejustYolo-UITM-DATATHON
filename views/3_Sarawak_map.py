@@ -66,22 +66,22 @@ if focus:
 
 def swatch(colour: str, label: str, dot: bool = False) -> str:
     shape = "border-radius:50%;border:1.5px solid #fff;" if dot else "border-radius:3px;"
-    return (f"<span style='display:inline-block;width:13px;height:13px;background:{colour};{shape}"
-            f"vertical-align:-2px;margin-right:5px'></span>{label}")
+    return (f"<span style='white-space:nowrap'><span style='display:inline-block;width:13px;height:13px;"
+            f"background:{colour};{shape}vertical-align:-2px;margin-right:5px'></span>{label}</span>")
 
 
 if terrain:
     legend = " &nbsp;&nbsp; ".join(swatch(ui.FIX_COLOURS[c], ui.FIX_LABELS[c], dot=True)
                                    for c in ["takeup_gap", "satellite", "tower"])
-    legend += (" &nbsp;&nbsp; <span style='display:inline-block;width:16px;border-top:2px solid #fff;"
-               "outline:1px solid #888;vertical-align:3px;margin-right:5px'></span>District boundary"
-               f" &nbsp;&nbsp; Heights exaggerated ×{TERRAIN_X}")
+    legend += (" &nbsp;&nbsp; <span style='white-space:nowrap'><span style='display:inline-block;width:16px;"
+               "border-top:2px solid #fff;outline:1px solid #888;vertical-align:3px;margin-right:5px'></span>"
+               f"District boundary</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Heights exaggerated ×{TERRAIN_X}</span>")
 else:
     cats = ["tower", "satellite", "takeup_gap"] if key == "largest_group" else ["tower", "satellite"]
     legend = " &nbsp;&nbsp; ".join(swatch(ui.FIX_COLOURS[c], ui.FIX_LABELS[c]) for c in cats)
-    legend += (" &nbsp;&nbsp; <span style='display:inline-block;width:14px;height:14px;border:3px solid #0b0b0b;"
-               "vertical-align:-3px;margin-right:5px'></span>Small-sample district (low confidence)"
-               " &nbsp;&nbsp; Height = Gap Index")
+    legend += (" &nbsp;&nbsp; <span style='white-space:nowrap'><span style='display:inline-block;width:14px;"
+               "height:14px;border:3px solid #0b0b0b;vertical-align:-3px;margin-right:5px'></span>Small-sample district "
+               "(low confidence)</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Height = Gap Index</span>")
 st.markdown(f"<div style='font-size:0.88rem;color:{ui.INK_2};margin:4px 0 6px 0'>{legend}</div>", unsafe_allow_html=True)
 
 
@@ -107,9 +107,10 @@ for _, r in d.iterrows():
     p = {"cgi": round(float(r.cgi), 3) if ui.isnum(r.cgi) else 0.0, "small": small_r,
          "focus": r.district == focus}
     if terrain:
-        p["tip"] = (f"<b>{r.district}</b> (district)<br/>Gap Index {p['cgi']} · Sarawak need rank {need}<br/>"
-                    f"Households online (DOSM {access_year}) {access}"
-                    + ("<br/>Small sample: low confidence" if small_r else ""))
+        # tooltip fields are plain text (deck.gl escapes them); the markup lives in the tooltip template
+        p.update({"t0": f"{r.district} (district)", "t1": f"Gap Index {p['cgi']} · Sarawak need rank {need}",
+                  "t2": f"Households online (DOSM {access_year}) {access}",
+                  "t3": "Small sample: low confidence" if small_r else ""})
     else:
         cat = r[key] if isinstance(r[key], str) else None
         p.update({
@@ -147,7 +148,9 @@ if focus_pts:
     zoom = max(6.0, min(10.5, math.log2(360 / max(span, 1e-3)) - 0.6))
     cam = dict(latitude=(min(lats) + max(lats)) / 2, longitude=(min(lons) + max(lons)) / 2, zoom=zoom)
 else:
-    cam = SARAWAK_TERRAIN_VIEW if terrain else SARAWAK_VIEW
+    cam = dict(SARAWAK_TERRAIN_VIEW if terrain else SARAWAK_VIEW)
+    if mobile:  # portrait screens: zoom out one step so the whole state fits across
+        cam["zoom"] -= 1
 VIEW = pdk.ViewState(**cam, pitch=TERRAIN_PITCH if terrain else 40, bearing=0)
 
 if terrain:
@@ -157,13 +160,13 @@ if terrain:
     terrain_ext = [{"@@type": "TerrainExtension"}]
     pts = data.settlement_points(STATE).copy()
     pts["colour"] = [ui.hex_rgb(ui.FIX_COLOURS.get(c, ui.MUTED_LIGHT), 245) for c in pts.category_main]
-    pts["tip"] = [
-        f"<b>Rural settlement, {r.district}</b><br/>Fix: {ui.FIX_LABELS.get(r.category_main, ui.DASH)}<br/>"
-        f"Estimated people without home internet: {ui.fmt_num(r.unconnected_people)}<br/>"
-        "Estimated 5-year cost (main case): "
-        + ("not costed (take-up support)" if r.category_main == "takeup_gap" else ui.fmt_rm(r.cost_main))
-        for r in pts.itertuples()]
-    pts = pts[["lon", "lat", "colour", "tip"]]
+    pts["t0"] = "Rural settlement, " + pts["district"]
+    pts["t1"] = ["Fix: " + ui.FIX_LABELS.get(c, ui.DASH) for c in pts.category_main]
+    pts["t2"] = ["Estimated people without home internet: " + ui.fmt_num(v) for v in pts.unconnected_people]
+    pts["t3"] = ["Estimated 5-year cost (main case): "
+                 + ("not costed (take-up support)" if c == "takeup_gap" else ui.fmt_rm(v))
+                 for c, v in zip(pts.category_main, pts.cost_main)]
+    pts = pts[["lon", "lat", "colour", "t0", "t1", "t2", "t3"]]
     layers = [
         # dark backdrop under the terrain so far-away tiles that have not loaded yet do not show as white gaps
         pdk.Layer("PolygonLayer", [{"p": [[95, -15], [135, -15], [135, 25], [95, 25]]}], id="backdrop",
@@ -188,7 +191,7 @@ if terrain:
                   extensions=terrain_ext, terrain_draw_mode=S("offset"), billboard=True,
                   parameters={"depthCompare": "always", "depthWriteEnabled": False}),
     ]
-    tooltip = {"html": "{tip}", "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
+    tooltip = {"html": "<b>{t0}</b><br/>{t1}<br/>{t2}<br/>{t3}", "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
     deck = pdk.Deck(layers=layers, initial_view_state=VIEW, map_style=None, tooltip=tooltip)
 else:
     layers = [
