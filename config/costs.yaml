@@ -62,11 +62,13 @@ satellite:
 
 decision_rule:
   # Five-year cost of one tower (capex + 5 x opex) = RM2.13m.
-  # Break-even number of households where one tower costs the same as one Starlink terminal per household:
+  # Break-even number of households where one tower costs the same as one Starlink terminal per household.
+  # Compared with UNCONNECTED households (those the satellite cost pays for); build_costing.py case
+  # rule_all_hh compares it with all households instead, as a sensitivity.
   breakeven_households_vs_starlink:
     residential: 144
     residential_lite: 228
   interpretation: >
-    Below roughly 150-230 households within reach, satellite is likely cheaper over five years;
+    Below roughly 150-230 households without home internet within reach, satellite is likely cheaper over five years;
     above that, a tower is likely better value (and also serves mobile users). Treat as a screening
     rule, not an engineering decision. Fibre PoP is preferred where a fibre route already passes nearby.

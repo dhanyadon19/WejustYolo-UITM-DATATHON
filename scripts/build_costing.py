@@ -19,15 +19,19 @@ Category per settlement (in order)
   takeup_gap  any Ookla fixed tile within 2 km of the school: "fixed network likely nearby:
               take-up gap" (PROXY). Take-up, not infrastructure, is the likely barrier, so these
               settlements are EXCLUDED from the infrastructure cost (counted and reported only).
-  tower       households >= break-even (tower 5-yr cost / satellite 5-yr cost per terminal)
+  tower       UNCONNECTED households >= break-even (tower 5-yr cost / satellite 5-yr cost per terminal)
   satellite   otherwise: one terminal per unconnected household + one Business terminal for the school
+  The tower test uses the same households the satellite cost pays for (unconnected ones), so both
+  sides of the comparison cost the same people. Sensitivity case rule_all_hh keeps the earlier rule
+  (ALL households in the settlement vs break-even), with Residential costs.
 
 5-year cost to provide service (users' mobile plans excluded)
   tower       capex + 5 x opex
   satellite   (kit + 60 x monthly) per terminal; school terminal uses the Business plan
   upper bound additionally costs each take-up-gap settlement as one fibre PoP (capex only;
               running cost UNSOURCED)
-Cases: main (Residential, central costs), Lite plan, upper bound; also all costs -30% / +30%.
+Cases: main (Residential, central costs), Lite plan, upper bound; also all costs -30% / +30%, and
+rule_all_hh (Residential, tower test on all households: the earlier rule, a sensitivity).
 
 Value (planned = tower/satellite settlements)
   MAIN       people_per_rm_m = rural people without home internet in planned settlements per RM1m
@@ -60,6 +64,8 @@ OUT_CLUSTERS = PROC / "costing_clusters.csv"
 OUT_DISTRICTS = PROC / "costing_districts.csv"
 FIBRE_RADIUS_KM = 2
 FOCUS = "Sarawak"
+BASIS_MAIN = "unconnected_households"  # tower test: the households the costs pay for
+BASIS_ALL = "households"               # sensitivity rule_all_hh: every household in the settlement
 TAKEUP = "takeup_gap"  # fixed network likely nearby: take-up gap (PROXY)
 
 
@@ -130,11 +136,12 @@ def census_households(d: gpd.GeoDataFrame) -> pd.DataFrame:
     return out, parent
 
 
-def categorise(clusters: pd.DataFrame, u: dict) -> pd.Series:
+def categorise(clusters: pd.DataFrame, u: dict, basis: str = BASIS_MAIN) -> pd.Series:
     """takeup_gap if a fixed tile is within 2 km (PROXY: fixed network likely nearby), else
-    tower if households >= break-even, else satellite."""
+    tower if clusters[basis] >= break-even, else satellite. basis = unconnected_households (main)
+    or households (sensitivity rule_all_hh)."""
     return pd.Series(np.where(clusters["fixed_nearby"], TAKEUP,
-                              np.where(clusters["households"] >= u["breakeven_households"], "tower", "satellite")),
+                              np.where(clusters[basis] >= u["breakeven_households"], "tower", "satellite")),
                      index=clusters.index)
 
 
@@ -190,9 +197,11 @@ def main() -> None:
 
     # --- scenarios: category and 5-yr cost per settlement
     scen = {"main": unit_costs(c, "residential"), "lite": unit_costs(c, "residential_lite"),
-            "cost_minus30": unit_costs(c, "residential", 0.7), "cost_plus30": unit_costs(c, "residential", 1.3)}
+            "cost_minus30": unit_costs(c, "residential", 0.7), "cost_plus30": unit_costs(c, "residential", 1.3),
+            "rule_all_hh": unit_costs(c, "residential")}
+    basis = {k: (BASIS_ALL if k == "rule_all_hh" else BASIS_MAIN) for k in scen}
     for k, u in scen.items():
-        cl[f"category_{k}"] = categorise(cl, u)
+        cl[f"category_{k}"] = categorise(cl, u, basis[k])
         cl[f"cost_{k}"] = cost(cl, cl[f"category_{k}"], u)
     cl["cost_upper_bound"] = cost(cl, cl["category_main"], scen["main"], upper_bound=True)
 
@@ -232,6 +241,7 @@ def main() -> None:
         dist[f"cost_{k}_rm"] = g[f"cost_{k}"].sum()
     dist["main_fix"] = main_fix(cl, cl["category_main"])
     dist["main_fix_lite"] = main_fix(cl, cl["category_lite"])
+    dist["main_fix_rule_all_hh"] = main_fix(cl, cl["category_rule_all_hh"])
     dist = dist.reset_index().merge(
         gi[["state", "district", "cgi", "rank_national", "rank_sarawak", "small_sample_flag",
             "people_without_home_internet", "population_k", "access_gap"]], on=key, how="left")
@@ -256,7 +266,7 @@ def main() -> None:
     sk = dist["state"] == FOCUS
     dist["value_rank_national"] = rank("people_per_rm_m_main")
     dist["value_rank_sarawak"] = rank("people_per_rm_m_main", sk)
-    for k in ["lite", "cost_minus30", "cost_plus30", "upper_bound"]:
+    for k in ["lite", "cost_minus30", "cost_plus30", "upper_bound", "rule_all_hh"]:
         dist[f"value_rank_national_{k}"] = rank(f"people_per_rm_m_{k}")
     dist["fibre_pop_opex_unsourced_upper_bound"] = dist["n_takeup_gap"] > 0
     dist.insert(0, "ookla_quarter", f"{year}Q{q}")
@@ -267,7 +277,7 @@ def main() -> None:
     u = scen["main"]
     print(f"unit 5-yr costs (main, Residential): tower RM{u['tower']:,.0f}, satellite terminal RM{u['satellite_terminal']:,.0f}, "
           f"school terminal RM{u['satellite_school']:,.0f}; fibre PoP RM{u['fibre_pop']:,.0f} (capex only, upper bound only); "
-          f"break-even {u['breakeven_households']:.1f} households (Lite {scen['lite']['breakeven_households']:.1f})")
+          f"break-even {u['breakeven_households']:.1f} unconnected households (Lite {scen['lite']['breakeven_households']:.1f})")
     print("new-district parents (largest overlap with 2022 DOSM polygon):", {k[1]: v[1] for k, v in parent.items()})
     no_cl = gi[~gi.set_index(key).index.isin(dist.set_index(key).index)]
     print(f"\nwrote {OUT_CLUSTERS.relative_to(ROOT)}: {len(cl)} settlements (rural schools) in {len(dist)} districts")
@@ -283,13 +293,18 @@ def main() -> None:
 
     print("\n=== Totals: 5-yr cost to provide service ===")
     lab = {"main": "Main (Residential)", "lite": "Lite plan", "upper_bound": "Upper bound (+1 PoP per take-up settlement)",
-           "cost_minus30": "All costs -30%", "cost_plus30": "All costs +30%"}
-    for k in ["main", "lite", "upper_bound", "cost_minus30", "cost_plus30"]:
+           "cost_minus30": "All costs -30%", "cost_plus30": "All costs +30%",
+           "rule_all_hh": "Rule sensitivity: tower test on all households"}
+    for k in ["main", "lite", "upper_bound", "cost_minus30", "cost_plus30", "rule_all_hh"]:
         extra = ""
         if k == "lite":
             ch = dist[dist["main_fix"] != dist["main_fix_lite"]]
             ncl = int((cl["category_lite"] != cl["category_main"]).sum())
             extra = f" | main fix changes in {len(ch)} districts, {ncl} settlements: {sorted(ch['district'])}"
+        elif k == "rule_all_hh":
+            ch = dist[dist["main_fix"] != dist["main_fix_rule_all_hh"]]
+            ncl = int((cl["category_rule_all_hh"] != cl["category_main"]).sum())
+            extra = f" | main fix changes in {len(ch)} districts, {ncl} settlements"
         elif k.startswith("cost_"):
             extra = f" | settlements changing category: {int((cl[f'category_{k}'] != cl['category_main']).sum())}"
         print(f"  {lab[k]:<45} Malaysia RM{dist[f'cost_{k}_rm'].sum() / 1e9:5.2f}bn | "

@@ -93,7 +93,7 @@ rows = [
     ("Satellite, 5-year per school (Business from)", f"RM{school5:,}", "kit + 60 × Business 'from' price (derived)"),
     ("Fibre PoP capex (upper-bound cost sensitivity only; not a recommendation)", f"RM{f['capex_per_site_rm']['central']:,}", "; ".join(f["notes"]) + "; running cost UNSOURCED"),
     ("Break-even households per tower", f"{tower5 / sat5['residential']:.1f} (Lite {tower5 / sat5['residential_lite']:.1f})",
-     "tower 5-year cost ÷ satellite 5-year cost per terminal"),
+     "tower 5-year cost ÷ satellite 5-year cost per terminal; compared with households without home internet"),
 ]
 st.dataframe(pd.DataFrame(rows, columns=["Item", "Amount (estimate)", "Basis / source"]), hide_index=True, width="stretch",
              column_config={"Item": st.column_config.TextColumn(width="medium"),
@@ -102,7 +102,8 @@ ui.what("Unit costs used by the costing (all estimates).", data="config/costs.ya
 srcs = sorted(set(t["sources"] + f["sources"] + s["sources"]))
 st.markdown("Sources: " + " · ".join(f"[{i + 1}]({u})" for i, u in enumerate(srcs)))
 cases = {"Main (Residential)": "cost_main_rm", "Lite plan": "cost_lite_rm",
-         "Upper bound: cost sensitivity, +1 fibre PoP per take-up-gap settlement (not a recommendation)": "cost_upper_bound_rm"}
+         "Upper bound: cost sensitivity, +1 fibre PoP per take-up-gap settlement (not a recommendation)": "cost_upper_bound_rm",
+         "Rule sensitivity: tower test on all households": "cost_rule_all_hh_rm"}
 sar = co.state == "Sarawak"
 st.dataframe(pd.DataFrame([{"Case": k, "Malaysia": ui.fmt_rm(co[c].sum()), "Sarawak": ui.fmt_rm(co.loc[sar, c].sum())}
                            for k, c in cases.items()]), hide_index=True, width="stretch",
@@ -115,7 +116,8 @@ res_site = t["residents_per_site"]
 st.markdown(
     f"**Settlements.** One per rural MOE school ({len(cl):,}). {int(take.sum()):,} ({100 * take.mean():.0f}%) have an Ookla fixed "
     "tile within 2 km and are treated as a **take-up gap** (fixed network likely nearby; a proxy), not costed. "
-    f"{ui.TAKEUP_TXT} The rest are screened for a tower if their households reach the break-even, otherwise satellite.  \n"
+    f"{ui.TAKEUP_TXT} The rest are screened for a tower if their households without home internet (the ones the "
+    "costs pay for) reach the break-even, otherwise satellite. A sensitivity case applies the test to all households instead.  \n"
     f"**JENDELA comparison.** JENDELA 2 plans about {res_site} residents per tower site, roughly "
     f"{res_site / hh.max():.0f}–{res_site / hh.min():.0f} households at Sarawak household sizes — well below the "
     f"break-even of {tower5 / sat5['residential']:.0f}–{tower5 / sat5['residential_lite']:.0f}. Real towers serve more than "
