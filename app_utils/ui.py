@@ -240,6 +240,10 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
         flagged = r.get("small_sample_flag")
         if isnum(flagged) and bool(flagged):
             small_sample_banner(name, r.get("implied_sample_n"), r.get("internet_moe95_pp"))
+        # the Sarawak map focuses a district from ?district=...; only districts drawn on it get the link
+        if state == "Sarawak" and r.get("has_boundary", False) and isnum(r.get("rank_sarawak")):
+            st.page_link("views/3_Sarawak_map.py", label=f"Show {name} on the Sarawak map", icon=":material/map:",
+                         query_params={"district": name})
 
         # 2. What to do
         st.markdown("**2. What to do (estimates)**")
