@@ -37,18 +37,20 @@ states = cur[(cur.indicator == "internet") & (cur.strata == "total") & (cur.stat
 # Dot plot, not bars: the axis does not start at 0, and bar length would exaggerate the gaps.
 hl = states.state.isin(["Sabah", "Sarawak"])
 fig = go.Figure()
+near = states["pct"] >= facts["value_pct"] - 0.5  # labels left of these dots would sit on the dotted line
 for mask, col, size in ((~hl, ui.MUTED, 10), (hl, ui.ACCENT, 13)):
     s_ = states[mask]
     fig.add_trace(go.Scatter(
         x=s_["pct"], y=s_["state"], mode="markers+text", marker=dict(color=col, size=size),
-        text=[f"{v:.1f}%" for v in s_["pct"]], textposition="middle left", textfont=dict(color=ui.INK_2, size=11),
+        text=[f"{v:.1f}%" for v in s_["pct"]],
+        textposition=["middle right" if nr else "middle left" for nr in near[mask]], textfont=dict(color=ui.INK_2, size=11),
         hovertemplate="%{y}: %{x:.1f}% of households online<extra></extra>", showlegend=False))
 fig.add_vline(x=facts["value_pct"], line_color=ui.INK_2, line_dash="dot", line_width=1.5)
 fig.add_annotation(x=facts["value_pct"], y=1.0, yref="paper", yanchor="bottom", text=f"Official coverage {facts['value_pct']}%",
                    showarrow=False, xanchor="right", font=dict(color=ui.INK_2, size=12))
 lo = float(states["pct"].min())
 ui.style(fig, height=520, legend=False, margin=dict(l=10, r=20, t=40, b=10))
-fig.update_xaxes(range=[lo - 6, 101], title="% of households with internet access", ticksuffix="%")
+fig.update_xaxes(range=[lo - 6, 102.5], title="% of households with internet access", ticksuffix="%")
 fig.update_yaxes(categoryorder="array", categoryarray=states["state"].tolist()[::-1])  # lowest access on top
 st.plotly_chart(fig, width="stretch")
 ui.what(f"Share of households with internet access in {year}, by state (grey dots; Sabah and Sarawak in blue); "

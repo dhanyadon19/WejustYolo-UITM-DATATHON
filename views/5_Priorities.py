@@ -59,8 +59,11 @@ for cat in ["tower", "satellite"]:
                       "<br>5-year cost RM%{customdata[4]:,.1f}m (estimate)<br>Small sample: %{customdata[9]}<extra></extra>"))
 # label the five districts highest on both axes, right next to their bubble (no leader lines)
 lab = d.assign(score=d.need_rank + d.ben_rank).nsmallest(5, "score")
-fig.add_trace(go.Scatter(x=lab.need_rank, y=lab.ben_rank, mode="text", text=[f"{t}  " for t in lab.district], textposition="middle left",
-                         textfont=dict(size=11, color=ui.INK), hoverinfo="skip", showlegend=False, cliponaxis=False))
+for _, r in lab.iterrows():
+    # shift each label left by its own bubble radius (area sizemode: diameter px = sqrt(size / sizeref)) + white border
+    radius = max(np.sqrt(r.planned_people_without_internet / sref), 5) / 2 + 2
+    fig.add_annotation(x=r.need_rank, y=r.ben_rank, text=r.district, showarrow=False, xanchor="right",
+                       xshift=-(radius + 3), font=dict(size=11, color=ui.INK), bgcolor="rgba(252,252,251,0.7)")
 mid = (n + 1) / 2
 fig.add_hline(y=mid, line_color=ui.GRID, line_width=1)
 fig.add_vline(x=mid, line_color=ui.GRID, line_width=1)
@@ -72,8 +75,13 @@ for qx, qy, xa, ya, txt in ((1, 1, "right", "top", "<b>Act first</b>"),
     fig.add_annotation(x=qx, y=qy, xref="paper", yref="paper", xanchor=xa, yanchor=ya, text=txt, showarrow=False,
                        font=dict(size=11, color=ui.MUTED), bgcolor="rgba(252,252,251,0.8)")
 ui.style(fig, height=560)
-fig.update_xaxes(title="Need rank (1 = largest gap)  → higher need", range=[n + 1.5, 0.4], zeroline=False)
-fig.update_yaxes(title="Estimated beneficiaries per RM1m, rank (1 = most)  → more", range=[n + 1.5, 0.4], zeroline=False)
+pad = max(1.0, 0.035 * n)  # room so the largest rank-1 bubble is not clipped at the plot edge
+step = 5 if n <= 60 else 20
+ticks = [1] + list(range(step, n + 1, step))  # no rank-0 tick in the padding
+fig.update_xaxes(tickvals=ticks)
+fig.update_yaxes(tickvals=ticks)
+fig.update_xaxes(title="Need rank (1 = largest gap)  → higher need", range=[n + 1.5, 1 - pad], zeroline=False)
+fig.update_yaxes(title="Estimated beneficiaries per RM1m, rank (1 = most)  → more", range=[n + 1.5, 1 - pad], zeroline=False)
 ev = st.plotly_chart(fig, width="stretch", on_select="rerun", selection_mode="points", key="prio_chart")
 try:
     pts = ev.selection["points"]
