@@ -99,6 +99,33 @@ def district_table() -> pd.DataFrame:
     return df
 
 
+FIX_CATS = ["takeup_gap", "satellite", "tower"]
+
+
+@st.cache_data(show_spinner=False)
+def fix_breakdown() -> pd.DataFrame:
+    """One row per (state, district, category) for the main case: settlements, estimated rural people
+    without home internet, five-year cost (main, Residential) and the same settlements' Lite-plan cost.
+    Every district in costing_clusters gets all three categories (0 where none)."""
+    cl = csv("costing_clusters")
+    g = cl.groupby(["state", "district", "category_main"]).agg(
+        n=("school_code", "size"), people=("unconnected_people", "sum"),
+        cost_main=("cost_main", "sum"), cost_lite=("cost_lite", "sum")).reset_index().rename(columns={"category_main": "category"})
+    full = cl[["state", "district"]].drop_duplicates().merge(pd.DataFrame({"category": FIX_CATS}), how="cross")
+    g = full.merge(g, on=["state", "district", "category"], how="left")
+    num = ["n", "people", "cost_main", "cost_lite"]
+    g[num] = g[num].fillna(0)
+    g["n"] = g["n"].astype(int)
+    return g
+
+
+@st.cache_data(show_spinner=False)
+def census_year() -> int | None:
+    """Census year behind the settlement households, read from costing_clusters.hh_source."""
+    years = csv("costing_clusters")["hh_source"].astype(str).str.extract(r"Census (\d{4})")[0].dropna()
+    return int(years.mode().iloc[0]) if not years.empty else None
+
+
 @st.cache_data(show_spinner=False)
 def settlement_groups() -> pd.DataFrame:
     """Per district: rural people without home internet by settlement category (main case)."""
