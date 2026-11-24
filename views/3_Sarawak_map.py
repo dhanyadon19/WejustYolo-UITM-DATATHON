@@ -278,19 +278,27 @@ if len(no_boundary):
         + ". No official or open boundary exists yet; its area is drawn inside its neighbour.")
 
 with st.expander("Table view"):
-    tv = d.sort_values("rank_sarawak")[["district", "cgi", "rank_sarawak", "rank_sarawak_p05", "rank_sarawak_p95",
-                                        "internet_pct", "small_sample_flag", "internet_moe95_pp", "mb_dl_mbps",
-                                        "fixed_reach", "income_median", "share_settlements_takeup_gap", "main_fix"]].copy()
-    tv["share_settlements_takeup_gap"] = (100 * tv["share_settlements_takeup_gap"]).round(0)
-    tv["main_fix"] = tv["main_fix"].map(ui.FIX_LABELS)
-    st.dataframe(tv.rename(columns={
-        "district": "District", "cgi": "Gap Index", "rank_sarawak": "Need rank", "rank_sarawak_p05": "Rank p05",
-        "rank_sarawak_p95": "Rank p95", "internet_pct": f"Households online % ({access_year})",
-        "small_sample_flag": "Small sample", "internet_moe95_pp": "Approx. MOE (pp)", "mb_dl_mbps": f"Mobile Mbps ({quarter})",
-        "fixed_reach": "Fixed tests /1k", "income_median": "Median income RM (2024)",
-        "share_settlements_takeup_gap": "Take-up settlements %", "main_fix": "Main fix"}),
-        hide_index=True, width="stretch", column_config={"District": st.column_config.TextColumn(width="medium")})
-    ui.what("All Sarawak districts on the map, sorted by need.",
+    tv = d.sort_values("rank_sarawak").copy()
+    tv["need"] = [ui.rank_short(r, a, b) for r, a, b in zip(tv.rank_sarawak, tv.rank_sarawak_p05, tv.rank_sarawak_p95)]
+    # margin of error only where the sample is small (elsewhere DOSM's figure has no inferred margin)
+    tv["moe_small"] = tv.internet_moe95_pp.where(tv.small_sample_flag.fillna(False).astype(bool))
+    tv["takeup_pct"] = 100 * tv.share_settlements_takeup_gap
+    tv["fix"] = tv.main_fix.map(ui.FIX_LABELS)
+    # fixed tests per 1,000 people and income are in the district tooltip and on District detail
+    ui.table(tv, [
+        ("district", "District", None),
+        ("cgi", "Gap Index", ".3f", "Connectivity Gap Index, 0 = best, 1 = worst nationally"),
+        ("need", "Need rank", lambda v: v, "Sarawak need rank (5th–95th percentile range over random index weightings)"),
+        ("internet_pct", "Online (%)", ".1f", f"Households with internet access, DOSM ICTHS {access_year} (%)"),
+        ("moe_small", "± MOE (pp)", ".1f", "Approximate margin of error (simple random-sampling formula), our estimate; "
+                                           "shown only for small-sample districts"),
+        ("mb_dl_mbps", "Mobile (Mbps)", ".1f", f"Mobile download speed, Ookla {quarter}, test-weighted mean (Mbps)"),
+        ("takeup_pct", "Take-up (%)", ".0f", "Share of rural settlements where our proxy suggests a fixed network is "
+                                             "likely nearby (take-up gap)"),
+        ("fix", "Main fix", None, "Fix serving most rural people without home internet among planned settlements"),
+    ])
+    ui.what("All Sarawak districts on the map, sorted by need. Need rank range: 5th–95th percentile over random "
+            "index weightings. Margin of error: our approximate estimate, shown only for small-sample districts.",
             data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · costing (Census 2020, MOE list June 2022)")
 
 ui.next_step("views/5_Priorities.py", "Priorities",

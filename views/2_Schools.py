@@ -90,13 +90,14 @@ with left:
     ui.what(msg, data=MOE_LIST + (f" · Ookla {quarter}" if screen else ""))
 with right:
     st.markdown("**Does the screening layer match Parliament?**")
-    v = val.rename(columns={"state": "State", "hansard_no_fibre": "Hansard", "est_2km": "Screen 2 km",
-                            "pct_diff_2km": "Diff 2 km", "est_1km": "Screen 1 km", "pct_diff_1km": "Diff 1 km"})
-    st.dataframe(v[["State", "Hansard", "Screen 2 km", "Diff 2 km", "Diff 1 km"]],
-                 hide_index=True, width="stretch",
-                 column_config={
-                                "Diff 2 km": st.column_config.NumberColumn(format="%+.0f%%"),
-                                "Diff 1 km": st.column_config.NumberColumn(format="%+.0f%%")})
+    pct = lambda v: f"{v:+,.0f}%" if ui.isnum(v) else ""  # noqa: E731
+    ui.table(val, [
+        ("state", "State", None),
+        ("hansard_no_fibre", "Hansard", ",.0f", "Schools without fibre, as stated in Parliament"),
+        ("est_2km", "Screen", ",.0f", "Schools with no Ookla fixed tile within 2 km (low-confidence screen)"),
+        ("pct_diff_2km", "Diff 2 km", pct, "Screen (2 km) vs Hansard, % difference"),
+        ("pct_diff_1km", "Diff 1 km", pct, "Screen (1 km) vs Hansard, % difference"),
+    ])
     tot = val[val.state.str.startswith("Total")].iloc[0]
     conf = conn[conn.likely_no_fibre == True]["confidence"].value_counts()  # noqa: E712
     ui.what(f"The 2 km screen finds {int(tot.est_2km):,} schools against Parliament's {int(tot.hansard_no_fibre):,} "

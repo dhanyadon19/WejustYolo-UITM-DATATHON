@@ -123,30 +123,28 @@ note += ("With satellite, cost grows with every household, so small differences 
 st.markdown(note)
 
 st.subheader("Ranks with ranges")
-tbl = d.sort_values(["need_rank"])[["district", "state", "need_rank", p05, p95, "ben_rank", "ben_lo", "ben_hi",
-                                     f"people_per_rm_m_{case}", f"students_per_rm_m_{case}", f"cost_{case}_rm",
-                                     "planned_people_without_internet", "share_settlements_takeup_gap", fix_col,
-                                     "small_sample_flag"]].copy()
-tbl["Need range (weights)"] = [ui.range_text(a, b) for a, b in zip(tbl[p05], tbl[p95])]
-tbl["Beneficiaries rank range (cost cases)"] = [ui.range_text(a, b) for a, b in zip(tbl.ben_lo, tbl.ben_hi)]
-tbl[f"cost_{case}_rm"] = (tbl[f"cost_{case}_rm"] / 1e6).round(1)
-tbl["share_settlements_takeup_gap"] = (100 * tbl.share_settlements_takeup_gap).round(0)
-tbl[fix_col] = tbl[fix_col].map(ui.FIX_LABELS)
-out = tbl.rename(columns={"district": "District", "state": "State", "need_rank": "Need rank",
-                          "ben_rank": "Beneficiaries per RM1m rank",
-                          f"people_per_rm_m_{case}": "Est. rural people per RM1m", f"students_per_rm_m_{case}": "Est. pupils per RM1m",
-                          f"cost_{case}_rm": "Est. 5-yr cost (RM m)", "planned_people_without_internet": "Rural people reached",
-                          "share_settlements_takeup_gap": "Take-up settlements %", fix_col: "Main fix",
-                          "small_sample_flag": "Small sample"})
-cols = ["District"] + (["State"] if scope == "All Malaysia" else []) + [
-    "Need rank", "Need range (weights)", "Beneficiaries per RM1m rank", "Beneficiaries rank range (cost cases)",
-    "Est. rural people per RM1m", "Est. pupils per RM1m", "Est. 5-yr cost (RM m)", "Rural people reached",
-    "Take-up settlements %", "Main fix", "Small sample"]
-st.dataframe(out[cols], hide_index=True, width="stretch",
-             column_config={"District": st.column_config.TextColumn(width="medium"),
-                            "Est. rural people per RM1m": st.column_config.NumberColumn(format="%.0f"),
-                            "Est. pupils per RM1m": st.column_config.NumberColumn(format="%.0f"),
-                            "Rural people reached": st.column_config.NumberColumn(format="%.0f")})
+tbl = d.sort_values(["need_rank"]).copy()
+tbl["need"] = [ui.rank_short(r, a, b) for r, a, b in zip(tbl.need_rank, tbl[p05], tbl[p95])]
+tbl["ben"] = [ui.rank_short(r, a, b) for r, a, b in zip(tbl.ben_rank, tbl.ben_lo, tbl.ben_hi)]
+tbl["cost_m"] = tbl[f"cost_{case}_rm"] / 1e6
+tbl["takeup_pct"] = 100 * tbl.share_settlements_takeup_gap
+tbl["fix"] = tbl[fix_col].map(ui.FIX_LABELS)
+tbl["small"] = ["Yes" if ui.isnum(v) and bool(v) else "No" for v in tbl.small_sample_flag]
+# pupils per RM1m stays on District detail; the table keeps the columns needed to compare districts
+ui.table(tbl, [("district", "District", None)] + ([("state", "State", None)] if scope == "All Malaysia" else []) + [
+    ("need", "Need rank", lambda v: v, "Need rank (5th–95th percentile range over random index weightings)"),
+    ("ben", "Per RM1m rank", lambda v: v, "Estimated-beneficiaries-per-RM1m rank (range across the Residential, Lite "
+                                          "and upper-bound cost cases)"),
+    (f"people_per_rm_m_{case}", "Per RM1m", ",.0f", "Estimated beneficiaries per RM1m: rural people without home "
+                                                    "internet in planned settlements per RM1m of five-year cost"),
+    ("cost_m", "Cost (RM m)", ",.1f", "Estimated five-year infrastructure cost, RM million"),
+    ("planned_people_without_internet", "People reached", ",.0f", "Estimated rural people without home internet in "
+                                                                  "planned (tower or satellite) settlements"),
+    ("takeup_pct", "Take-up (%)", ".0f", "Share of rural settlements where our proxy suggests a fixed network is "
+                                         "likely nearby (take-up gap)"),
+    ("fix", "Main fix", None),
+    ("small", "Small sample", None, "Yes = DOSM estimate rests on a small inferred sample: low confidence"),
+])
 excluded = (dt if scope == "All Malaysia" else dt[dt.state == "Sarawak"])
 excluded = excluded[excluded[f"people_per_rm_m_{case}"].isna()]
 why = {
@@ -157,7 +155,7 @@ why = {
 }
 why_txt = "; ".join(f"{int(m.sum())} {k}" + (f" ({', '.join(excluded[m].district)})" if 0 < m.sum() <= 3 else "")
                     for k, m in why.items() if m.sum())
-ui.what("Need range: 5th–95th percentile rank over 1,000 random index weightings. Beneficiaries rank range: lowest and "
+ui.what("Need rank range: 5th–95th percentile rank over 1,000 random index weightings. Beneficiaries rank range: lowest and "
         "highest rank across the Residential, Lite and upper-bound cost cases (scaling all costs ±30% leaves ranks "
         "unchanged). Small-sample districts carry extra uncertainty from their approximate margin of error."
         + (f" Not shown ({len(excluded)}): {why_txt}." if len(excluded) else ""),

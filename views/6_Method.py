@@ -66,10 +66,17 @@ st.markdown(f"**Survey uncertainty.** {nsmall} districts have a small {ui.INFERR
 
 # --- 3. School proxy validation
 st.header("3. School screening layer: validation")
-st.dataframe(val.rename(columns={"state": "State", "schools_moe": "MOE schools", "hansard_no_fibre": "Hansard",
-                                 "est_2km": "Screen 2 km", "diff_2km": "Diff 2 km", "pct_diff_2km": "% diff 2 km",
-                                 "est_1km": "Screen 1 km", "diff_1km": "Diff 1 km", "pct_diff_1km": "% diff 1 km"}),
-             hide_index=True, width="stretch", column_config={"State": st.column_config.TextColumn(width="medium")})
+ui.table(val, [
+    ("state", "State", None),
+    ("schools_moe", "MOE schools", ",.0f"),
+    ("hansard_no_fibre", "Hansard", ",.0f"),
+    ("est_2km", "Screen 2 km", ",.0f"),
+    ("diff_2km", "Diff 2 km", "+,.0f"),
+    ("pct_diff_2km", "% diff 2 km", lambda v: f"{v:+,.1f}%" if ui.isnum(v) else ""),
+    ("est_1km", "Screen 1 km", ",.0f"),
+    ("diff_1km", "Diff 1 km", "+,.0f"),
+    ("pct_diff_1km", "% diff 1 km", lambda v: f"{v:+,.1f}%" if ui.isnum(v) else ""),
+])
 ui.what("Schools with no Ookla fixed tile within 1 or 2 km, compared with the schools Parliament says lack fibre.",
         data=f"Hansard, 11 Nov 2026 · MOE school list, June 2022 · Ookla {gi.ookla_quarter.iloc[0]}")
 tot = val[val.state.str.startswith("Total")].iloc[0]
@@ -102,13 +109,14 @@ ui.what("Unit costs used by the costing (all estimates).", data="config/costs.ya
 srcs = sorted(set(t["sources"] + f["sources"] + s["sources"]))
 st.markdown("Sources: " + " · ".join(f"[{i + 1}]({u})" for i, u in enumerate(srcs)))
 cases = {"Main (Residential)": "cost_main_rm", "Lite plan": "cost_lite_rm",
-         "Upper bound: cost sensitivity, +1 fibre PoP per take-up-gap settlement (not a recommendation)": "cost_upper_bound_rm",
+         "Upper bound (cost sensitivity, not a recommendation)": "cost_upper_bound_rm",
          "Rule sensitivity: tower test on all households": "cost_rule_all_hh_rm"}
 sar = co.state == "Sarawak"
 st.dataframe(pd.DataFrame([{"Case": k, "Malaysia": ui.fmt_rm(co[c].sum()), "Sarawak": ui.fmt_rm(co.loc[sar, c].sum())}
                            for k, c in cases.items()]), hide_index=True, width="stretch",
              column_config={"Case": st.column_config.TextColumn(width="large")})
-ui.what("Estimated five-year cost to provide service under each case.",
+ui.what("Estimated five-year cost to provide service under each case. Upper bound: adds one fibre PoP per take-up-gap "
+        "settlement (capex only), a cost sensitivity, not a recommendation.",
         data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · config/costs.yaml")
 take = cl.category_main.eq("takeup_gap")
 hh = co.loc[sar, "household_size"]
