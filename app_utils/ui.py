@@ -131,10 +131,15 @@ def fmt_pct(v, d: int = 1) -> str:
 
 
 def fmt_rm(v) -> str:
-    """RM amounts: RMx.xxbn at or above RM1bn, otherwise RMx.xm."""
+    """RM amounts: RMx.xxbn at or above RM1bn, RMx.xm at or above RM1m, otherwise RMxk (so small
+    amounts never show as RM0.0m)."""
     if not isnum(v):
         return DASH
-    return f"RM{v / 1e9:,.2f}bn" if abs(v) >= 1e9 else f"RM{v / 1e6:,.1f}m"
+    if abs(v) >= 1e9:
+        return f"RM{v / 1e9:,.2f}bn"
+    if abs(v) >= 1e6:
+        return f"RM{v / 1e6:,.1f}m"
+    return f"RM{v / 1e3:,.0f}k" if v else "RM0"
 
 
 def range_text(lo, hi) -> str:
@@ -255,26 +260,38 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
                                if isnum(pw) and pw > 0 else ""))
         else:
             items = []
+            none_lack = "DOSM data suggest no households here lack home internet"  # access gap 0%
             if n["takeup_gap"]:
-                items.append(
-                    f"- **Take-up support:** {_plural(n['takeup_gap'], 'settlement')} where our proxy suggests a fixed "
-                    f"network is likely nearby, with an estimated {fmt_num(tk['people'])} rural people without home "
-                    "internet. Help them get connected: subsidies for the monthly fee or installation, awareness of what "
-                    "is available, and help signing up. *Proxy: an Ookla fixed-broadband test within 2 km of the school, "
-                    "not a coverage map.*")
+                if round(tk["people"]) > 0:
+                    items.append(
+                        f"- **Take-up support:** {_plural(n['takeup_gap'], 'settlement')} where our proxy suggests a fixed "
+                        f"network is likely nearby, with an estimated {fmt_num(tk['people'])} rural people without home "
+                        "internet. Help them get connected: subsidies for the monthly fee or installation, awareness of what "
+                        "is available, and help signing up. *Proxy: an Ookla fixed-broadband test within 2 km of the "
+                        "school, not a coverage map.*")
+                else:
+                    items.append(f"- **Take-up support:** {_plural(n['takeup_gap'], 'settlement')} where our proxy suggests "
+                                 f"a fixed network is likely nearby; {none_lack}, so no take-up action is indicated.")
             if n["satellite"]:
                 lo, hi = sorted([sat["cost_lite"], sat["cost_main"]])
-                cost = fmt_rm(hi) if round(lo) == round(hi) else f"{fmt_rm(lo)}–{fmt_rm(hi)} (Lite plan to Residential plan)"
-                items.append(f"- **Satellite:** {_plural(n['satellite'], 'settlement')}, with an estimated "
-                             f"{fmt_num(sat['people'])} rural people without home internet. Estimated 5-year cost {cost}.")
+                cost = (fmt_rm(hi) if fmt_rm(lo) == fmt_rm(hi)
+                        else f"{fmt_rm(lo)}–{fmt_rm(hi)} (Lite plan to Residential plan)")
+                if round(sat["people"]) > 0:
+                    items.append(f"- **Satellite:** {_plural(n['satellite'], 'settlement')}, with an estimated "
+                                 f"{fmt_num(sat['people'])} rural people without home internet. Estimated 5-year cost {cost}.")
+                else:
+                    items.append(f"- **Satellite:** {_plural(n['satellite'], 'settlement')}; {none_lack}, so the "
+                                 f"estimated 5-year cost ({cost}) is the school's satellite link only.")
             if n["tower"]:
                 items.append(f"- **Tower:** {_plural(n['tower'], 'settlement')}, with an estimated {fmt_num(tw['people'])} "
                              f"rural people without home internet. Estimated 5-year cost {fmt_rm(tw['cost_main'])}.")
             elif n["satellite"]:
                 items.append("- **Tower:** No towers pass the cost screen.")
             if not (n["satellite"] or n["tower"]):
+                lever = ("so take-up support is the main lever." if tk is not None and round(tk["people"]) > 0
+                         else "and no take-up gap is estimated either.")
                 items.append("- **New infrastructure:** none costed. Every rural settlement has a fixed network likely "
-                             "nearby (our proxy), so take-up support is the main lever.")
+                             f"nearby (our proxy), {lever}")
             st.markdown("\n".join(items))
 
         # 3. Check on the ground

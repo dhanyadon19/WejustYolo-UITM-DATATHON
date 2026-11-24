@@ -175,11 +175,12 @@ elif not ui.isnum(r.rural_settlements):
     st.info(f"{district} has no rural MOE school, so no settlements are costed.")
 else:
     f1, f2, f3, f4 = st.columns(4)
-    f1.metric("Rural settlements (one per rural school)", ui.fmt_int(r.rural_settlements))
-    f2.metric("Take-up gap (fixed network likely nearby)",
+    f1.metric("Rural settlements", ui.fmt_int(r.rural_settlements), help="One settlement per rural MOE school.")
+    f2.metric("Take-up gap (proxy)",
               f"{ui.fmt_int(r.n_takeup_gap)} ({ui.fmt_num(100 * r.share_settlements_takeup_gap if ui.isnum(r.share_settlements_takeup_gap) else None, '.0f')}%)",
-              help=f"{ui.fmt_num(r.takeup_gap_people_without_internet, ',.0f')} rural people without home internet. A proxy: "
-                   "an Ookla fixed tile lies within 2 km. Not costed as infrastructure.")
+              help=f"Settlements where our proxy suggests a fixed network is likely nearby (an Ookla fixed tile within "
+                   f"2 km); an estimated {ui.fmt_num(r.takeup_gap_people_without_internet, ',.0f')} rural people without "
+                   "home internet. Not costed as infrastructure.")
     f3.metric("Towers", ui.fmt_int(r.n_tower))
     f4.metric("Satellite settlements", ui.fmt_int(r.n_satellite))
     g1, g2, g3, g4 = st.columns(4)
