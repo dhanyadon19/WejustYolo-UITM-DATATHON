@@ -22,6 +22,8 @@ SARAWAK_TERRAIN_VIEW = dict(latitude=2.3, longitude=112.75, zoom=6.3)     # tilt
 TERRAIN_PITCH = 50
 MAP_HEIGHT = 560
 VIEWS = ["3D terrain", "Gap Index blocks"]
+HOVER_TINT = ui.hex_rgb(ui.ACCENT, 55)    # hover / clicked district: subtle accent-blue tint
+FOCUS_TINT = ui.hex_rgb(ui.ACCENT, 45)    # district opened with ?district=: lighter tint under a thick outline
 S = pdk.types.String  # literal string for deck.gl props (pydeck otherwise treats strings as expressions)
 
 geo = data.district_geojson(STATE)
@@ -176,11 +178,13 @@ if terrain:
                                      "offset": dec["offset"] * k},
                   max_zoom=min(el["max_zoom"], im["max_zoom"]), mesh_max_error=6, operation=S("terrain+draw"),
                   pickable=False),
-        # district boundaries draped on the terrain; nearly transparent fill so districts can be hovered/clicked
-        pdk.Layer("GeoJsonLayer", g, id="districts", filled=True, stroked=True, get_fill_color=[255, 255, 255, 12],
-                  get_line_color=[255, 255, 255, 220], line_width_min_pixels=1.2, pickable=True, auto_highlight=True,
-                  highlight_color=[255, 255, 255, 50], extensions=terrain_ext, terrain_draw_mode=S("drape")),
-        pdk.Layer("GeoJsonLayer", focused, id="focus", filled=False, stroked=True,
+        # district boundaries draped on the terrain. The fill is invisible (alpha 1) but keeps districts hoverable and
+        # clickable; hover and click use a light accent-blue tint (a pale/white tint reads as snow on the forest)
+        pdk.Layer("GeoJsonLayer", g, id="districts", filled=True, stroked=True, get_fill_color=[255, 255, 255, 1],
+                  get_line_color=[255, 255, 255, 200], line_width_min_pixels=1.2, pickable=True, auto_highlight=True,
+                  highlight_color=HOVER_TINT, extensions=terrain_ext, terrain_draw_mode=S("drape")),
+        # selected district (?district=): thicker accent outline and a light accent tint
+        pdk.Layer("GeoJsonLayer", focused, id="focus", filled=True, stroked=True, get_fill_color=FOCUS_TINT,
                   get_line_color=ui.hex_rgb(ui.ACCENT, 255), line_width_min_pixels=3.5, pickable=False,
                   extensions=terrain_ext, terrain_draw_mode=S("drape")),
         # settlements sit on the terrain surface (TerrainExtension offset mode); billboard dots face the camera and
@@ -197,7 +201,7 @@ else:
     layers = [
         pdk.Layer("GeoJsonLayer", g, id="districts", extruded=True, wireframe=False,
                   get_elevation=f"properties.cgi * {MAX_BLOCK_M}", get_fill_color="properties.colour", pickable=True,
-                  auto_highlight=True, material={"ambient": 0.55, "diffuse": 0.6, "shininess": 8}),
+                  auto_highlight=True, highlight_color=ui.hex_rgb(ui.ACCENT, 160), material={"ambient": 0.55, "diffuse": 0.6, "shininess": 8}),
         # small-sample districts: dark edges drawn on the extruded blocks themselves (visible from above)
         pdk.Layer("GeoJsonLayer", small, extruded=True, filled=False, wireframe=True,
                   get_elevation=f"properties.cgi * {MAX_BLOCK_M}", get_line_color=ui.hex_rgb(ui.INK, 255),
