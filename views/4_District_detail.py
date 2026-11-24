@@ -195,8 +195,8 @@ else:
         ui.fallback("No infrastructure cost: all settlements are in the take-up group, so there is no estimated-"
                     "beneficiaries-per-RM1m figure. " + ui.TAKEUP_TXT)
     ui.what("Each rural school stands for one settlement. Settlements with an Ookla fixed tile within 2 km are treated as "
-            "a take-up gap (proxy) and not costed; the rest are screened for a tower if they have enough households to "
-            "beat satellite over five years, otherwise satellite. All costs are estimates. " + ui.TAKEUP_TXT,
+            "a take-up gap (proxy) and not costed; the rest are screened for a tower if they have enough households without "
+            "home internet to beat satellite over five years, otherwise satellite. All costs are estimates. " + ui.TAKEUP_TXT,
             data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {access_year} · Ookla {quarter} · config/costs.yaml")
     ui.caveat()
 
