@@ -131,10 +131,15 @@ def fmt_pct(v, d: int = 1) -> str:
 
 
 def fmt_rm(v) -> str:
-    """RM amounts: RMx.xxbn at or above RM1bn, otherwise RMx.xm."""
+    """RM amounts: RMx.xxbn at or above RM1bn, RMx.xm at or above RM1m, otherwise RMxk (so small
+    amounts never show as RM0.0m)."""
     if not isnum(v):
         return DASH
-    return f"RM{v / 1e9:,.2f}bn" if abs(v) >= 1e9 else f"RM{v / 1e6:,.1f}m"
+    if abs(v) >= 1e9:
+        return f"RM{v / 1e9:,.2f}bn"
+    if abs(v) >= 1e6:
+        return f"RM{v / 1e6:,.1f}m"
+    return f"RM{v / 1e3:,.0f}k" if v else "RM0"
 
 
 def range_text(lo, hi) -> str:
@@ -179,3 +184,120 @@ def small_sample_banner(name: str, n, moe) -> None:
 def fallback(text: str) -> None:
     """Short message shown instead of a chart or figure that cannot be computed."""
     st.info(text, icon="ℹ️")
+
+
+# --- district action plan ---
+TOWER_WIDER = "Towers bring wider benefits (mobile coverage on roads and farms) that this cost screen does not value."
+GROUND_CHECKS = [
+    "**Power:** reliable electricity for the terminal, day and night.",
+    "**Sky view:** a clear view of the sky; tall forest and hills can block the signal.",
+    "**Monthly fee:** who pays it, and for how long.",
+    "**Repairs:** who fixes or replaces the kit, and how quickly.",
+]
+
+
+def _plural(n: int, word: str) -> str:
+    return f"{n:,} {word}{'' if n == 1 else 's'}"
+
+
+def _rank_line(label: str, rank, of, lo, hi) -> str:
+    if not isnum(rank):
+        return ""
+    rng = f" (range {range_text(lo, hi)})" if isnum(lo) and isnum(hi) else ""
+    of_txt = f" of {int(of)}" if isnum(of) else ""
+    return f"{label} rank **{int(rank)}**{of_txt}{rng}."
+
+
+def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, sources: str,
+                on_host_click=None) -> None:
+    """Summary card for one district: 'If I'm responsible for this district, what should I do?'
+
+    r        one row of data.district_table()
+    fixes    {category: row with n, people, cost_main, cost_lite} from data.fix_breakdown(); {} if none
+    n_*      number of ranked districts nationally / in the district's state (for 'rank X of N')
+    host     district whose polygon contains this one (no-boundary districts), else None
+    Never raises on missing values: every figure degrades to a short message."""
+    name, state = r.district, r.state
+    with st.container(border=True):
+        st.markdown(f"### What to do in {name}")
+        st.markdown(f"<p style='color:{INK_2};margin-top:-0.6rem'>If you are responsible for this district: "
+                    "how great the need is, which fix fits each rural settlement, and the estimated cost.</p>",
+                    unsafe_allow_html=True)
+
+        # 1. Need
+        st.markdown("**1. Need (Connectivity Gap Index)**")
+        if isnum(r.get("rank_national")):
+            lines = [_rank_line("National", r.rank_national, n_national, r.get("rank_national_p05"), r.get("rank_national_p95"))]
+            if state == "Sarawak" and isnum(r.get("rank_sarawak")):
+                lines.append(_rank_line("Sarawak", r.rank_sarawak, n_state, r.get("rank_sarawak_p05"), r.get("rank_sarawak_p95")))
+            st.markdown(" ".join(lines) + " Rank 1 = largest gap. Ranges are the 5th–95th percentile rank across "
+                        "random index weightings.")
+        elif not r.get("has_boundary", True):
+            st.markdown("Not ranked: there is no map boundary for this district, so it has no Ookla speeds or Gap Index"
+                        + (f". Its area, tests and rural schools are counted under **{host}**." if host else "."))
+        else:
+            st.markdown("Not ranked: the Gap Index could not be computed for this district.")
+        flagged = r.get("small_sample_flag")
+        if isnum(flagged) and bool(flagged):
+            small_sample_banner(name, r.get("implied_sample_n"), r.get("internet_moe95_pp"))
+
+        # 2. What to do
+        st.markdown("**2. What to do (estimates)**")
+        tk, sat, tw = (fixes.get(c) for c in ("takeup_gap", "satellite", "tower"))
+        n = {c: int(f["n"]) if f is not None and isnum(f["n"]) else 0 for c, f in
+             (("takeup_gap", tk), ("satellite", sat), ("tower", tw))}
+        if not fixes:
+            if not r.get("has_boundary", True):
+                st.markdown("No settlement plan of its own" + (f": its rural schools are planned under {host}." if host else "."))
+                if host and on_host_click and st.button(f"Open {host}", key=f"ap_host_{state}_{name}",
+                                                        icon=":material/arrow_forward:"):
+                    on_host_click(state, host)
+            else:
+                pw = r.get("people_without_home_internet")
+                st.markdown(f"{name} has no rural MOE school, so no rural settlements are costed."
+                            + (f" An estimated {pw:,.0f} people in the district live in homes without internet;"
+                               " for them, take-up support (subsidies, awareness, help signing up) is the main lever."
+                               if isnum(pw) and pw > 0 else ""))
+        else:
+            items = []
+            none_lack = "DOSM data suggest no households here lack home internet"  # access gap 0%
+            if n["takeup_gap"]:
+                if round(tk["people"]) > 0:
+                    items.append(
+                        f"- **Take-up support:** {_plural(n['takeup_gap'], 'settlement')} where our proxy suggests a fixed "
+                        f"network is likely nearby, with an estimated {fmt_num(tk['people'])} rural people without home "
+                        "internet. Help them get connected: subsidies for the monthly fee or installation, awareness of what "
+                        "is available, and help signing up. *Proxy: an Ookla fixed-broadband test within 2 km of the "
+                        "school, not a coverage map.*")
+                else:
+                    items.append(f"- **Take-up support:** {_plural(n['takeup_gap'], 'settlement')} where our proxy suggests "
+                                 f"a fixed network is likely nearby; {none_lack}, so no take-up action is indicated.")
+            if n["satellite"]:
+                lo, hi = sorted([sat["cost_lite"], sat["cost_main"]])
+                cost = (fmt_rm(hi) if fmt_rm(lo) == fmt_rm(hi)
+                        else f"{fmt_rm(lo)}–{fmt_rm(hi)} (Lite plan to Residential plan)")
+                if round(sat["people"]) > 0:
+                    items.append(f"- **Satellite:** {_plural(n['satellite'], 'settlement')}, with an estimated "
+                                 f"{fmt_num(sat['people'])} rural people without home internet. Estimated 5-year cost {cost}.")
+                else:
+                    items.append(f"- **Satellite:** {_plural(n['satellite'], 'settlement')}; {none_lack}, so the "
+                                 f"estimated 5-year cost ({cost}) is the school's satellite link only.")
+            if n["tower"]:
+                items.append(f"- **Tower:** {_plural(n['tower'], 'settlement')}, with an estimated {fmt_num(tw['people'])} "
+                             f"rural people without home internet. Estimated 5-year cost {fmt_rm(tw['cost_main'])}.")
+            elif n["satellite"]:
+                items.append("- **Tower:** No towers pass the cost screen.")
+            if not (n["satellite"] or n["tower"]):
+                lever = ("so take-up support is the main lever." if tk is not None and round(tk["people"]) > 0
+                         else "and no take-up gap is estimated either.")
+                items.append("- **New infrastructure:** none costed. Every rural settlement has a fixed network likely "
+                             f"nearby (our proxy), {lever}")
+            st.markdown("\n".join(items))
+
+        # 3. Check on the ground
+        if n["satellite"]:
+            st.markdown("**3. Check on the ground before choosing satellite**")
+            st.markdown("\n".join(f"- {c}" for c in GROUND_CHECKS) + f"\n\n{TOWER_WIDER}")
+
+        caveat()
+        st.caption(f"Data: {sources}. All costs and people counts are estimates.")

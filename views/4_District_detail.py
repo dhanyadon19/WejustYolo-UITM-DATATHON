@@ -36,15 +36,18 @@ if st.session_state.get("sel_district") not in opts:
 district = c2.selectbox("District (sorted by need, highest first)", opts, key="sel_district")
 st.query_params.update(state=state, district=district)  # shareable link to this district
 r = dt[(dt.state == state) & (dt.district == district)].iloc[0]
-small = bool(r.small_sample_flag) if ui.isnum(r.small_sample_flag) else False
 host = host_of.get((state, district))
-no_boundary_msg = (f"No map boundary for this district, so it has no Ookla speeds, Gap Index or costing"
-                   + (f"; its area, tests and rural schools are counted under {host}." if host else "."))
 
-if small:
-    ui.small_sample_banner(district, r.implied_sample_n, r.internet_moe95_pp)
-if not r.has_boundary:
-    ui.fallback(no_boundary_msg)
+# --- 0. Action plan (summary card; the small-sample and no-boundary warnings live inside it)
+fb = data.fix_breakdown()
+fixes = {row.category: row for row in fb[(fb.state == state) & (fb.district == district)].itertuples()}
+fixes = {k: {"n": v.n, "people": v.people, "cost_main": v.cost_main, "cost_lite": v.cost_lite} for k, v in fixes.items()}
+cyear = data.census_year()
+ui.action_plan(
+    r, fixes, n_national=n_indexed, n_state=int(dt[(dt.state == state) & dt.indexed].shape[0]), host=host,
+    sources=f"DOSM ICTHS {access_year} · Ookla {quarter} · Census {cyear if cyear else ui.DASH} · MOE school list, "
+            "June 2022 · config/costs.yaml",
+    on_host_click=ui.go_to_district)
 
 # --- 1. Household access 2024 / 2025
 st.subheader("Households with internet")
@@ -172,11 +175,12 @@ elif not ui.isnum(r.rural_settlements):
     st.info(f"{district} has no rural MOE school, so no settlements are costed.")
 else:
     f1, f2, f3, f4 = st.columns(4)
-    f1.metric("Rural settlements (one per rural school)", ui.fmt_int(r.rural_settlements))
-    f2.metric("Take-up gap (fixed network likely nearby)",
+    f1.metric("Rural settlements", ui.fmt_int(r.rural_settlements), help="One settlement per rural MOE school.")
+    f2.metric("Take-up gap (proxy)",
               f"{ui.fmt_int(r.n_takeup_gap)} ({ui.fmt_num(100 * r.share_settlements_takeup_gap if ui.isnum(r.share_settlements_takeup_gap) else None, '.0f')}%)",
-              help=f"{ui.fmt_num(r.takeup_gap_people_without_internet, ',.0f')} rural people without home internet. A proxy: "
-                   "an Ookla fixed tile lies within 2 km. Not costed as infrastructure.")
+              help=f"Settlements where our proxy suggests a fixed network is likely nearby (an Ookla fixed tile within "
+                   f"2 km); an estimated {ui.fmt_num(r.takeup_gap_people_without_internet, ',.0f')} rural people without "
+                   "home internet. Not costed as infrastructure.")
     f3.metric("Towers", ui.fmt_int(r.n_tower))
     f4.metric("Satellite settlements", ui.fmt_int(r.n_satellite))
     g1, g2, g3, g4 = st.columns(4)
