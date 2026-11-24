@@ -28,6 +28,12 @@ MAP_HEIGHT = 560
 VIEWS = ["3D terrain", "Gap Index blocks"]
 HOVER_TINT = ui.hex_rgb(ui.ACCENT, 55)    # hover / clicked district: subtle accent-blue tint
 FOCUS_TINT = ui.hex_rgb(ui.ACCENT, 45)    # district opened with ?district=: lighter tint under a thick outline
+# Terrain fallbacks. deck.gl draws a terrain tile whose imagery has not loaded (slow or blocked by the imagery server)
+# in the layer's base colour, white by default, which reads as a pale-grey faceted patch: use a dark forest tone.
+TERRAIN_BASE = [34, 44, 36]
+TERRAIN_TILE_MAX_ZOOM = 12   # view stops at 11; fewer, coarser tiles = fewer bursts to the imagery server
+TERRAIN_MAX_REQUESTS = 4     # parallel tile requests (deck.gl default 6); the imagery server throttles bursts
+MAP_BG = "#16243a"           # dark map background: never an empty white box before or without a deck.gl frame
 S = pdk.types.String  # literal string for deck.gl props (pydeck otherwise treats strings as expressions)
 
 geo = data.district_geojson(STATE)
@@ -90,6 +96,23 @@ else:
                "height:14px;border:3px solid #0b0b0b;vertical-align:-3px;margin-right:5px'></span>Small-sample district "
                "(low confidence)</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Height = Gap Index</span>")
 st.markdown(f"<div style='font-size:0.88rem;color:{ui.INK_2};margin:4px 0 6px 0'>{legend}</div>", unsafe_allow_html=True)
+
+# Streamlit downloads its map code (deck.gl, ~3 MB) the first time a map appears in a browser session, e.g. after
+# "Show on map" from District detail, which has no map. Until it arrives the map element does not exist and the space
+# was an empty white box. The map therefore sits in a keyed container that is always there, at the map's height, with
+# a background and a loading message; the map covers it once drawn. It is created before the
+# layers are built so the box appears at once.
+bg, ink = (MAP_BG, "#c9d3e0") if terrain else ("#eceae4", ui.INK_2)
+st.markdown(f"""<style>
+.st-key-sarawak_map_box {{ background:{bg}; border-radius:8px; min-height:{MAP_HEIGHT}px; position:relative; }}
+.st-key-sarawak_map_box .map-loading {{ position:absolute; top:0; left:0; right:0; height:{MAP_HEIGHT}px;
+  display:flex; align-items:center; justify-content:center; color:{ink}; font-size:0.95rem; }}
+[data-testid='stDeckGlJsonChart'] {{ background:{bg}; border-radius:8px; }}
+</style>""", unsafe_allow_html=True)
+# Streamlit draws a container only once it has content: the loading message goes in first (absolutely positioned,
+# so it takes no space) and the map is drawn over it later
+map_box = st.container(key="sarawak_map_box", gap=None)
+map_box.markdown(f"<div class='map-loading'>Loading the {'3D ' if terrain else ''}map…</div>", unsafe_allow_html=True)
 
 
 def is_small(r) -> bool:
@@ -189,7 +212,8 @@ if terrain:
         pdk.Layer("TerrainLayer", id="terrain", elevation_data=S(el["url"]), texture=S(im["url"]),
                   elevation_decoder={"rScaler": dec["r"] * k, "gScaler": dec["g"] * k, "bScaler": dec["b"] * k,
                                      "offset": dec["offset"] * k},
-                  max_zoom=min(el["max_zoom"], im["max_zoom"]), mesh_max_error=4, operation=S("terrain+draw"),
+                  max_zoom=min(el["max_zoom"], im["max_zoom"], TERRAIN_TILE_MAX_ZOOM), max_requests=TERRAIN_MAX_REQUESTS,
+                  color=TERRAIN_BASE, mesh_max_error=4, operation=S("terrain+draw"),
                   pickable=False),
         # district boundaries draped on the terrain. The fill is invisible (alpha 1) but keeps districts hoverable and
         # clickable; hover and click use a light accent-blue tint (a pale/white tint reads as snow on the forest)
@@ -210,7 +234,10 @@ if terrain:
                   parameters={"depthCompare": "always", "depthWriteEnabled": False}),
     ]
     tooltip = {"html": "<b>{t0}</b><br/>{t1}<br/>{t2}<br/>{t3}<br/>{t4}", "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
-    deck = pdk.Deck(layers=layers, initial_view_state=VIEW, map_style=None, tooltip=tooltip)
+    # dark, label-free basemap under the terrain: if the terrain is slow or fails, the box is dark, not Streamlit's
+    # default light basemap (which looked like an empty white map)
+    deck = pdk.Deck(layers=layers, initial_view_state=VIEW, map_style=pdk.map_styles.CARTO_DARK_NO_LABELS,
+                    tooltip=tooltip)
 else:
     layers = [
         pdk.Layer("GeoJsonLayer", g, id="districts", extruded=True, wireframe=False,
@@ -231,12 +258,14 @@ else:
                "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
     deck = pdk.Deck(layers=layers, initial_view_state=VIEW, map_style=pdk.map_styles.CARTO_LIGHT, tooltip=tooltip)
 
-event = st.pydeck_chart(deck, height=MAP_HEIGHT, key=f"sarawak_map_{view}_{focus}", on_select="rerun",
-                        selection_mode="single-object")
+with map_box:
+    event = st.pydeck_chart(deck, height=MAP_HEIGHT, key=f"sarawak_map_{view}_{focus}", on_select="rerun",
+                            selection_mode="single-object")
 if terrain:  # the imagery licence asks for the credit on the map interface itself
     st.markdown(f"<div style='font-size:0.72rem;color:{ui.MUTED};margin-top:-0.6rem'>{tiles['imagery']['attribution']}"
-                f" · {tiles['elevation']['attribution']} · Boundaries {ui.OSM_CREDIT} (ODbL)</div>",
-                unsafe_allow_html=True)
+                f" · {tiles['elevation']['attribution']} · Boundaries {ui.OSM_CREDIT} (ODbL) · {ui.BASEMAP_CREDIT}<br/>"
+                "Map empty or partly grey? Terrain and imagery come from public tile servers and can be slow; wait a few "
+                "seconds, reload the page, or switch to Gap Index blocks.</div>", unsafe_allow_html=True)
 
 # --- click a district or a settlement (or pick one) to open its detail page
 picked = None
@@ -317,4 +346,4 @@ ui.footer([
     "DOSM HIES 2024 (income), Population 2026, Census 2020; MOE school list (June 2022); costs: config/costs.yaml",
     f"{tiles['imagery']['attribution']}",
     f"{tiles['elevation']['attribution']}",
-], osm=True, basemap=not terrain)
+], osm=True, basemap=True)
