@@ -117,7 +117,7 @@ for _, r in d.iterrows():
         # tooltip fields are plain text (deck.gl escapes them); the markup lives in the tooltip template
         p.update({"t0": f"{r.district} (district)", "t1": f"Gap Index {p['cgi']} · Sarawak need rank {need}",
                   "t2": f"Households online (DOSM {access_year}) {access}",
-                  "t3": "Small sample: low confidence" if small_r else ""})
+                  "t3": "Small sample: low confidence" if small_r else "", "t4": ""})
     else:
         cat = r[key] if isinstance(r[key], str) else None
         p.update({
@@ -168,13 +168,20 @@ if terrain:
     terrain_ext = [{"@@type": "TerrainExtension"}]
     pts = data.settlement_points(STATE).copy()
     pts["colour"] = [ui.hex_rgb(ui.FIX_COLOURS.get(c, ui.MUTED_LIGHT), 245) for c in pts.category_main]
-    pts["t0"] = "Rural settlement, " + pts["district"]
+    pts["t0"] = "Rural settlement in " + pts["district"] + " district"
     pts["t1"] = ["Fix: " + ui.FIX_LABELS.get(c, ui.DASH) for c in pts.category_main]
     pts["t2"] = ["Estimated people without home internet: " + ui.fmt_num(v) for v in pts.unconnected_people]
     pts["t3"] = ["Estimated 5-year cost (main case): "
                  + ("not costed (take-up support)" if c == "takeup_gap" else ui.fmt_rm(v))
                  for c, v in zip(pts.category_main, pts.cost_main)]
-    pts = pts[["lon", "lat", "colour", "t0", "t1", "t2", "t3"]]
+    # satellite cost = terminals for unconnected households + one Business terminal for the school (costs.yaml);
+    # where the school's link is most of the cost, say so
+    sat_cfg = data.yaml_config("costs")["satellite"]
+    school_link = sat_cfg["kit_rm"] + 60 * sat_cfg["monthly_rm"]["business_from"]
+    pts["t4"] = [f"Includes the school's satellite link ({ui.fmt_rm(school_link)})"
+                 if c == "satellite" and ui.isnum(v) and v > 0 and school_link / v > 0.5 else ""
+                 for c, v in zip(pts.category_main, pts.cost_main)]
+    pts = pts[["lon", "lat", "colour", "t0", "t1", "t2", "t3", "t4"]]
     layers = [
         # dark backdrop under the terrain so far-away tiles that have not loaded yet do not show as white gaps
         pdk.Layer("PolygonLayer", [{"p": [[95, -15], [135, -15], [135, 25], [95, 25]]}], id="backdrop",
@@ -202,7 +209,7 @@ if terrain:
                   extensions=terrain_ext, terrain_draw_mode=S("offset"), billboard=True,
                   parameters={"depthCompare": "always", "depthWriteEnabled": False}),
     ]
-    tooltip = {"html": "<b>{t0}</b><br/>{t1}<br/>{t2}<br/>{t3}", "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
+    tooltip = {"html": "<b>{t0}</b><br/>{t1}<br/>{t2}<br/>{t3}<br/>{t4}", "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
     deck = pdk.Deck(layers=layers, initial_view_state=VIEW, map_style=None, tooltip=tooltip)
 else:
     layers = [
