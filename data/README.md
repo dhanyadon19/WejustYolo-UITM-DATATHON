@@ -199,7 +199,7 @@ Streamed by the viewer's browser at run time; nothing is downloaded into `data/`
 
 **Caveats**
 - **Display only.** Terrain and imagery are context; no number in the app is computed from them.
-- **Heights are exaggerated ×8** (set in `views/3_Sarawak_map.py`) so hills read at state scale.
+- **Heights are exaggerated** ×4 for the whole state and ×3 in a district view, with a maximum zoom of 11 (set in `views/3_Sarawak_map.py`), so interior hills read while the coast stays flat and close-ups don't look crumpled.
 - **Non-commercial.** Like Ookla (CC BY-NC-SA 4.0), the imagery limits the app to non-commercial use. Esri World Imagery was not used: its account/API-key terms could not be confirmed.
 - **Availability.** Both are third-party public endpoints with no service guarantee; the "Gap Index blocks" view (Carto basemap) is the fallback and the default on phones.
 
