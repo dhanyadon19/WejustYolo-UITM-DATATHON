@@ -196,8 +196,9 @@ if terrain:
         # settlements sit on the terrain surface (TerrainExtension offset mode); billboard dots face the camera and
         # skip the depth test so a neighbouring slope never hides or cuts them
         pdk.Layer("ScatterplotLayer", pts, id="settlements", get_position=["lon", "lat"], get_fill_color="colour",
-                  get_radius=5 if focus else 3, radius_units=S("pixels"), radius_min_pixels=2.5, stroked=True,
-                  get_line_color=[255, 255, 255, 230], line_width_min_pixels=1, pickable=True, auto_highlight=True,
+                  get_radius=6 if focus else 4, radius_units=S("pixels"), radius_min_pixels=3, stroked=True,
+                  get_line_color=[255, 255, 255, 255], line_width_units=S("pixels"), get_line_width=1.5,
+                  line_width_min_pixels=1.5, pickable=True, auto_highlight=True,
                   extensions=terrain_ext, terrain_draw_mode=S("offset"), billboard=True,
                   parameters={"depthCompare": "always", "depthWriteEnabled": False}),
     ]
