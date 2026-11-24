@@ -84,7 +84,7 @@ if sel is not None:
     if st.button(f"Open {sel[0]} ({sel[1]}) in District detail", icon=":material/arrow_forward:"):
         ui.go_to_district(sel[1], sel[0])
 ui.what(f"Click a bubble to open that district. Corners: top-right = high need and many people reached per RM1m (act first); "
-        f"bottom-right = high need but costly to reach (may need a different fix, e.g. take-up support). Each bubble is a district ({'Sarawak' if scope == 'Sarawak' else 'all Malaysia'}, {n} with costed settlements). Right = higher need (Gap Index); "
+        f"bottom-right = high need but costly to reach per person; check the Lite plan case and the district's take-up share. Each bubble is a district ({'Sarawak' if scope == 'Sarawak' else 'all Malaysia'}, {n} with costed settlements). Right = higher need (Gap Index); "
         "top = more estimated beneficiaries per RM1m (rural people without home internet reached per RM1m of five-year "
         "infrastructure cost). Bubble size = rural people reached; colour = main fix. Labels mark the five districts "
         "highest on both. Settlements with a fixed network likely nearby are a take-up gap and are not costed here.",

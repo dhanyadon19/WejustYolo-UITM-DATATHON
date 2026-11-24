@@ -37,9 +37,6 @@ states = cur[(cur.indicator == "internet") & (cur.strata == "total") & (cur.stat
 # Dot plot, not bars: the axis does not start at 0, and bar length would exaggerate the gaps.
 hl = states.state.isin(["Sabah", "Sarawak"])
 fig = go.Figure()
-for _, r in states.iterrows():
-    fig.add_shape(type="line", x0=r.pct, x1=facts["value_pct"], y0=r.state, y1=r.state,
-                  line=dict(color=ui.GRID, width=2), layer="below")
 for mask, col, size in ((~hl, ui.MUTED, 10), (hl, ui.ACCENT, 13)):
     s_ = states[mask]
     fig.add_trace(go.Scatter(
@@ -54,9 +51,9 @@ ui.style(fig, height=520, legend=False, margin=dict(l=10, r=20, t=40, b=10))
 fig.update_xaxes(range=[lo - 6, 101], title="% of households with internet access", ticksuffix="%")
 fig.update_yaxes(categoryorder="array", categoryarray=states["state"].tolist()[::-1])  # lowest access on top
 st.plotly_chart(fig, width="stretch")
-ui.what(f"Share of households with internet access in {year}, by state (grey dots; Sabah and Sarawak in blue); the line from each dot to the dotted line is the gap, "
-        f"against the official {facts['value_pct']}% network coverage of populated areas (dotted line). "
-        "The two measures differ: coverage is about the network, access is about households.",
+ui.what(f"Share of households with internet access in {year}, by state (grey dots; Sabah and Sarawak in blue); "
+        f"the dotted line marks official network coverage ({facts['value_pct']}% of populated areas), "
+        "a different measure from household access, shown for context.",
         data=f"DOSM ICTHS {year} (Table 1.2) · official coverage as at {facts['as_of']}")
 
 # --- 2. Urban vs rural, and 3. rural mobile vs fixed broadband
