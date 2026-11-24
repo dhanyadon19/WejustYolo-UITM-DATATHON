@@ -260,7 +260,7 @@ if terrain:
     ui.what("Sarawak's terrain (satellite image on elevation, heights exaggerated "
             f"×{tx:g}) with every rural settlement (one per rural MOE school) as a dot. Colour is the fix our cost "
             "screen suggests: green where our proxy suggests a fixed network is likely nearby (take-up support), "
-            "orange for satellite, blue for a tower. Hills and forest are why many inland settlements are far from "
+            "orange for satellite, blue for a tower. Hills and forest help explain why many inland settlements are far from "
             "any network and costly to reach. Hover a dot for the estimated people without home internet and cost. "
             + ui.TAKEUP_TXT,
             data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {access_year} · "
