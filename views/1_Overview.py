@@ -101,6 +101,33 @@ with right:
             f"{val('Malaysia', 'fixed_broadband', 'rural'):.1f}% have fixed broadband.",
             data=f"DOSM ICTHS {year}, Table 1.2")
 
+# --- Action summary: which fix the rural settlements need (main case)
+st.subheader("What would close the rural gap (estimates)")
+fb = data.fix_breakdown()
+agg = fb.groupby("category")[["n", "people", "cost_main"]].sum()
+cl_q = data.csv("costing_clusters")["ookla_quarter"].dropna()
+acc_year = data.csv("gap_index_districts")["access_year"].max()
+cyear = data.census_year()
+rows = []
+for cat, label in (("takeup_gap", "Take-up support (proxy)"), ("satellite", "Satellite"), ("tower", "Tower")):
+    if cat in agg.index:
+        a = agg.loc[cat]
+        rows.append([label, f"{int(a.n):,}", f"{a.people:,.0f}", "not costed" if cat == "takeup_gap" else ui.fmt_rm(a.cost_main)])
+if rows:
+    rows.append(["**Total**", f"**{int(agg.n.sum()):,}**", f"**{agg.people.sum():,.0f}**", f"**{ui.fmt_rm(agg.cost_main.sum())}**"])
+    # markdown table: wraps on narrow screens instead of scrolling sideways
+    head = ["Fix", "Rural settlements", "Rural people without home internet", "5-year cost (main case)"]
+    st.markdown("\n".join(["| " + " | ".join(head) + " |", "|---|--:|--:|--:|"] + ["| " + " | ".join(r_) + " |" for r_ in rows]))
+    ui.what("One settlement per rural MOE school, all states. Settlements where our proxy suggests a fixed network is "
+            "likely nearby need take-up support (subsidies, awareness, help signing up), not new infrastructure. The rest "
+            "are screened for a tower or satellite on five-year cost (Residential satellite plan). People counts and "
+            "costs are estimates. " + ui.TAKEUP_TXT,
+            data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {int(acc_year)} · "
+                 f"Ookla {cl_q.iloc[0] if len(cl_q) else ui.DASH} · config/costs.yaml")
+    ui.caveat()
+else:
+    ui.fallback("No costing data available.")
+
 # --- 4. Trend
 st.subheader(f"Trend, {int(trend.year.min())}–{int(trend.year.max())}")
 c1, c2 = st.columns([1, 1])
