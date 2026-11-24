@@ -99,6 +99,29 @@ ui.what(f"Click a bubble to open that district. Corners: top-right = high need a
         data=DATA)
 ui.caveat()
 
+# The beneficiaries-per-RM1m values sit close together, so this rank is secondary to need.
+cl = data.csv("costing_clusters")
+tower_keys = set(map(tuple, cl.loc[cl[f"category_{case}"] == "tower", ["state", "district"]].values))
+has_tower = d[[(s, x) in tower_keys for s, x in zip(d["state"], d["district"])]]
+sat_only = d[~d.index.isin(has_tower.index)][f"people_per_rm_m_{case}"]
+top = sat_only.nlargest(min(15, len(sat_only)))
+where = f"{'Sarawak' if scope == 'Sarawak' else 'all Malaysia'}, {'Residential' if case == 'main' else 'Lite'} plan"
+note = "**Need (Gap Index) is the main ranking.** "
+if len(top):
+    close = top.max() <= 1.5 * top.min()  # 'close' = top value within 1.5x of the 15th
+    note += (f"Among districts planned with satellite only, estimated beneficiaries per RM1m "
+             f"{'are close together: the' if close else 'vary: the'} top {len(top)} range from {top.min():,.0f} to "
+             f"{top.max():,.0f} per RM1m ({where}). ")
+if len(has_tower):
+    nm = sorted(has_tower["district"])
+    names = nm[0] if len(nm) == 1 else ", ".join(nm[:-1]) + " and " + nm[-1]
+    note += (f"{names} score{'s' if len(has_tower) == 1 else ''} higher because "
+             f"{'it has' if len(has_tower) == 1 else 'they have'} a settlement large enough for a tower, which reaches "
+             "many people for one fixed cost. ")
+note += ("With satellite, cost grows with every household, so small differences in this rank mean little: use it to "
+         "spot districts that cost much more per person, not to order districts.")
+st.markdown(note)
+
 st.subheader("Ranks with ranges")
 tbl = d.sort_values(["need_rank"])[["district", "state", "need_rank", p05, p95, "ben_rank", "ben_lo", "ben_hi",
                                      f"people_per_rm_m_{case}", f"students_per_rm_m_{case}", f"cost_{case}_rm",
