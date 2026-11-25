@@ -118,10 +118,11 @@ if rows:
     # markdown table: wraps on narrow screens instead of scrolling sideways
     head = ["Fix", "Rural settlements", "Rural people without home internet", "5-year cost (main case)"]
     st.markdown("\n".join(["| " + " | ".join(head) + " |", "|---|--:|--:|--:|"] + ["| " + " | ".join(r_) + " |" for r_ in rows]))
-    ui.what("One settlement per rural MOE school, all states. Settlements where our proxy suggests a fixed network is "
-            "likely nearby need take-up support (subsidies, awareness, help signing up), not new infrastructure. The rest "
-            "are screened for a tower or satellite on five-year cost (Residential satellite plan). People counts and "
-            "costs are estimates. " + ui.TAKEUP_TXT,
+    ui.what(["One settlement per rural MOE school, all states.",
+             "Fixed network likely nearby (our proxy) = take-up support (subsidies, awareness, help signing up), "
+             "not new infrastructure.",
+             "The rest are screened for a tower or satellite on five-year cost (Residential satellite plan).",
+             "People counts and costs are estimates. " + ui.TAKEUP_TXT],
             data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {int(acc_year)} · "
                  f"Ookla {cl_q.iloc[0] if len(cl_q) else ui.DASH} · config/costs.yaml")
     ui.caveat()

@@ -93,11 +93,14 @@ except (AttributeError, KeyError, TypeError, IndexError):
 if sel is not None:
     if st.button(f"Open {sel[0]} ({sel[1]}) in District detail", icon=":material/arrow_forward:"):
         ui.go_to_district(sel[1], sel[0])
-ui.what(f"Click a bubble to open that district. Corners: top-right = high need and many people reached per RM1m (act first); "
-        f"bottom-right = high need but costly to reach per person; check the Lite plan case and the district's take-up share. Each bubble is a district ({'Sarawak' if scope == 'Sarawak' else 'all Malaysia'}, {n} with costed settlements). Right = higher need (Gap Index); "
-        "top = more estimated beneficiaries per RM1m (rural people without home internet reached per RM1m of five-year "
-        "infrastructure cost). Bubble size = rural people reached; colour = main fix. Labels mark the five districts "
-        "highest on both. Settlements with a fixed network likely nearby are a take-up gap and are not costed here.",
+ui.what([f"Each bubble is a district ({'Sarawak' if scope == 'Sarawak' else 'all Malaysia'}, {n} with costed "
+         "settlements). Click one to open it.",
+         "Right = higher need (Gap Index). Top = more estimated beneficiaries per RM1m (rural people without home "
+         "internet reached per RM1m of five-year infrastructure cost).",
+         "Top-right = high need and many people reached per RM1m. Bottom-right = high need but costly per person: "
+         "check the Lite plan and the district's take-up share.",
+         "Size = rural people reached; colour = main fix; labels = the five districts highest on both.",
+         "Settlements with a fixed network likely nearby (take-up gap) are not costed here."],
         data=DATA)
 ui.caveat()
 
@@ -108,21 +111,20 @@ has_tower = d[[(s, x) in tower_keys for s, x in zip(d["state"], d["district"])]]
 sat_only = d[~d.index.isin(has_tower.index)][f"people_per_rm_m_{case}"]
 top = sat_only.nlargest(min(15, len(sat_only)))
 where = f"{'Sarawak' if scope == 'Sarawak' else 'all Malaysia'}, {'Residential' if case == 'main' else 'Lite'} plan"
-note = "**Need (Gap Index) is the main ranking.** "
+pts = []
 if len(top):
     close = top.max() <= 1.5 * top.min()  # 'close' = top value within 1.5x of the 15th
-    note += (f"Among districts planned with satellite only, estimated beneficiaries per RM1m "
-             f"{'are close together: the' if close else 'vary: the'} top {len(top)} range from {top.min():,.0f} to "
-             f"{top.max():,.0f} per RM1m ({where}). ")
+    pts.append(f"Satellite-only districts: estimated beneficiaries per RM1m {'are close together' if close else 'vary'} "
+               f"(top {len(top)}: {top.min():,.0f} to {top.max():,.0f} per RM1m, {where}).")
 if len(has_tower):
     nm = sorted(has_tower["district"])
     names = nm[0] if len(nm) == 1 else ", ".join(nm[:-1]) + " and " + nm[-1]
-    note += (f"{names} score{'s' if len(has_tower) == 1 else ''} higher because "
-             f"{'it has' if len(has_tower) == 1 else 'they have'} a settlement large enough for a tower, which reaches "
-             "many people for one fixed cost. ")
-note += ("With satellite, cost grows with every household, so small differences in this rank mean little: use it to "
-         "spot districts that cost much more per person, not to order districts.")
-st.markdown(note)
+    pts.append(f"{names} score{'s' if len(has_tower) == 1 else ''} higher: "
+               f"{'it has' if len(has_tower) == 1 else 'they have'} a settlement large enough for a tower, which reaches "
+               "many people for one fixed cost.")
+pts.append("With satellite, cost grows with every household, so small rank differences mean little: use this rank to "
+           "spot districts that cost much more per person, not to order districts.")
+st.markdown("**Need (Gap Index) is the main ranking.**\n" + "".join(f"\n- {t}" for t in pts))
 
 st.subheader("Ranks with ranges")
 tbl = d.sort_values(["need_rank"]).copy()
@@ -237,12 +239,12 @@ else:
                             "first; stops at the first settlement the budget cannot cover. Take-up-gap settlements "
                             "(fixed network likely nearby, proxy) are not in this budget.",
                             f"Data: {DATA}."])
-    ui.what("Funds districts in order of need (Gap Index rank, highest need first); within a district, its planned tower "
-            "and satellite settlements from the cheapest per person. It stops at the first settlement the remaining "
-            "budget cannot cover, so a lower-need district is never funded ahead of a higher-need one. It does not "
-            "order by estimated beneficiaries per RM1m, because those values are close together. Settlements with a "
-            "fixed network likely nearby (take-up gap, our proxy) are not in this budget: they need take-up support, "
-            "not new infrastructure. " + ui.TAKEUP_TXT,
+    ui.what(["Funds districts by need (Gap Index rank, highest first); within a district, the cheapest tower or "
+             "satellite settlements per person first.",
+             "Stops at the first settlement the remaining budget cannot cover, so a lower-need district is never "
+             "funded ahead of a higher-need one.",
+             "Not ordered by estimated beneficiaries per RM1m: those values are close together.",
+             "Take-up-gap settlements (fixed network likely nearby, our proxy) are not in this budget. " + ui.TAKEUP_TXT],
             data=DATA)
     ui.caveat()
 

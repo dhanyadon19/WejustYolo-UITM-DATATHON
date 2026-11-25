@@ -324,26 +324,24 @@ if p2.button(f"Open {choice} in District detail", icon=":material/arrow_forward:
 
 weights_txt = ", ".join("{} {}".format(k_.replace("_", " "), v["weight"]) for k_, v in w.items())
 if terrain:
-    ui.what("Sarawak's terrain (satellite image on elevation, heights exaggerated "
-            f"×{tx:g}) with every rural settlement (school location) as a dot: each dot is a rural MOE school, standing "
-            "for the village around it. Colour is the fix our cost "
-            "screen suggests: green where our proxy suggests a fixed network is likely nearby (take-up support), "
-            "orange for satellite, blue for a tower. Hills and forest help explain why many inland settlements are far from "
-            "any network and costly to reach. Hover a dot for the estimated people without home internet and cost. "
-            + ui.TAKEUP_TXT,
+    ui.what([f"Sarawak's terrain: satellite image on elevation, heights exaggerated ×{tx:g}.",
+             "Each dot is a rural settlement (school location): a rural MOE school standing for the village around it.",
+             "Colour = the fix our cost screen suggests: green = take-up support (fixed network likely nearby, proxy), "
+             "orange = satellite, blue = tower.",
+             "Hills and forest help explain why many inland settlements are far from any network and costly to reach.",
+             "Hover a dot for estimated people without home internet and cost. " + ui.TAKEUP_TXT],
             data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {access_year} · "
                  f"Ookla {quarter} · config/costs.yaml · {tiles['imagery']['name']} · Terrain Tiles")
 else:
-    ui.what("Each Sarawak district drawn in 3D: height is the Connectivity Gap Index (0 = best, 1 = worst nationally; "
-            f"weights {weights_txt}). "
-            + ("Colour shows which group holds most of the district's rural people without home internet: settlements "
-               "with a fixed network likely nearby (take-up gap, a proxy), or settlements screened for a tower or "
-               "satellite. " + ui.TAKEUP_TXT
-               if key == "largest_group" else
-               "Colour shows the share of the district's rural settlements where our proxy suggests a fixed network "
-               "is likely nearby (an Ookla fixed tile within 2 km of the school), so take-up support rather than new "
-               "infrastructure may be the first step; darker = larger share. " + ui.TAKEUP_TXT)
-            + f" Thick outlines mark districts with a small {ui.INFERRED_N} (our estimate, not a DOSM figure).",
+    ui.what([f"Each Sarawak district in 3D: height = Connectivity Gap Index (0 = best, 1 = worst nationally; "
+             f"weights {weights_txt}).",
+             ("Colour = the group holding most of the district's rural people without home internet: take-up gap "
+              "(fixed network likely nearby, a proxy), or settlements screened for a tower or satellite."
+              if key == "largest_group" else
+              "Colour = share of rural settlements with a fixed network likely nearby (Ookla fixed tile within 2 km "
+              "of the school, a proxy), where take-up support may come first; darker = larger share."),
+             ui.TAKEUP_TXT,
+             f"Thick outlines = small {ui.INFERRED_N} (our estimate, not a DOSM figure)."],
             data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · Census 2020 · MOE school list, June 2022")
 ui.caveat()
 
