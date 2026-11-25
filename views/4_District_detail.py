@@ -112,9 +112,10 @@ else:
         fig.update_xaxes(ticksuffix="%", title=None)
         fig.update_yaxes(type="category", categoryorder="array", categoryarray=["2025", "2024"])
         st.plotly_chart(fig, width="stretch")
-ui.what("Share of households with internet access (DOSM ICTHS Table 3.1). Error bars show our approximate 95% margin "
-        "of error (simple random-sampling formula, inferred sample size) where the estimate rests on a small sample; "
-        "no bar means the sample was large enough that no size can be inferred. DOSM does not publish these margins.",
+ui.what(["Share of households with internet access (DOSM ICTHS Table 3.1).",
+         "Error bars = our approximate 95% margin of error (simple random-sampling formula, inferred sample size), "
+         "shown only where the sample is small.",
+         "DOSM does not publish these margins: they are our estimates."],
         data="DOSM ICTHS 2024 and 2025, Table 3.1")
 
 # --- 2. Speeds
@@ -233,9 +234,11 @@ else:
     elif not ui.isnum(r.cost_main_rm) or r.cost_main_rm == 0:
         ui.fallback("No infrastructure cost: all settlements are in the take-up group, so there is no estimated-"
                     "beneficiaries-per-RM1m figure. " + ui.TAKEUP_TXT)
-    ui.what("Each rural school stands for one settlement. Settlements with an Ookla fixed tile within 2 km are treated as "
-            "a take-up gap (proxy) and not costed; the rest are screened for a tower if they have enough households without "
-            "home internet to beat satellite over five years, otherwise satellite. All costs are estimates. " + ui.TAKEUP_TXT,
+    ui.what(["Each rural school stands for one settlement.",
+             "Ookla fixed tile within 2 km = take-up gap (proxy), not costed.",
+             "The rest get a tower if enough households without home internet make it cheaper than satellite over "
+             "five years; otherwise satellite.",
+             "All costs are estimates. " + ui.TAKEUP_TXT],
             data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {access_year} · Ookla {quarter} · config/costs.yaml")
     ui.caveat()
 

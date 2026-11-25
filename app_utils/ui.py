@@ -65,11 +65,18 @@ def page(title: str, intro: str | None = None) -> None:
         st.markdown(f"<p style='color:{INK_2};margin-top:-0.6rem'>{intro}</p>", unsafe_allow_html=True)
 
 
-def what(text: str, data: str | None = None) -> None:
-    """Short 'what this shows' line under a chart or table, with the data source and year."""
+def what(text: str | list[str], data: str | None = None) -> None:
+    """Short 'what this shows' caption under a chart or table, with the data source and year.
+    A list is shown as bullet points (one short point each)."""
     # the data badge sits on its own line; "What this shows:" starts on the next one
     chip = (f"<span style='background:#f3f2ee;border-radius:4px;padding:1px 6px;color:{INK_2};"
             f"display:inline-block;line-height:1.6;margin-bottom:3px'>Data: {data}</span><br/>") if data else ""
+    if isinstance(text, (list, tuple)):
+        items = "".join(f"<li style='margin:0 0 2px 0'>{t}</li>" for t in text)
+        body = f"<b>What this shows:</b></p><ul style='color:{INK_2};font-size:0.88rem;margin:-0.6rem 0 0.8rem 0'>{items}</ul>"
+        st.markdown(f"<p style='color:{INK_2};font-size:0.88rem;margin:-0.4rem 0 0.3rem 0'>{chip}{body}",
+                    unsafe_allow_html=True)
+        return
     st.markdown(f"<p style='color:{INK_2};font-size:0.88rem;margin-top:-0.4rem'>{chip}<b>What this shows:</b> {text}</p>",
                 unsafe_allow_html=True)
 

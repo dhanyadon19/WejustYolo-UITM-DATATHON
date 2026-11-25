@@ -80,10 +80,12 @@ ui.table(val, [
 ui.what("Schools with no Ookla fixed tile within 1 or 2 km, compared with the schools Parliament says lack fibre.",
         data=f"Hansard, 11 Nov 2026 · MOE school list, June 2022 · Ookla {gi.ookla_quarter.iloc[0]}")
 tot = val[val.state.str.startswith("Total")].iloc[0]
-st.markdown(f"Flagging schools with no Ookla fixed tile within 2 km gives {int(tot.est_2km):,} against Parliament's "
-            f"{int(tot.hansard_no_fibre):,} ({tot.pct_diff_2km:+.1f}%). The 1 km version's total ({tot.pct_diff_1km:+.1f}%) "
-            "matches only because large state errors cancel. Thresholds were not tuned. **The layer is a low-confidence "
-            "screen and does not drive any cost.**")
+st.markdown(f"""
+- **2 km screen:** {int(tot.est_2km):,} schools flagged vs Parliament's {int(tot.hansard_no_fibre):,} ({tot.pct_diff_2km:+.1f}%).
+- **1 km screen:** total {tot.pct_diff_1km:+.1f}%, but only because large state errors cancel out.
+- Thresholds were not tuned.
+- **A low-confidence screen only: it does not drive any cost.**
+""")
 
 # --- 4. Costs
 st.header("4. Cost assumptions (estimates)")
@@ -121,21 +123,43 @@ ui.what("Estimated five-year cost to provide service under each case. Upper boun
 take = cl.category_main.eq("takeup_gap")
 hh = co.loc[sar, "household_size"]
 res_site = t["residents_per_site"]
-st.markdown(
-    f"**Settlements.** One per rural MOE school ({len(cl):,}). {int(take.sum()):,} ({100 * take.mean():.0f}%) have an Ookla fixed "
-    "tile within 2 km and are treated as a **take-up gap** (fixed network likely nearby; a proxy), not costed. "
-    f"{ui.TAKEUP_TXT} The rest are screened for a tower if their households without home internet (the ones the "
-    "costs pay for) reach the break-even, otherwise satellite. A sensitivity case applies the test to all households instead.  \n"
-    f"**JENDELA comparison.** JENDELA 2 plans about {res_site} residents per tower site, roughly "
-    f"{res_site / hh.max():.0f}–{res_site / hh.min():.0f} households at Sarawak household sizes — well below the "
-    f"break-even of {tower5 / sat5['residential']:.0f}–{tower5 / sat5['residential_lite']:.0f}. Real towers serve more than "
-    f"households (roads, safety, mobile users), so our rule is a cost screen, not a verdict. "
-    f"Full method: [docs/costing_method.md]({REPO}/blob/main/docs/costing_method.md).")
+st.markdown(f"""
+**How each settlement gets a fix (estimates)**
+- **Settlements:** one per rural MOE school ({len(cl):,} in total).
+- **Take-up gap:** {int(take.sum()):,} ({100 * take.mean():.0f}%) have an Ookla fixed tile within 2 km (fixed network likely nearby; a proxy). Not costed. {ui.TAKEUP_TXT}
+- **Tower or satellite:** the rest get a tower if their households without home internet (the ones the costs pay for) reach the break-even, otherwise satellite.
+- **Sensitivity:** a second case applies the tower test to all households instead.
+
+**JENDELA comparison**
+- JENDELA 2 plans about {res_site} residents per tower site: roughly {res_site / hh.max():.0f}–{res_site / hh.min():.0f} households at Sarawak household sizes.
+- That is well below our break-even of {tower5 / sat5['residential']:.0f}–{tower5 / sat5['residential_lite']:.0f} households.
+- Real towers serve more than households (roads, safety, mobile users), so our rule is a cost screen, not a verdict.
+
+Full method: [docs/costing_method.md]({REPO}/blob/main/docs/costing_method.md)
+""")
 ui.caveat()
 
 # --- 5. Limitations
 st.header("5. Limitations")
 st.markdown(f"""
+- **Coverage ≠ access:** the official {facts['value_pct']}% is network coverage; DOSM measures households online.
+- **Survey precision:** DOSM publishes no district margins of error; our {ui.INFERRED_N} and margin are estimates ({nsmall} districts flagged).
+- **Ookla is crowd-sourced:** fixed tests only come from homes that already have fixed broadband.
+- **Proxies, not coverage maps:** no public fibre-route data exists.
+- **School screen failed validation:** shown only as a low-confidence layer; never drives costs.
+- **Boundaries:** Sarawak uses unofficial OpenStreetMap boundaries; Siburan and Membakut have none.
+- **Data years differ:** 2020 to {gi.ookla_quarter.iloc[0]}.
+- **Costs are estimates** from public statements and news, not engineering quotes.
+- **Simple settlement model:** households assumed equal across a district's rural schools.
+- **Cost screen, not cost-benefit:** towers and satellite are different services.
+- **3D view is context only:** no line-of-sight or signal model.
+- **Satellite in practice:** needs power and clear sky; the monthly fee is a real cost; no mobile coverage.
+- **Take-up proxy may be too generous:** the same proxy undercounted schools without fibre by about {abs(tot.pct_diff_2km):.0f}%, so the main cost is likely understated.
+- **Tower and satellite only:** fibre PoPs appear only as an upper-bound cost sensitivity.
+- **Licences:** Ookla CC BY-NC-SA 4.0 (non-commercial); OSM boundaries ODbL.
+""")
+with st.expander("Full detail on each limitation"):
+    st.markdown(f"""
 - **Coverage vs access.** The official {facts['value_pct']}% is network coverage of populated areas; DOSM measures households online. They are different things and are shown side by side, not as a contradiction.
 - **Survey precision.** DOSM does not publish district sample sizes or margins of error. Our **inferred sample size** comes from the published percentages ({nsmall} districts flagged), and our **approximate margin of error (simple random-sampling formula)** (±{gi.internet_moe95_pp.min():.0f}–{gi.internet_moe95_pp.max():.0f} pp) probably understates the true error. Neither is a DOSM figure. Districts not flagged are not necessarily precise.
 - **Ookla is crowd-sourced.** Tests are run by users who choose to test. Fixed results only come from homes that already have fixed broadband, and fixed wireless or satellite home links can count as "fixed".

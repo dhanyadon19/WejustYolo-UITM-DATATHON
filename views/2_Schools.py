@@ -36,9 +36,9 @@ fig = go.Figure(go.Bar(
 ui.style(fig, height=330, legend=False, margin=dict(l=10, r=60, t=30, b=10))
 fig.update_xaxes(title="Schools without fibre", range=[0, by_state.schools_without_fibre.max() * 1.2])
 st.plotly_chart(fig, width="stretch")
-ui.what("Number of schools without fibre in each state, with the share of that state's schools in brackets, "
-        "as stated in Parliament. These schools use wireless broadband or satellite instead. "
-        "State totals in the tooltip are derived from rounded percentages and are approximate.", data=HANSARD)
+ui.what(["Schools without fibre in each state, as stated in Parliament (share of the state's schools in brackets).",
+         "These schools use wireless broadband or satellite instead.",
+         "State totals in the tooltip come from rounded percentages, so they are approximate."], data=HANSARD)
 
 # --- Map
 st.subheader("Where the schools are")
@@ -100,11 +100,12 @@ with right:
     ])
     tot = val[val.state.str.startswith("Total")].iloc[0]
     conf = conn[conn.likely_no_fibre == True]["confidence"].value_counts()  # noqa: E712
-    ui.what(f"The 2 km screen finds {int(tot.est_2km):,} schools against Parliament's {int(tot.hansard_no_fibre):,} "
-            f"({tot.pct_diff_2km:+.1f}%). The 1 km total looks close ({tot.pct_diff_1km:+.1f}%) only because state "
-            f"errors cancel out. Of the flagged schools, {int(conf.get('low', 0)):,} are low confidence, "
-            f"{int(conf.get('medium', 0)):,} medium and {int(conf.get('high', 0)):,} high (based on how many mobile "
-            "tests are nearby). Use it to screen, never to count.",
+    ui.what([f"2 km screen: {int(tot.est_2km):,} schools vs Parliament's {int(tot.hansard_no_fibre):,} "
+             f"({tot.pct_diff_2km:+.1f}%).",
+             f"1 km total looks close ({tot.pct_diff_1km:+.1f}%) only because state errors cancel out.",
+             f"Flagged schools by confidence (mobile tests nearby): {int(conf.get('low', 0)):,} low, "
+             f"{int(conf.get('medium', 0)):,} medium, {int(conf.get('high', 0)):,} high.",
+             "Use it to screen, never to count."],
             data=f"{HANSARD} · {MOE_LIST} · Ookla {quarter}")
 
 ui.next_step("views/3_Sarawak_map.py", "Sarawak map",
