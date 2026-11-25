@@ -26,8 +26,12 @@ SARAWAK_TERRAIN_VIEW = dict(latitude=2.3, longitude=112.75, zoom=6.3)     # tilt
 TERRAIN_PITCH = 50
 MAP_HEIGHT = 560
 VIEWS = ["3D terrain", "Gap Index blocks"]
-HOVER_TINT = ui.hex_rgb(ui.ACCENT, 55)    # hover / clicked district: subtle accent-blue tint
-FOCUS_TINT = ui.hex_rgb(ui.ACCENT, 45)    # district opened with ?district=: lighter tint under a thick outline
+# District fills are draped on the terrain (rendered into a texture laid over the mesh). Keep every draped fill a
+# very faint accent blue, never white or pale: if a GPU/driver blends that texture's alpha wrongly, a light fill turns
+# into an opaque pale-grey/lavender patch in the district's shape, while a faint blue fill stays a faint blue.
+HOVER_TINT = ui.hex_rgb(ui.ACCENT, 30)    # hover / clicked district: faint accent-blue tint
+FOCUS_TINT = ui.hex_rgb(ui.ACCENT, 18)    # district opened with ?district=: the accent outline carries it, tint barely there
+PICK_FILL = ui.hex_rgb(ui.ACCENT, 0)      # invisible fill that keeps districts hoverable and clickable
 # Terrain fallbacks. deck.gl draws a terrain tile whose imagery has not loaded (slow or blocked by the imagery server)
 # in the layer's base colour, white by default, which reads as a pale-grey faceted patch: use a dark forest tone.
 TERRAIN_BASE = [34, 44, 36]
@@ -215,12 +219,12 @@ if terrain:
                   max_zoom=min(el["max_zoom"], im["max_zoom"], TERRAIN_TILE_MAX_ZOOM), max_requests=TERRAIN_MAX_REQUESTS,
                   color=TERRAIN_BASE, mesh_max_error=4, operation=S("terrain+draw"),
                   pickable=False),
-        # district boundaries draped on the terrain. The fill is invisible (alpha 1) but keeps districts hoverable and
-        # clickable; hover and click use a light accent-blue tint (a pale/white tint reads as snow on the forest)
-        pdk.Layer("GeoJsonLayer", g, id="districts", filled=True, stroked=True, get_fill_color=[255, 255, 255, 1],
+        # district boundaries draped on the terrain. The fill is invisible (alpha 0) but keeps districts hoverable and
+        # clickable; hover and click use a faint accent-blue tint (a pale/white tint reads as snow on the forest)
+        pdk.Layer("GeoJsonLayer", g, id="districts", filled=True, stroked=True, get_fill_color=PICK_FILL,
                   get_line_color=[255, 255, 255, 200], line_width_min_pixels=1.2, pickable=True, auto_highlight=True,
                   highlight_color=HOVER_TINT, extensions=terrain_ext, terrain_draw_mode=S("drape")),
-        # selected district (?district=): thicker accent outline and a light accent tint
+        # selected district (?district=): thick accent outline and a barely visible accent tint
         pdk.Layer("GeoJsonLayer", focused, id="focus", filled=True, stroked=True, get_fill_color=FOCUS_TINT,
                   get_line_color=ui.hex_rgb(ui.ACCENT, 255), line_width_min_pixels=3.5, pickable=False,
                   extensions=terrain_ext, terrain_draw_mode=S("drape")),
