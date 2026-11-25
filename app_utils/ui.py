@@ -203,10 +203,13 @@ def cell(v, fmt=None) -> str:
     return format(v, fmt) if isnum(v) else TABLE_DASH
 
 
-def table(df, spec: list, *, height: int | str = "auto") -> None:
+def table(df, spec: list, *, height: int | str = "auto", download: str | None = None,
+          notes: list[str] | None = None) -> None:
     """Show df as a clean display table. spec: [(source column, short label, fmt[, help])], fmt as in cell();
     keep labels short so the table fits at 1366 px and put the full description in help (shown on hover).
-    Columns with a fmt are right-aligned; the first column is pinned for horizontal scroll on phones."""
+    Columns with a fmt are right-aligned; the first column is pinned for horizontal scroll on phones.
+    download: a file name to add a 'Download this table (CSV)' button with the same rows and columns
+    (numbers as numbers, at the displayed precision) and the notes as '#' lines at the top."""
     import pandas as pd
 
     spec = [tuple(x) + (None,) * (4 - len(x)) for x in spec]
@@ -215,6 +218,38 @@ def table(df, spec: list, *, height: int | str = "auto") -> None:
                                               pinned=(i == 0))
            for i, (src, label, fmt, hlp) in enumerate(spec)}
     st.dataframe(out, hide_index=True, width="stretch", height=height, column_config=cfg)
+    if download:
+        raw = pd.DataFrame({label: _export_col(df[src], fmt) for src, label, fmt, _ in spec})
+        download_csv(raw, download, "Download this table (CSV)", notes or [])
+
+
+def _export_col(col, fmt):
+    """A table column for CSV: numbers rounded to the displayed decimals, text as shown, missing left empty."""
+    import re
+
+    import pandas as pd
+
+    if isinstance(fmt, str) and fmt.endswith("f"):
+        m = re.search(r"\.(\d+)f$", fmt)
+        nd = int(m.group(1)) if m else 0
+        vals = [round(float(v), nd) if isnum(v) else None for v in col]
+        return pd.array([None if v is None else int(v) for v in vals], dtype="Int64") if nd == 0 else vals
+    return [None if (c := cell(v, fmt)) == TABLE_DASH else c for v in col]
+
+
+def slug(name: str) -> str:
+    """File-name part from a district or scope name: 'Kota Kinabalu' -> 'kota_kinabalu'."""
+    import re
+
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
+def download_csv(df, filename: str, label: str, notes: list[str], key: str | None = None) -> None:
+    """st.download_button for df as CSV, with notes (sources, 'estimates') as '#' lines at the top.
+    UTF-8 with BOM so Excel shows en dashes and accents correctly."""
+    head = "".join(f"# {n}\n" for n in notes)
+    st.download_button(label, (head + df.to_csv(index=False)).encode("utf-8-sig"), file_name=filename,
+                       mime="text/csv", icon=":material/download:", key=key or f"dl_{filename}")
 
 
 def fallback(text: str) -> None:

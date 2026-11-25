@@ -144,6 +144,13 @@ ui.table(tbl, [("district", "District", None)] + ([("state", "State", None)] if 
                                          "likely nearby (take-up gap)"),
     ("fix", "Main fix", None),
     ("small", "Small sample", None, "Yes = DOSM estimate rests on a small inferred sample: low confidence"),
+], download=f"beyond_coverage_priorities_{ui.slug(scope)}_{'residential' if case == 'main' else 'lite'}.csv", notes=[
+    f"Beyond Coverage: need and estimated beneficiaries per RM1m, {where}.",
+    "Need (Gap Index) is the main ranking. Need rank range: 5th-95th percentile over 1,000 random index weightings; "
+    "per-RM1m rank range: lowest-highest across the Residential, Lite and upper-bound cost cases.",
+    "ESTIMATES ONLY: costs, people reached and per-RM1m figures come from a cost screen, not a full cost-benefit "
+    "comparison. Settlements with a fixed network likely nearby (proxy) are a take-up gap and are not costed.",
+    f"Data: {DATA}.",
 ])
 excluded = (dt if scope == "All Malaysia" else dt[dt.state == "Sarawak"])
 excluded = excluded[excluded[f"people_per_rm_m_{case}"].isna()]

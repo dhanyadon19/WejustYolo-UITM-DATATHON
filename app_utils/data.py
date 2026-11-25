@@ -146,3 +146,10 @@ def settlement_groups() -> pd.DataFrame:
             t[c] = 0.0
     t["largest_group"] = t[["takeup_gap", "tower", "satellite"]].idxmax(axis=1)
     return t
+
+
+@st.cache_data(show_spinner=False)
+def district_settlements(state: str, district: str) -> pd.DataFrame:
+    """Every rural settlement (one per rural MOE school) in one district, main and Lite cases, for download."""
+    cl = csv("costing_clusters")
+    return cl[(cl["state"] == state) & (cl["district"] == district)].sort_values("school_code").reset_index(drop=True)

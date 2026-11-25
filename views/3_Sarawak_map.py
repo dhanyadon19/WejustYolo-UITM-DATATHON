@@ -342,6 +342,13 @@ with st.expander("Table view"):
         ("takeup_pct", "Take-up (%)", ".0f", "Share of rural settlements where our proxy suggests a fixed network is "
                                              "likely nearby (take-up gap)"),
         ("fix", "Main fix", None, "Fix serving most rural people without home internet among planned settlements"),
+    ], download="beyond_coverage_sarawak_districts.csv", notes=[
+        "Beyond Coverage: Sarawak districts on the map, sorted by need (Connectivity Gap Index).",
+        "Need rank range: 5th-95th percentile over 1,000 random index weightings. MOE (pp): our approximate margin of "
+        "error (simple random-sampling formula), shown only for small-sample districts; not a DOSM figure.",
+        "Take-up (%) and main fix are ESTIMATES from our cost screen (take-up = an Ookla fixed tile within 2 km, a proxy).",
+        f"Data: DOSM ICTHS {access_year}; Ookla {quarter}; HIES 2024; Census 2020; MOE school list June 2022; "
+        "config/costs.yaml.",
     ])
     ui.what("All Sarawak districts on the map, sorted by need. Need rank range: 5th–95th percentile over random "
             "index weightings. Margin of error: our approximate estimate, shown only for small-sample districts.",
