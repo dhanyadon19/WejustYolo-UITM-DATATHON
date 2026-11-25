@@ -29,9 +29,12 @@ VIEWS = ["3D terrain", "Gap Index blocks"]
 # District fills are draped on the terrain (rendered into a texture laid over the mesh). Keep every draped fill a
 # very faint accent blue, never white or pale: if a GPU/driver blends that texture's alpha wrongly, a light fill turns
 # into an opaque pale-grey/lavender patch in the district's shape, while a faint blue fill stays a faint blue.
-HOVER_TINT = ui.hex_rgb(ui.ACCENT, 30)    # hover / clicked district: faint accent-blue tint
-FOCUS_TINT = ui.hex_rgb(ui.ACCENT, 18)    # district opened with ?district=: the accent outline carries it, tint barely there
+# Some GPUs draw ANY non-zero alpha on a draped fill as fully opaque (a solid blue or pale patch hiding the terrain),
+# while alpha 0 stays invisible. So in the terrain view no district fill is ever visible: the selected or clicked
+# district gets a thick accent outline only, and hover has no tint (deck.gl's hover highlight recolours the fill too,
+# and an outline cannot follow the mouse from Python); the tooltip names the district under the pointer.
 PICK_FILL = ui.hex_rgb(ui.ACCENT, 0)      # invisible fill that keeps districts hoverable and clickable
+OUTLINE_PX = 4                            # selected / clicked district outline
 # Terrain fallbacks. deck.gl draws a terrain tile whose imagery has not loaded (slow or blocked by the imagery server)
 # in the layer's base colour, white by default, which reads as a pale-grey faceted patch: use a dark forest tone.
 TERRAIN_BASE = [34, 44, 36]
@@ -191,6 +194,20 @@ for f in geo["features"]:
 g = {"type": "FeatureCollection", "features": features}
 small = {"type": "FeatureCollection", "features": [f for f in features if f["properties"]["small"]]}
 focused = {"type": "FeatureCollection", "features": [f for f in features if f["properties"]["focus"]]}
+# Streamlit restyles a map with a selection: the selected object is filled at full opacity (a solid patch) and every
+# other object is dimmed. So a selection never stays: clicking a district focuses it like ?district= (outline only),
+# and any click gives the chart a new key, which drops the selection and its styling.
+st.session_state.setdefault("sarawak_map_nonce", 0)
+map_key = f"sarawak_map_{view}_{focus}_{st.session_state['sarawak_map_nonce']}"
+
+
+def _on_map_click() -> None:
+    try:
+        objs = st.session_state[map_key]["selection"]["objects"]
+        st.query_params["district"] = objs["districts"][0]["properties"]["district"]
+    except (KeyError, IndexError, TypeError):
+        pass  # a settlement or empty space: nothing to focus
+    st.session_state["sarawak_map_nonce"] += 1
 
 # --- camera: tilted over Sarawak, or over the focus district
 if focus_pts:
@@ -237,13 +254,13 @@ if terrain:
                   color=TERRAIN_BASE, mesh_max_error=4, operation=S("terrain+draw"),
                   pickable=False),
         # district boundaries draped on the terrain. The fill is invisible (alpha 0) but keeps districts hoverable and
-        # clickable; hover and click use a faint accent-blue tint (a pale/white tint reads as snow on the forest)
+        # clickable; no hover highlight (it would tint the fill, see PICK_FILL)
         pdk.Layer("GeoJsonLayer", g, id="districts", filled=True, stroked=True, get_fill_color=PICK_FILL,
-                  get_line_color=[255, 255, 255, 200], line_width_min_pixels=1.2, pickable=True, auto_highlight=True,
-                  highlight_color=HOVER_TINT, extensions=terrain_ext, terrain_draw_mode=S("drape")),
-        # selected district (?district=): thick accent outline and a barely visible accent tint
-        pdk.Layer("GeoJsonLayer", focused, id="focus", filled=True, stroked=True, get_fill_color=FOCUS_TINT,
-                  get_line_color=ui.hex_rgb(ui.ACCENT, 255), line_width_min_pixels=3.5, pickable=False,
+                  get_line_color=[255, 255, 255, 200], line_width_min_pixels=1.2, pickable=True, auto_highlight=False,
+                  extensions=terrain_ext, terrain_draw_mode=S("drape")),
+        # selected district (?district=, the picker or a click): thick accent outline only, no fill
+        pdk.Layer("GeoJsonLayer", focused, id="focus", filled=False, stroked=True,
+                  get_line_color=ui.hex_rgb(ui.ACCENT, 255), line_width_min_pixels=OUTLINE_PX, pickable=False,
                   extensions=terrain_ext, terrain_draw_mode=S("drape")),
         # settlements sit on the terrain surface (TerrainExtension offset mode); billboard dots face the camera and
         # skip the depth test so a neighbouring slope never hides or cuts them
@@ -280,25 +297,16 @@ else:
     deck = pdk.Deck(layers=layers, initial_view_state=VIEW, map_style=pdk.map_styles.CARTO_LIGHT, tooltip=tooltip)
 
 with map_box:
-    event = st.pydeck_chart(deck, height=MAP_HEIGHT, key=f"sarawak_map_{view}_{focus}", on_select="rerun",
-                            selection_mode="single-object")
+    st.pydeck_chart(deck, height=MAP_HEIGHT, key=map_key, on_select=_on_map_click, selection_mode="single-object")
 if terrain:  # the imagery licence asks for the credit on the map interface itself
     st.markdown(f"<div style='font-size:0.72rem;color:{ui.MUTED};margin-top:-0.6rem'>{tiles['imagery']['attribution']}"
                 f" · {tiles['elevation']['attribution']} · Boundaries {ui.OSM_CREDIT} (ODbL) · {ui.BASEMAP_CREDIT}<br/>"
                 "Map empty or partly grey? Terrain and imagery come from public tile servers and can be slow; wait a few "
                 "seconds, reload the page, or switch to Gap Index blocks.</div>", unsafe_allow_html=True)
 
-# --- click a district or a settlement (or pick one) to open its detail page
-picked = None
-try:
-    sel = event.selection["objects"]
-    objs = sel.get("districts", [])
-    if objs:
-        picked = objs[0]["properties"]["district"]
-except (AttributeError, KeyError, TypeError, IndexError):
-    picked = None
+# --- the focused district (?district=, a click on the map, or picked here) can be opened in District detail
 by_need = d.sort_values("rank_sarawak").district.tolist()
-default = picked or focus
+default = focus
 p1, p2 = st.columns([2, 1], vertical_alignment="bottom")
 pick_key = f"sarawak_pick_{default}"
 
