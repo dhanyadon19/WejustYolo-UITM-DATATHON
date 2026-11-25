@@ -57,8 +57,9 @@ def page(title: str, intro: str | None = None) -> None:
 
 def what(text: str, data: str | None = None) -> None:
     """Short 'what this shows' line under a chart or table, with the data source and year."""
-    chip = (f"<span style='background:#f3f2ee;border-radius:4px;padding:1px 6px;margin-right:6px;"
-            f"color:{INK_2};display:inline;line-height:1.7'>Data: {data}</span>") if data else ""
+    # the data badge sits on its own line; "What this shows:" starts on the next one
+    chip = (f"<span style='background:#f3f2ee;border-radius:4px;padding:1px 6px;color:{INK_2};"
+            f"display:inline-block;line-height:1.6;margin-bottom:3px'>Data: {data}</span><br/>") if data else ""
     st.markdown(f"<p style='color:{INK_2};font-size:0.88rem;margin-top:-0.4rem'>{chip}<b>What this shows:</b> {text}</p>",
                 unsafe_allow_html=True)
 
@@ -153,6 +154,13 @@ def rank_range(rank, lo, hi) -> str:
     return f"{int(rank)} (range {range_text(lo, hi)})" if isnum(lo) and isnum(hi) else f"{int(rank)}"
 
 
+def rank_short(rank, lo, hi) -> str:
+    """'12 (9–14)' for tables; just the rank if the range is missing; '' if no rank."""
+    if not isnum(rank):
+        return ""
+    return f"{int(rank)} ({range_text(lo, hi)})" if isnum(lo) and isnum(hi) else f"{int(rank)}"
+
+
 def safe_div(num, den):
     return num / den if isnum(num) and isnum(den) and den != 0 else float("nan")
 
@@ -179,6 +187,34 @@ def small_sample_banner(name: str, n, moe) -> None:
     detail = (": " + ", ".join(parts) + ".") if parts else "."
     st.warning(f"**Low confidence.** {name}'s DOSM estimate appears to rest on a small sample{detail} "
                f"{NOT_DOSM} Treat its ranks as ranges, not exact positions.", icon="⚠️")
+
+
+# --- display tables: formatted strings, "—" for missing values, numbers right-aligned ---
+TABLE_DASH = "—"
+
+
+def cell(v, fmt=None) -> str:
+    """One table cell as text. fmt: a format spec (',.1f'), a callable, or None for text. Missing -> '—'."""
+    if callable(fmt):
+        out = fmt(v)
+        return out if isinstance(out, str) and out not in ("", DASH) else TABLE_DASH
+    if fmt is None:
+        return v if isinstance(v, str) and v.strip() else TABLE_DASH
+    return format(v, fmt) if isnum(v) else TABLE_DASH
+
+
+def table(df, spec: list, *, height: int | str = "auto") -> None:
+    """Show df as a clean display table. spec: [(source column, short label, fmt[, help])], fmt as in cell();
+    keep labels short so the table fits at 1366 px and put the full description in help (shown on hover).
+    Columns with a fmt are right-aligned; the first column is pinned for horizontal scroll on phones."""
+    import pandas as pd
+
+    spec = [tuple(x) + (None,) * (4 - len(x)) for x in spec]
+    out = pd.DataFrame({label: [cell(v, fmt) for v in df[src]] for src, label, fmt, _ in spec})
+    cfg = {label: st.column_config.TextColumn(label, help=hlp, alignment="right" if fmt is not None else "left",
+                                              pinned=(i == 0))
+           for i, (src, label, fmt, hlp) in enumerate(spec)}
+    st.dataframe(out, hide_index=True, width="stretch", height=height, column_config=cfg)
 
 
 def fallback(text: str) -> None:
@@ -240,6 +276,10 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
         flagged = r.get("small_sample_flag")
         if isnum(flagged) and bool(flagged):
             small_sample_banner(name, r.get("implied_sample_n"), r.get("internet_moe95_pp"))
+        # the Sarawak map focuses a district from ?district=...; only districts drawn on it get the link
+        if state == "Sarawak" and r.get("has_boundary", False) and isnum(r.get("rank_sarawak")):
+            st.page_link("views/3_Sarawak_map.py", label=f"Show {name} on the Sarawak map", icon=":material/map:",
+                         query_params={"district": name})
 
         # 2. What to do
         st.markdown("**2. What to do (estimates)**")

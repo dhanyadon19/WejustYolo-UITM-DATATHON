@@ -120,6 +120,15 @@ def fix_breakdown() -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
+def settlement_points(state: str) -> pd.DataFrame:
+    """Rural settlements (one per rural MOE school) with coordinates, main-case fix, estimated people
+    without home internet and five-year cost. Rows without coordinates are dropped (not mappable)."""
+    cl = csv("costing_clusters")
+    cl = cl[(cl["state"] == state) & cl["lon"].notna() & cl["lat"].notna()]
+    return cl[["district", "lon", "lat", "category_main", "unconnected_people", "cost_main"]].reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
 def census_year() -> int | None:
     """Census year behind the settlement households, read from costing_clusters.hh_source."""
     years = csv("costing_clusters")["hh_source"].astype(str).str.extract(r"Census (\d{4})")[0].dropna()

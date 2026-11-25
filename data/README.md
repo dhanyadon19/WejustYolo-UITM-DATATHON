@@ -188,6 +188,22 @@ The site-wide catalogue pages of OpenDOSM and data.gov.my list no boundary datas
 
 `config/facts.yaml` holds the one typed headline figure, **official coverage of populated areas: 99.71% as at 31 Dec 2025** (Communications Minister; [RTM, 4 Feb 2026](https://berita.rtm.gov.my/nasional/senarai-berita-nasional/senarai-artikel/liputan-internet-negara-cecah-99-71-peratus-setakat-akhir-2025/)). It measures network coverage, not household take-up.
 
+## External map tiles (Sarawak map, 3D terrain view)
+
+Streamed by the viewer's browser at run time; nothing is downloaded into `data/`. URLs, decoder, licences and credit lines live in `config/map_tiles.yaml` (checked 2026-11-24). Neither source needs an API key or account.
+
+| Layer | Source | Licence / terms | Credit shown under the map and in the footer |
+|---|---|---|---|
+| Elevation | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Mapzen/Tilezen), terrarium PNG: height m = R×256 + G + B/256 − 32768 ([formats.md](https://github.com/tilezen/joerd/blob/master/docs/formats.md)) | attribution required per source ([attribution.md](https://github.com/tilezen/joerd/blob/master/docs/attribution.md)); Sarawak tiles report SRTM, GMTED2010 and ETOPO1 (S3 header `x-amz-meta-x-imagery-sources`) | SRTM and GMTED2010 courtesy of the U.S. Geological Survey; ETOPO1 U.S. NOAA |
+| Imagery (terrain texture) | [EOxCloudless](https://cloudless.eox.at) 2024 (Sentinel-2 cloudless), EOX IT Services GmbH | **CC BY-NC-SA 4.0** (all mosaics from 2018): non-commercial use with attribution; the public endpoint must not be used for commercial production apps; no SLA, avoid traffic bursts | "EOxCloudless 2024 by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2024)" |
+
+**Caveats**
+- **Display only.** Terrain and imagery are context; no number in the app is computed from them.
+- **3D view is context only.** The 3D view shows terrain context only; it does not model line-of-sight or signal blocking (future work: add tower locations and a line-of-sight model).
+- **Heights are exaggerated** ×4 for the whole state and ×3 in a district view, with a maximum zoom of 11 (set in `views/3_Sarawak_map.py`), so interior hills read while the coast stays flat and close-ups don't look crumpled.
+- **Non-commercial.** Like Ookla (CC BY-NC-SA 4.0), the imagery limits the app to non-commercial use. Esri World Imagery was not used: its account/API-key terms could not be confirmed.
+- **Availability.** Both are third-party public endpoints with no service guarantee; the "Gap Index blocks" view (Carto basemap) is the fallback and the default on phones. If an imagery tile is slow or refused (EOX throttles bursts), that patch of terrain shows in a dark neutral colour until reload; the map says so under the credits.
+
 ## Processed: schools (from `scripts/build_schools.py`), an ESTIMATE
 
 **`schools_connectivity.csv`**: 5,349 schools in Kelantan, Terengganu, Pahang, Kedah, Sabah and Sarawak (MOE list, Jun 2022), compared against Ookla 2026 Q3 tiles. Inherits CC BY-NC-SA 4.0 from Ookla.
