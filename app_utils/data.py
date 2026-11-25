@@ -153,3 +153,25 @@ def district_settlements(state: str, district: str) -> pd.DataFrame:
     """Every rural settlement (one per rural MOE school) in one district, main and Lite cases, for download."""
     cl = csv("costing_clusters")
     return cl[(cl["state"] == state) & (cl["district"] == district)].sort_values("school_code").reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
+def funding_queue(scope: str, case: str) -> pd.DataFrame:
+    """Planned (tower or satellite) settlements in budget-planner funding order for scope 'Sarawak' or
+    'All Malaysia' and case 'main' or 'lite': districts by need (Gap Index rank, 1 = highest need, first), and within
+    a district the cheapest cost per estimated person without home internet first. Take-up-gap settlements are
+    left out (they need take-up support, not infrastructure). cum_cost = running total in this order."""
+    cl = csv("costing_clusters")
+    gi = csv("gap_index_districts")
+    need_col = "rank_sarawak" if scope == "Sarawak" else "rank_national"
+    if scope == "Sarawak":
+        cl = cl[cl["state"] == "Sarawak"]
+    cat, cost = f"category_{case}", f"cost_{case}"
+    q = cl[cl[cat] != "takeup_gap"].merge(gi[["state", "district", need_col]], on=["state", "district"], how="left")
+    q = q.rename(columns={need_col: "need_rank", cat: "category", cost: "cost", "unconnected_people": "people"})
+    # a settlement with no one without home internet (0% access gap) sorts last within its district
+    q["cost_per_person"] = (q["cost"] / q["people"].where(q["people"] > 0)).fillna(float("inf"))
+    q = q.sort_values(["need_rank", "district", "cost_per_person", "school_code"]).reset_index(drop=True)
+    q["cum_cost"] = q["cost"].cumsum()
+    return q[["state", "district", "need_rank", "school_code", "category", "people", "cost", "cost_per_person",
+              "cum_cost"]]

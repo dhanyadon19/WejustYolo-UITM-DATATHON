@@ -188,3 +188,25 @@ def test_breakeven_matches_config_note(unit):
     be = yml("costs")["decision_rule"]["breakeven_households_vs_starlink"]
     assert round(unit["main"]["breakeven"]) == be["residential"]
     assert round(unit["lite"]["breakeven"]) == be["residential_lite"]
+
+
+# --- budget planner funding order (Priorities page) ---
+@pytest.mark.parametrize("scope", ["Sarawak", "All Malaysia"])
+@pytest.mark.parametrize("case", ["main", "lite"])
+def test_funding_queue_order(cl, scope, case):
+    import sys
+
+    sys.path.insert(0, str(ROOT))
+    from app_utils import data
+
+    q = data.funding_queue(scope, case)
+    sub = cl if scope == "All Malaysia" else cl[cl["state"] == "Sarawak"]
+    planned = sub[sub[f"category_{case}"] != TAKEUP]
+    assert len(q) == len(planned) and (q["category"] != TAKEUP).all()
+    assert q["need_rank"].notna().all() and q["need_rank"].is_monotonic_increasing, "not in need order"
+    # each district's settlements are contiguous, cheapest per person first
+    runs = (q["district"] != q["district"].shift()).cumsum()
+    assert runs.nunique() == q.groupby(["state", "district"]).ngroups
+    assert all(g["cost_per_person"].is_monotonic_increasing for _, g in q.groupby(["state", "district"]))
+    assert math.isclose(q["cost"].sum(), planned[f"cost_{case}"].sum(), rel_tol=1e-12)
+    assert np.allclose(q["cum_cost"].iloc[-1], q["cost"].sum())

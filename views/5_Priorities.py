@@ -1,4 +1,6 @@
 """Priorities: need rank vs estimated-beneficiaries-per-RM1m rank."""
+import math
+
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
@@ -167,6 +169,82 @@ ui.what("Need rank range: 5th–95th percentile rank over 1,000 random index wei
         "unchanged). Small-sample districts carry extra uncertainty from their approximate margin of error."
         + (f" Not shown ({len(excluded)}): {why_txt}." if len(excluded) else ""),
         data=DATA)
+
+# --- budget planner: fund districts in need order (not by beneficiaries per RM1m, which are close together)
+st.subheader("Budget planner")
+st.markdown("**Screening tool: estimates only, not a funding recommendation.**")
+q = data.funding_queue(scope, case)
+cl_scope = cl if scope == "All Malaysia" else cl[cl.state == "Sarawak"]
+tk = cl_scope[cl_scope[f"category_{case}"] == "takeup_gap"]
+if q.empty:
+    ui.fallback("No planned (tower or satellite) settlements in this selection, so there is nothing to fund.")
+else:
+    total_m = q["cost"].sum() / 1e6
+    step = 0.1
+    top = math.ceil(total_m / step) * step  # slider end: the full planned cost, rounded up to the step
+    budget_m = st.slider(f"Five-year budget, RM million ({where})", 0.0, top, value=round(top / 2 / step) * step,
+                         step=step, format="RM%.1fm", key=f"budget_{scope}_{case}",
+                         help="Up to the estimated five-year cost of every planned tower and satellite settlement in "
+                              "this selection.")
+    budget = budget_m * 1e6
+    # fund in order and stop at the first settlement the rest of the budget cannot cover, so need order is kept
+    funded = q[q["cum_cost"] <= budget + 0.5]
+    nxt = q.iloc[len(funded)] if len(funded) < len(q) else None
+    per_d = q.groupby(["state", "district"], sort=False).agg(need_rank=("need_rank", "first"), n=("cost", "size"),
+                                                           people=("people", "sum"), cost=("cost", "sum"))
+    got = funded.groupby(["state", "district"], sort=False).agg(n_f=("cost", "size"), people_f=("people", "sum"),
+                                                                cost_f=("cost", "sum"))
+    per_d = per_d.join(got, how="left").fillna({"n_f": 0, "people_f": 0, "cost_f": 0})
+    full = per_d[per_d.n_f == per_d.n]
+    part = per_d[(per_d.n_f > 0) & (per_d.n_f < per_d.n)]
+    used, reached = funded["cost"].sum(), funded["people"].sum()
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Budget used", ui.fmt_rm(used), help=f"Of {ui.fmt_rm(budget)} chosen; the rest cannot fund the next "
+                                                  "settlement in line.")
+    m2.metric("Districts funded", f"{len(full):,} fully · {len(part):,} partly",
+              help=f"Of {len(per_d):,} districts with planned settlements.")
+    m3.metric("Settlements funded", f"{len(funded):,} of {len(q):,}")
+    m4, m5, m6 = st.columns(3)
+    m4.metric("People reached (estimate)", ui.fmt_num(reached),
+              help="Estimated rural people without home internet in the funded settlements.")
+    m5.metric("People left unfunded (estimate)", ui.fmt_num(q["people"].sum() - reached),
+              help="Estimated rural people without home internet in planned settlements this budget does not reach.")
+    m6.metric("Take-up group, not in this budget", ui.fmt_num(tk["unconnected_people"].sum()) + " people",
+              help=f"{len(tk):,} settlements where our proxy suggests a fixed network is likely nearby: they need "
+                   "take-up support, not new infrastructure, so they are not costed or funded here.")
+    if nxt is not None and len(funded):
+        st.markdown(f"Next in line: a {ui.FIX_LABELS[nxt.category].lower()} settlement in **{nxt.district}** "
+                    f"(need rank {int(nxt.need_rank)}), estimated {ui.fmt_rm(nxt.cost)}; "
+                    f"{ui.fmt_rm(nxt.cum_cost - budget)} more budget would fund it.")
+    fd = per_d[per_d.n_f > 0].reset_index()
+    if len(fd):
+        fd["status"] = ["Fully funded" if a == b else "Partly funded" for a, b in zip(fd.n_f, fd.n)]
+        fd["sett"] = [f"{int(a):,} of {int(b):,}" for a, b in zip(fd.n_f, fd.n)]
+        fd["cost_m"] = fd.cost_f / 1e6
+        with st.expander(f"Funded districts ({len(fd):,})", expanded=len(fd) <= 12):
+            ui.table(fd, [("district", "District", None)] + ([("state", "State", None)] if scope == "All Malaysia" else [])
+                     + [("need_rank", "Need rank", ".0f", "Gap Index rank, 1 = highest need" + (" in Sarawak" if scope == "Sarawak" else " nationally")),
+                        ("sett", "Settlements", lambda v: v, "Funded of planned (tower or satellite) settlements"),
+                        ("people_f", "People reached", ",.0f", "Estimated rural people without home internet in "
+                                                               "the funded settlements"),
+                        ("cost_m", "Cost (RM m)", ",.1f", "Estimated five-year cost of the funded settlements"),
+                        ("status", "Status", None)],
+                     height=min(36 * (len(fd) + 1) + 4, 400) if len(fd) > 10 else "auto",
+                     download=f"beyond_coverage_budget_{ui.slug(scope)}_{'residential' if case == 'main' else 'lite'}.csv",
+                     notes=[f"Beyond Coverage budget planner, {where}, budget RM{budget_m:.1f}m. SCREENING TOOL: "
+                            "estimates only, not a funding recommendation.",
+                            "Order: districts by need (Gap Index rank), within a district cheapest cost per person "
+                            "first; stops at the first settlement the budget cannot cover. Take-up-gap settlements "
+                            "(fixed network likely nearby, proxy) are not in this budget.",
+                            f"Data: {DATA}."])
+    ui.what("Funds districts in order of need (Gap Index rank, highest need first); within a district, its planned tower "
+            "and satellite settlements from the cheapest per person. It stops at the first settlement the remaining "
+            "budget cannot cover, so a lower-need district is never funded ahead of a higher-need one. It does not "
+            "order by estimated beneficiaries per RM1m, because those values are close together. Settlements with a "
+            "fixed network likely nearby (take-up gap, our proxy) are not in this budget: they need take-up support, "
+            "not new infrastructure. " + ui.TAKEUP_TXT,
+            data=DATA)
+    ui.caveat()
 
 ui.next_step("views/6_Method.py", "Method & limitations",
              "how the index and costs are built, and how sure we are.")
