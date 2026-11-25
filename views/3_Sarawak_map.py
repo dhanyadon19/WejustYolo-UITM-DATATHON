@@ -84,8 +84,8 @@ def swatch(colour: str, label: str, dot: bool = False) -> str:
 
 
 if terrain:
-    legend = " &nbsp;&nbsp; ".join(swatch(ui.FIX_COLOURS[c], ui.FIX_LABELS[c], dot=True)
-                                   for c in ["takeup_gap", "satellite", "tower"])
+    legend = "<b>Rural settlement (school location)</b>, by fix: &nbsp; " + " &nbsp;&nbsp; ".join(
+        swatch(ui.FIX_COLOURS[c], ui.FIX_LABELS[c], dot=True) for c in ["takeup_gap", "satellite", "tower"])
     legend += (" &nbsp;&nbsp; <span style='white-space:nowrap'><span style='display:inline-block;width:16px;"
                "border-top:2px solid #fff;outline:1px solid #888;vertical-align:3px;margin-right:5px'></span>"
                f"District boundary</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Heights exaggerated ×{tx:g}</span>")
@@ -279,15 +279,25 @@ except (AttributeError, KeyError, TypeError, IndexError):
 by_need = d.sort_values("rank_sarawak").district.tolist()
 default = picked or focus
 p1, p2 = st.columns([2, 1], vertical_alignment="bottom")
-choice = p1.selectbox("Click a district on the map, or pick one here (sorted by need, highest first)", by_need,
-                      index=by_need.index(default) if default in by_need else 0, key=f"sarawak_pick_{default}")
+pick_key = f"sarawak_pick_{default}"
+
+
+def _focus_picked() -> None:
+    """Picking a district moves the map to it, as ?district= does (callbacks run before the rerun)."""
+    st.query_params["district"] = st.session_state[pick_key]
+
+
+choice = p1.selectbox("Click a district on the map, or pick one here to zoom to it (sorted by need, highest first)",
+                      by_need, index=by_need.index(default) if default in by_need else 0, key=pick_key,
+                      on_change=_focus_picked)
 if p2.button(f"Open {choice} in District detail", icon=":material/arrow_forward:", width="stretch"):
     ui.go_to_district(STATE, choice)
 
 weights_txt = ", ".join("{} {}".format(k_.replace("_", " "), v["weight"]) for k_, v in w.items())
 if terrain:
     ui.what("Sarawak's terrain (satellite image on elevation, heights exaggerated "
-            f"×{tx:g}) with every rural settlement (one per rural MOE school) as a dot. Colour is the fix our cost "
+            f"×{tx:g}) with every rural settlement (school location) as a dot: each dot is a rural MOE school, standing "
+            "for the village around it. Colour is the fix our cost "
             "screen suggests: green where our proxy suggests a fixed network is likely nearby (take-up support), "
             "orange for satellite, blue for a tower. Hills and forest help explain why many inland settlements are far from "
             "any network and costly to reach. Hover a dot for the estimated people without home internet and cost. "
@@ -332,6 +342,13 @@ with st.expander("Table view"):
         ("takeup_pct", "Take-up (%)", ".0f", "Share of rural settlements where our proxy suggests a fixed network is "
                                              "likely nearby (take-up gap)"),
         ("fix", "Main fix", None, "Fix serving most rural people without home internet among planned settlements"),
+    ], download="beyond_coverage_sarawak_districts.csv", notes=[
+        "Beyond Coverage: Sarawak districts on the map, sorted by need (Connectivity Gap Index).",
+        "Need rank range: 5th-95th percentile over 1,000 random index weightings. MOE (pp): our approximate margin of "
+        "error (simple random-sampling formula), shown only for small-sample districts; not a DOSM figure.",
+        "Take-up (%) and main fix are ESTIMATES from our cost screen (take-up = an Ookla fixed tile within 2 km, a proxy).",
+        f"Data: DOSM ICTHS {access_year}; Ookla {quarter}; HIES 2024; Census 2020; MOE school list June 2022; "
+        "config/costs.yaml.",
     ])
     ui.what("All Sarawak districts on the map, sorted by need. Need rank range: 5th–95th percentile over random "
             "index weightings. Margin of error: our approximate estimate, shown only for small-sample districts.",

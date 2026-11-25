@@ -8,6 +8,8 @@ py -3.12 -m venv .venv && .venv\Scripts\pip install -r requirements.txt
 .venv\Scripts\python scripts\extract_t3.py        # Table 3 -> data/processed/, runs checks
 ```
 
+**How to run tests:** `.venv\Scripts\pip install -r requirements-dev.txt`, then `.venv\Scripts\python -m pytest tests` (fast consistency checks on `data/processed/` and `config/`: weights, district matching, cost sums and rules).
+
 **Date downloaded:** 2026-11-19 for all raw files.
 **Units:** unless stated otherwise, ICT indicators are **percentages (0–100)**.
 

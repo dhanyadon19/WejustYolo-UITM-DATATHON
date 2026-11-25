@@ -49,6 +49,41 @@ ui.action_plan(
             "June 2022 · config/costs.yaml",
     on_host_click=ui.go_to_district)
 
+# --- download: the action plan, one row per rural settlement (estimates, with their sources in the file)
+sett = data.district_settlements(state, district)
+if len(sett):
+    TAKEUP_FIX = "Take-up support (fixed network likely nearby, proxy)"
+
+    def fix_txt(c):
+        return TAKEUP_FIX if c == "takeup_gap" else ui.FIX_LABELS.get(c, c)
+
+    def rm(c, v):  # take-up settlements carry no infrastructure cost: left empty, not 0
+        return None if c == "takeup_gap" or not ui.isnum(v) else round(float(v))
+
+    plan = pd.DataFrame({
+        "state": sett.state, "district": sett.district, "school_code": sett.school_code,
+        "settlement_school_name": sett.school_name, "longitude": sett.lon, "latitude": sett.lat,
+        "fixed_network_nearby_proxy": ["yes" if bool(v) else "no" for v in sett.fixed_nearby],
+        "fix_main": [fix_txt(c) for c in sett.category_main],
+        "est_households": sett.households.round(1),
+        "est_households_without_home_internet": sett.unconnected_households.round(1),
+        "est_people_without_home_internet": sett.unconnected_people.round(0).astype("Int64"),
+        "est_5yr_cost_main_rm": pd.array([rm(c, v) for c, v in zip(sett.category_main, sett.cost_main)], dtype="Int64"),
+        "fix_lite": [fix_txt(c) for c in sett.category_lite],
+        "est_5yr_cost_lite_rm": pd.array([rm(c, v) for c, v in zip(sett.category_lite, sett.cost_lite)], dtype="Int64"),
+    })
+    ui.download_csv(plan, f"beyond_coverage_{ui.slug(district)}_action_plan.csv", "Download action plan (CSV)", [
+        f"Beyond Coverage: action plan for {district}, {state}. One row per rural settlement (one per rural MOE school).",
+        "ESTIMATES ONLY: a cost screen, not a funding recommendation or a full cost-benefit comparison.",
+        f"Households: Census {cyear if cyear else ui.DASH} rural households split equally across the district's rural "
+        f"schools; without home internet = households x DOSM ICTHS {access_year} access gap; people = x household size.",
+        f"fixed_network_nearby_proxy: an Ookla {quarter} fixed tile within 2 km (a proxy). These settlements need take-up "
+        "support, not infrastructure, so their cost is left empty.",
+        "Costs: five-year, RM, from config/costs.yaml (retail prices and public statements). Main = Residential satellite "
+        "plan, Lite = Residential Lite plan; satellite cost includes one Business terminal for the school.",
+        f"Data: MOE school list June 2022; Census {cyear if cyear else ui.DASH}; DOSM ICTHS {access_year}; Ookla {quarter}.",
+    ], key="dl_action_plan")
+
 # --- 1. Household access 2024 / 2025
 st.subheader("Households with internet")
 if not (ui.isnum(r.internet_2024) or ui.isnum(r.internet_2025)):
