@@ -22,6 +22,16 @@ FIX_COLOURS = {"tower": "#1c5cab", "satellite": "#eb6834", "takeup_gap": "#58b98
 FIX_LABELS = {"tower": "Tower", "satellite": "Satellite", "takeup_gap": "Take-up gap (fixed network likely nearby)",
               "none (take-up gap only)": "Take-up gap only"}
 FIX_COLOURS["none (take-up gap only)"] = FIX_COLOURS["takeup_gap"]
+# Sequential (one hue, light -> dark) ramp around the take-up green, for shares binned in equal steps of 0-100%.
+# Validated with the dataviz validator (--ordinal, light surface): monotone lightness, visible steps, light end 2.08:1.
+TAKEUP_RAMP = ["#74c19b", "#4fae82", "#2f8f64", "#1f6f4b", "#134f35"]
+
+
+def ramp_bin(share, ramp=TAKEUP_RAMP):
+    """Index of share (0-1) in len(ramp) equal bins (the top bin includes 1), or None if missing."""
+    if not isnum(share):
+        return None
+    return min(int(float(share) * len(ramp)), len(ramp) - 1)
 
 # --- shared wording (reviewed) ---
 BENEFIT = "estimated beneficiaries per RM1m"
