@@ -72,9 +72,11 @@ view = c1.radio("Map", VIEWS, index=1 if mobile else 0, horizontal=True, key="sa
 terrain = view == VIEWS[0]
 if not terrain:
     mode = c2.radio("Colour districts by",
-                    ["Largest group of rural people without home internet", "Main infrastructure fix (tower or satellite)"],
+                    ["Largest group of rural people without home internet", "Share of settlements needing take-up support"],
                     horizontal=True, key="sarawak_colour_mode")
-    key = "largest_group" if mode.startswith("Largest") else "main_fix"
+    # (a "main infrastructure fix" mode was dropped: after the costing fix every Sarawak district's main fix is the
+    # same, so it carried no information)
+    key = "largest_group" if mode.startswith("Largest") else "takeup_share"
 if focus:
     c2.markdown(f"Showing **{focus}**.")
     c2.page_link("views/3_Sarawak_map.py", label="Show all of Sarawak", icon=":material/zoom_out_map:",
@@ -94,8 +96,16 @@ if terrain:
                "border-top:2px solid #fff;outline:1px solid #888;vertical-align:3px;margin-right:5px'></span>"
                f"District boundary</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Heights exaggerated ×{tx:g}</span>")
 else:
-    cats = ["tower", "satellite", "takeup_gap"] if key == "largest_group" else ["tower", "satellite"]
-    legend = " &nbsp;&nbsp; ".join(swatch(ui.FIX_COLOURS[c], ui.FIX_LABELS[c]) for c in cats)
+    if key == "largest_group":
+        legend = " &nbsp;&nbsp; ".join(swatch(ui.FIX_COLOURS[c], ui.FIX_LABELS[c])
+                                       for c in ["tower", "satellite", "takeup_gap"])
+    else:
+        nb = len(ui.TAKEUP_RAMP)
+        legend = ("<b>Rural settlements needing take-up support</b> (fixed network likely nearby, proxy): &nbsp; "
+                  + " &nbsp; ".join(swatch(c, f"{100 * i // nb}–{100 * (i + 1) // nb}%")
+                                    for i, c in enumerate(ui.TAKEUP_RAMP)))
+        if d.share_settlements_takeup_gap.isna().any():
+            legend += " &nbsp; " + swatch(ui.MUTED_LIGHT, "No rural school")
     legend += (" &nbsp;&nbsp; <span style='white-space:nowrap'><span style='display:inline-block;width:14px;"
                "height:14px;border:3px solid #0b0b0b;vertical-align:-3px;margin-right:5px'></span>Small-sample district "
                "(low confidence)</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Height = Gap Index</span>")
@@ -146,10 +156,17 @@ for _, r in d.iterrows():
                   "t2": f"Households online (DOSM {access_year}) {access}",
                   "t3": "Small sample: low confidence" if small_r else "", "t4": ""})
     else:
-        cat = r[key] if isinstance(r[key], str) else None
+        if key == "largest_group":
+            cat = r[key] if isinstance(r[key], str) else None
+            colour, label = ui.FIX_COLOURS.get(cat, ui.MUTED_LIGHT), ui.FIX_LABELS.get(cat, ui.DASH)
+        else:
+            b = ui.ramp_bin(r.share_settlements_takeup_gap)
+            colour = ui.MUTED_LIGHT if b is None else ui.TAKEUP_RAMP[b]
+            label = ("no rural school" if b is None else
+                     f"{100 * r.share_settlements_takeup_gap:.0f}% of rural settlements need take-up support")
         p.update({
-            "colour": ui.hex_rgb(ui.FIX_COLOURS.get(cat, ui.MUTED_LIGHT), 230),
-            "fix_label": ui.FIX_LABELS.get(cat, ui.DASH), "need_rank": need, "access": access,
+            "colour": ui.hex_rgb(colour, 230),
+            "fix_label": label, "need_rank": need, "access": access,
             "small_sample": ((f"yes, inferred sample size ~{int(r.implied_sample_n)}: low confidence"
                               if ui.isnum(r.implied_sample_n) else "yes: low confidence") if small_r else "no"),
             "mobile": ui.fmt_num(r.mb_dl_mbps, ".0f", suffix=" Mbps"),
@@ -315,7 +332,9 @@ else:
                "with a fixed network likely nearby (take-up gap, a proxy), or settlements screened for a tower or "
                "satellite. " + ui.TAKEUP_TXT
                if key == "largest_group" else
-               "Colour shows the main infrastructure fix for settlements without a fixed network nearby.")
+               "Colour shows the share of the district's rural settlements where our proxy suggests a fixed network "
+               "is likely nearby (an Ookla fixed tile within 2 km of the school), so take-up support rather than new "
+               "infrastructure may be the first step; darker = larger share. " + ui.TAKEUP_TXT)
             + f" Thick outlines mark districts with a small {ui.INFERRED_N} (our estimate, not a DOSM figure).",
             data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · Census 2020 · MOE school list, June 2022")
 ui.caveat()
