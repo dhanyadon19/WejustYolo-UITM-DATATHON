@@ -60,6 +60,27 @@ satellite:
     - https://www.lowyat.net/2025/353738/starlink-residential-lite-plan-malaysia/
     - https://api.starlink.com/public-files/Critical_Info_Summary_Priority_Malaysia.pdf
 
+fwa:
+  description: >
+    Fixed Wireless Access (4G/5G home broadband) on an EXISTING mobile network, per household. Retail price only:
+    it assumes the nearby mobile site has spare capacity; no network build cost is included.
+  monthly_rm: 99              # Yes 5G Advanced Home WiFi 'Gateway' plan, normal price, 24-month contract
+  cpe_rm: 0                   # router included free on the 24-month contract (RRP RM1,199)
+  five_year_cost_per_household_rm: 5940   # 99 x 60 (assumes the contract is renewed at the same price)
+  notes:
+    - "yes.my (accessed 2026-11-26): Gateway plan RM99/mth normal price, 24 months, FREE Infinite Gateway MAX Router (RRP RM1199); promo RM68/mth on 36 months not used"
+    - "Other telcos list similar 5G home plans (RM69-RM149/mth); one official page is cited"
+  accessed: "2026-11-26"
+  sources:
+    - https://www.yes.my/yes-5g-broadband/
+
+not_costed:
+  # Searched 2026-11-26 (news, MCMC/JENDELA pages, telco sites): no public Malaysian per-unit cost found.
+  # Shown in the app as 'not costed (no public cost source)'. Never estimated.
+  - small_cell
+  - community_wifi_site
+  - microwave_backhaul_link
+
 decision_rule:
   # Five-year cost of one tower (capex + 5 x opex) = RM2.13m.
   # Break-even number of households where one tower costs the same as one Starlink terminal per household.

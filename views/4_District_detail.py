@@ -46,8 +46,8 @@ cyear = data.census_year()
 ui.action_plan(
     r, fixes, n_national=n_indexed, n_state=int(dt[(dt.state == state) & dt.indexed].shape[0]), host=host,
     sources=f"DOSM ICTHS {access_year} · Ookla {quarter} · Census {cyear if cyear else ui.DASH} · MOE school list, "
-            "June 2022 · config/costs.yaml",
-    on_host_click=ui.go_to_district)
+            f"June 2022 · OpenStreetMap {data.osm_snapshot()} · Terrain Tiles · config/costs.yaml",
+    on_host_click=ui.go_to_district, types=data.district_types(state, district))
 
 # --- download: the action plan, one row per rural settlement (estimates, with their sources in the file)
 sett = data.district_settlements(state, district)
@@ -72,6 +72,16 @@ if len(sett):
         "fix_lite": [fix_txt(c) for c in sett.category_lite],
         "est_5yr_cost_lite_rm": pd.array([rm(c, v) for c, v in zip(sett.category_lite, sett.cost_lite)], dtype="Int64"),
     })
+    at = data.settlements()
+    at = at[(at.state == state) & (at.district == district)].set_index("school_code").reindex(sett.school_code)
+    plan = plan.assign(
+        settlement_type=at.settlement_type.values, settlement_type_label=at.type_label.values,
+        candidate_technologies_screening=at.candidate_technologies.values,
+        mobile_quality_proxy=at.mobile_quality.values, mobile_tile_dl_mbps=at.mobile_tile_dl_mbps.round(1).values,
+        terrain_proxy=at.terrain.values, slope_mean_deg=at.slope_mean_deg.round(1).values,
+        road_proxy=at.road.values, road_km=at.road_km.round(2).values,
+        type_cost_basis=at.type_cost_basis.values,
+        est_5yr_type_cost_rm=pd.array([round(float(v)) if ui.isnum(v) else None for v in at.type_cost_5yr_rm], dtype="Int64"))
     ui.download_csv(plan, f"beyond_coverage_{ui.slug(district)}_action_plan.csv", "Download action plan (CSV)", [
         f"Beyond Coverage: action plan for {district}, {state}. One row per rural settlement (one per rural MOE school).",
         "ESTIMATES ONLY: a cost screen, not a funding recommendation or a full cost-benefit comparison.",
@@ -81,7 +91,12 @@ if len(sett):
         "support, not infrastructure, so their cost is left empty.",
         "Costs: five-year, RM, from config/costs.yaml (retail prices and public statements). Main = Residential satellite "
         "plan, Lite = Residential Lite plan; satellite cost includes one Business terminal for the school.",
-        f"Data: MOE school list June 2022; Census {cyear if cyear else ui.DASH}; DOSM ICTHS {access_year}; Ookla {quarter}.",
+        "settlement_type: rule-based screening (config/settlement_types.yaml); candidate technologies are a screening "
+        "list, not a recommendation. mobile_quality: nearest Ookla mobile tile within 2 km vs the JENDELA 35 Mbps target; "
+        "terrain: mean slope within 500 m (Terrain Tiles); road: straight-line km to the nearest motorable OSM road. "
+        "All proxies. est_5yr_type_cost_rm is empty where there is no public cost source.",
+        f"Data: MOE school list June 2022; Census {cyear if cyear else ui.DASH}; DOSM ICTHS {access_year}; Ookla {quarter}; "
+        f"OpenStreetMap {data.osm_snapshot()} (ODbL); Terrain Tiles (AWS Open Data).",
     ], key="dl_action_plan")
 
 # --- 1. Household access 2024 / 2025

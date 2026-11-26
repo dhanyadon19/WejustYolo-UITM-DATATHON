@@ -125,7 +125,12 @@ def settlement_points(state: str) -> pd.DataFrame:
     without home internet and five-year cost. Rows without coordinates are dropped (not mappable)."""
     cl = csv("costing_clusters")
     cl = cl[(cl["state"] == state) & cl["lon"].notna() & cl["lat"].notna()]
-    return cl[["district", "lon", "lat", "category_main", "unconnected_people", "cost_main"]].reset_index(drop=True)
+    at = csv("settlements")[["state", "district", "school_code", "settlement_type", "type_label", "candidate_technologies",
+                             "type_cost_basis", "type_costed", "type_cost_5yr_rm", "mobile_quality", "mobile_tile_km",
+                             "mobile_tile_dl_mbps", "terrain", "slope_mean_deg", "road", "road_km"]]
+    cl = cl.merge(at, on=["state", "district", "school_code"], how="left")
+    return cl[["district", "lon", "lat", "category_main", "unconnected_people", "cost_main"]
+              + list(at.columns[3:])].reset_index(drop=True)
 
 
 @st.cache_data(show_spinner=False)
@@ -175,3 +180,44 @@ def funding_queue(scope: str, case: str) -> pd.DataFrame:
     q["cum_cost"] = q["cost"].cumsum()
     return q[["state", "district", "need_rank", "school_code", "category", "people", "cost", "cost_per_person",
               "cum_cost"]]
+
+
+@st.cache_data(show_spinner=False)
+def settlements() -> pd.DataFrame:
+    """Settlement attributes and types (build_settlements.py): one row per rural settlement (rural MOE school)."""
+    return csv("settlements")
+
+
+@st.cache_data(show_spinner=False)
+def type_summary(scope: str) -> pd.DataFrame:
+    """Settlement types for scope 'All Malaysia' or 'Sarawak' (settlement_types_summary.csv), legend order."""
+    t = csv("settlement_types_summary")
+    t = t[t["scope"] == scope].copy()
+    order = {k: i for i, k in enumerate(["A", "B", "E", "D", "C", "U"])}
+    return t.sort_values("settlement_type", key=lambda s: s.map(order)).reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
+def district_types(state: str, district: str) -> pd.DataFrame:
+    """Per settlement type in one district: settlements, estimated people without home internet, candidate
+    technologies, five-year cost where a cited unit cost exists (NaN otherwise)."""
+    s = settlements()
+    s = s[(s["state"] == state) & (s["district"] == district)]
+    if s.empty:
+        return s
+    g = s.groupby(["settlement_type", "type_label", "candidate_technologies", "type_cost_basis"], dropna=False).agg(
+        n=("school_code", "size"), people=("unconnected_people", "sum"),
+        costed=("type_costed", "all"), cost=("type_cost_5yr_rm", "sum")).reset_index()
+    g.loc[~g["costed"], "cost"] = float("nan")
+    order = {k: i for i, k in enumerate(["A", "B", "E", "D", "C", "U"])}
+    return g.sort_values("settlement_type", key=lambda x: x.map(order)).reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
+def osm_snapshot() -> str:
+    """Date of the OpenStreetMap extract behind road distances, from its dated file name (e.g. ...-261124.osm.pbf)."""
+    import re
+    from datetime import datetime
+    f = settlements()["osm_extract"].dropna()
+    m = re.search(r"-(\d{6})\.osm\.pbf$", f.iloc[0]) if len(f) else None
+    return datetime.strptime(m.group(1), "%y%m%d").strftime("%d %b %Y").lstrip("0") if m else "date unknown"

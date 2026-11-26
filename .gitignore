@@ -1,6 +1,8 @@
 # Large raw downloads (keep only the processed, Malaysia-only versions)
 data/raw/ookla/
 data/raw/elevation/
+data/raw/osm/
+data/raw/terrain_tiles/
 *.pdf
 
 # Python and environment

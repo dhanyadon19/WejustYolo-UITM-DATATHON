@@ -114,6 +114,36 @@ Districts with no planned settlements (cost 0) have **no estimated-beneficiaries
 - **Take-up proxy may be too generous.** The same type of proxy (a fixed tile within 2 km) undercounted schools without fibre by about 33% against Hansard (786 flagged vs 1,180 in the six states; state errors vary widely), so the take-up group is likely overstated and the main cost understated; the upper bound covers this case.
 - **The cost bases differ:** satellite cost includes the service subscription for 5 years; tower cost doesn't include what users later pay for mobile plans. This favours towers over satellite.
 
+## 6a. Settlement types and technology options (added 26 Nov 2026, expert feedback)
+
+Expert feedback from an MCMC officer: do not frame the choice as satellite vs tower; group settlements by demand, distance to
+existing networks, current service quality and terrain, then match a technology mix. `scripts/build_settlements.py` adds
+mobile signal (Ookla), terrain (Terrain Tiles) and road distance (OpenStreetMap) to every settlement and assigns one type by
+ordered rules (`config/settlement_types.yaml`): **A** Network nearby (fixed tile within 2 km) → **B** Larger unconnected
+village (households without home internet ≥ tower break-even) → **E** Good mobile signal nearby (nearest mobile tile within
+2 km ≥ 35 Mbps) → **D** Isolated or difficult terrain (road > 5 km or mean slope ≥ 15°) → **C** Small village, reachable.
+
+Costs per type use cited unit costs only. B (tower) and D (satellite per household + school terminal) equal the existing
+`cost_main` for those settlements (tested). E uses a cited FWA retail plan: Yes 5G Advanced Home WiFi, RM99/month on a
+24-month contract with the router included (yes.my, accessed 26 Nov 2026), so RM5,940 per household over five years; it
+assumes the nearby mobile site has spare capacity and includes no network build cost. A (take-up support) and C (small cell
+or community Wi-Fi with microwave or satellite backhaul) are **not costed (no public cost source)**: searches found no public
+Malaysian unit cost for small cells, community Wi-Fi sites or microwave links. The tower-vs-satellite screen in sections 3-5
+is unchanged and still drives the rankings and the budget planner; its totals are shown for comparison.
+
+| Scope | Type | Settlements | People without home internet (est.) | Type cost, five-year (est.) | Tower-vs-satellite screen, same settlements |
+|---|---|--:|--:|---|--:|
+| All Malaysia | A. Network nearby | 3,456 | 467,809 | not costed (no public cost source) | RM0.0m |
+| All Malaysia | B. Larger unconnected village | 7 | 10,567 | RM14.9m | RM14.9m |
+| All Malaysia | E. Good mobile signal nearby | 460 | 56,789 | RM84.9m | RM221.1m |
+| All Malaysia | D. Isolated or difficult terrain | 41 | 4,330 | RM16.7m | RM16.7m |
+| All Malaysia | C. Small village, reachable | 358 | 48,808 | not costed (no public cost source) | RM186.3m |
+| Sarawak | A. Network nearby | 778 | 114,459 | not costed (no public cost source) | RM0.0m |
+| Sarawak | B. Larger unconnected village | 0 | 0 | – | RM0.0m |
+| Sarawak | E. Good mobile signal nearby | 205 | 31,546 | RM48.6m | RM125.3m |
+| Sarawak | D. Isolated or difficult terrain | 23 | 2,696 | RM11.2m | RM11.2m |
+| Sarawak | C. Small village, reachable | 208 | 32,457 | not costed (no public cost source) | RM126.5m |
+
 ## 7. Unsourced assumptions (label in the app)
 
 1. **Fibre PoP running cost:** missing from `costs.yaml`. PoPs appear only in the upper bound, as capex.

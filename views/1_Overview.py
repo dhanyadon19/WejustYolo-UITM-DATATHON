@@ -19,20 +19,20 @@ def val(state: str, ind: str, strata: str) -> float:
 
 
 ui.page("Beyond Coverage",
-        "Malaysia's networks reach almost every populated area. Fewer households are actually online, "
+        "Mobile networks reach almost every populated area, mainly outdoors. Fewer households are online, "
         "and far fewer rural homes have fixed broadband.")
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Official network coverage", ui.fmt_pct(facts["value_pct"], 2),
+c1.metric(facts["label"], ui.fmt_pct(facts["value_pct"], 2),
           help=f"{facts['definition']} As at {facts['as_of']}. Source: {facts['source_name']}.")
 c2.metric(f"Households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "total")))
 c3.metric(f"Rural households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "rural")))
 c4.metric(f"Rural fixed broadband, {year}", ui.fmt_pct(val("Malaysia", "fixed_broadband", "rural")))
-st.caption(f"Coverage measures where the network reaches; household access measures who is online. "
+st.caption(f"{facts['comparison_note']} "
            f"Coverage: [{facts['source_name']}]({facts['source_url']}). Household figures: DOSM ICTHS {year}, Table 1.2.")
 
 # --- 1. Coverage vs household access by state
-st.subheader("Coverage is near-universal; household access is not")
+st.subheader("Where the network reaches vs who is online: two different indicators")
 states = cur[(cur.indicator == "internet") & (cur.strata == "total") & (cur.state != "Malaysia")].sort_values("pct")
 # Dot plot, not bars: the axis does not start at 0, and bar length would exaggerate the gaps.
 hl = states.state.isin(["Sabah", "Sarawak"])
@@ -46,7 +46,7 @@ for mask, col, size in ((~hl, ui.MUTED, 10), (hl, ui.ACCENT, 13)):
         textposition=["middle right" if nr else "middle left" for nr in near[mask]], textfont=dict(color=ui.INK_2, size=11),
         hovertemplate="%{y}: %{x:.1f}% of households online<extra></extra>", showlegend=False))
 fig.add_vline(x=facts["value_pct"], line_color=ui.INK_2, line_dash="dot", line_width=1.5)
-fig.add_annotation(x=facts["value_pct"], y=1.0, yref="paper", yanchor="bottom", text=f"Official coverage {facts['value_pct']}%",
+fig.add_annotation(x=facts["value_pct"], y=1.0, yref="paper", yanchor="bottom", text=f"Network coverage {facts['value_pct']}% (mainly outdoor)",
                    showarrow=False, xanchor="right", font=dict(color=ui.INK_2, size=12))
 lo = float(states["pct"].min())
 ui.style(fig, height=520, legend=False, margin=dict(l=10, r=20, t=40, b=10))
@@ -54,9 +54,9 @@ fig.update_xaxes(range=[lo - 6, 102.5], title="% of households with internet acc
 fig.update_yaxes(categoryorder="array", categoryarray=states["state"].tolist()[::-1])  # lowest access on top
 st.plotly_chart(fig, width="stretch")
 ui.what(f"Share of households with internet access in {year}, by state (grey dots; Sabah and Sarawak in blue); "
-        f"the dotted line marks official network coverage ({facts['value_pct']}% of populated areas), "
-        "a different measure from household access, shown for context.",
-        data=f"DOSM ICTHS {year} (Table 1.2) · official coverage as at {facts['as_of']}")
+        f"the dotted line marks {facts['label'].lower()} ({facts['value_pct']}%) for context. "
+        + facts["comparison_note"],
+        data=f"DOSM ICTHS {year} (Table 1.2) · network coverage (mainly outdoor) as at {facts['as_of']}")
 
 # --- 2. Urban vs rural, and 3. rural mobile vs fixed broadband
 left, right = st.columns(2)
@@ -101,33 +101,46 @@ with right:
             f"{val('Malaysia', 'fixed_broadband', 'rural'):.1f}% have fixed broadband.",
             data=f"DOSM ICTHS {year}, Table 1.2")
 
-# --- Action summary: which fix the rural settlements need (main case)
-st.subheader("What would close the rural gap (estimates)")
-fb = data.fix_breakdown()
-agg = fb.groupby("category")[["n", "people", "cost_main"]].sum()
+# --- Action summary: settlement types and candidate technologies (screening)
+st.subheader("What would close the rural gap: settlement types (estimates)")
 cl_q = data.csv("costing_clusters")["ookla_quarter"].dropna()
 acc_year = data.csv("gap_index_districts")["access_year"].max()
 cyear = data.census_year()
-rows = []
-for cat, label in (("takeup_gap", "Take-up support (proxy)"), ("satellite", "Satellite"), ("tower", "Tower")):
-    if cat in agg.index:
-        a = agg.loc[cat]
-        rows.append([label, f"{int(a.n):,}", f"{a.people:,.0f}", "not costed" if cat == "takeup_gap" else ui.fmt_rm(a.cost_main)])
-if rows:
-    rows.append(["**Total**", f"**{int(agg.n.sum()):,}**", f"**{agg.people.sum():,.0f}**", f"**{ui.fmt_rm(agg.cost_main.sum())}**"])
+scope = st.radio("Area", ["All Malaysia", "Sarawak"], horizontal=True, key="ov_type_scope", label_visibility="collapsed")
+ts = data.type_summary(scope)
+if len(ts):
+    rows = []
+    for t in ts.itertuples():
+        if t.type_cost_basis == ui.NOT_COSTED or not ui.isnum(t.type_cost_5yr_rm):
+            cost = ui.NOT_COSTED if t.settlements else ui.DASH
+        else:
+            cost = f"{ui.fmt_rm(t.type_cost_5yr_rm)} ({t.type_cost_basis.split(',')[0]})"
+        swatch = f"<span style='color:{ui.TYPE_COLOURS.get(t.settlement_type, ui.MUTED)}'>●</span>"
+        # candidate technologies sit under the type name, so the table keeps four columns and fits a phone
+        tech = f"<br/><span style='font-size:0.85em;color:{ui.INK_2}'>{t.candidate_technologies}</span>"
+        rows.append([f"{swatch} **{t.settlement_type}. {t.type_label}**{tech}", f"{int(t.settlements):,}",
+                     f"{t.people_without_home_internet:,.0f}", cost])
+    rows.append(["**Total**", f"**{int(ts.settlements.sum()):,}**", f"**{ts.people_without_home_internet.sum():,.0f}**", ""])
     # markdown table: wraps on narrow screens instead of scrolling sideways
-    head = ["Fix", "Rural settlements", "Rural people without home internet", "5-year cost (main case)"]
-    st.markdown("\n".join(["| " + " | ".join(head) + " |", "|---|--:|--:|--:|"] + ["| " + " | ".join(r_) + " |" for r_ in rows]))
-    ui.what(["One settlement per rural MOE school, all states.",
-             "Fixed network likely nearby (our proxy) = take-up support (subsidies, awareness, help signing up), "
-             "not new infrastructure.",
-             "The rest are screened for a tower or satellite on five-year cost (Residential satellite plan).",
-             "People counts and costs are estimates. " + ui.TAKEUP_TXT],
+    head = ["Settlement type and candidate technologies (screening)", "Rural settlements",
+            "Rural people without home internet", "Five-year cost (estimate, where costed)"]
+    st.markdown("\n".join(["| " + " | ".join(head) + " |", "|---|--:|--:|---|"]
+                          + ["| " + " | ".join(r_) + " |" for r_ in rows]), unsafe_allow_html=True)
+    screen = ts.screen_cost_main_rm.sum()
+    ui.what(["One settlement per rural MOE school. Types follow simple rules on fixed network nearby, demand, "
+             "mobile signal, terrain and road distance (see Method & limitations); all are proxies.",
+             "Candidate technologies are a screening list, not a recommendation; a site survey decides.",
+             "Costs only where we have a cited public unit cost: tower, satellite per household, FWA retail plan. "
+             "Small cells, community Wi-Fi sites and microwave links have no public cost source, so they are not costed.",
+             f"For comparison, the tower-vs-satellite cost screen used in the rankings totals {ui.fmt_rm(screen)} "
+             f"for the same settlements ({scope}).",
+             ui.TAKEUP_TXT],
             data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {int(acc_year)} · "
-                 f"Ookla {cl_q.iloc[0] if len(cl_q) else ui.DASH} · config/costs.yaml")
+                 f"Ookla {cl_q.iloc[0] if len(cl_q) else ui.DASH} · OpenStreetMap {data.osm_snapshot()} · "
+                 "Terrain Tiles · config/costs.yaml")
     ui.caveat()
 else:
-    ui.fallback("No costing data available.")
+    ui.fallback("No settlement data available.")
 
 # --- 4. Trend
 st.subheader(f"Trend, {int(trend.year.min())}–{int(trend.year.max())}")
@@ -163,6 +176,6 @@ ui.what(f"{ind_lab[ind]} among households in {place}, by urban/rural strata. Yea
 ui.next_step("views/2_Schools.py", "Schools without fibre",
              "the gap is sharpest in schools. See which states Parliament flagged.")
 ui.footer([
-    f"Official coverage: [{facts['source_name']}]({facts['source_url']}) ({facts['published']})",
+    f"Network coverage of populated areas (mainly outdoor): [{facts['source_name']}]({facts['source_url']}) ({facts['published']})",
     "DOSM, ICT Use and Access by Individuals and Households Survey Report 2024 and 2025, Tables 1.2 and 6.4–6.6",
 ])
