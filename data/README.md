@@ -188,7 +188,7 @@ The site-wide catalogue pages of OpenDOSM and data.gov.my list no boundary datas
 | `amenities_district.csv` | `build_app_data.py` | household access to electricity, piped water and sanitation, latest year per district (OpenDOSM `hh_access_amenities`, 2024), Table 3 spelling |
 | `schools_validation.csv` | `build_schools.py` | the screening-layer validation table against Hansard (2 km and 1 km rules) |
 
-`config/facts.yaml` holds the one typed headline figure, **official coverage of populated areas: 99.71% as at 31 Dec 2025** (Communications Minister; [RTM, 4 Feb 2026](https://berita.rtm.gov.my/nasional/senarai-berita-nasional/senarai-artikel/liputan-internet-negara-cecah-99-71-peratus-setakat-akhir-2025/)). It measures network coverage, not household take-up.
+`config/facts.yaml` holds the one typed headline figure, **network coverage of populated areas (mainly outdoor): 99.71% as at 31 Dec 2025** (Communications Minister; [RTM, 4 Feb 2026](https://berita.rtm.gov.my/nasional/senarai-berita-nasional/senarai-artikel/liputan-internet-negara-cecah-99-71-peratus-setakat-akhir-2025/)). It measures network coverage of populated areas, mainly from an outdoor perspective (expert feedback from an MCMC officer, Nov 2026): not household take-up and not indoor connectivity. Beside DOSM household access it is a different indicator (where the network reaches outdoors vs whether households are online), never a measured gap.
 
 ## External map tiles (Sarawak map, 3D terrain view)
 

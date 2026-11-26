@@ -5,9 +5,16 @@ official_coverage_populated_areas:
   value_pct: 99.71
   as_of: "2025-12-31"
   baseline_pct: 91.8          # before JENDELA, same source
+  label: "Network coverage of populated areas (mainly outdoor)"
   definition: >
-    Internet and communications coverage of populated areas (network coverage, not household
-    take-up).
+    Internet and communications coverage of populated areas, mainly from an outdoor perspective
+    (network coverage, not household take-up and not indoor connectivity).
+  # Two different indicators: where the network reaches outdoors (this figure) vs whether households are
+  # online (DOSM ICTHS). Shown side by side, never subtracted into a "measured gap".
+  # 'Mainly outdoor' qualifier: expert feedback from an MCMC officer (Nov 2026).
+  comparison_note: >
+    Two different indicators: where the network reaches outdoors vs whether households are online.
+    They are not a measured gap.
   said_by: "Communications Minister Fahmi Fadzil"
   published: "2026-02-04"
   source_name: "RTM, 'Liputan internet negara cecah 99.71 peratus setakat akhir 2025'"

@@ -142,7 +142,8 @@ ui.caveat()
 # --- 5. Limitations
 st.header("5. Limitations")
 st.markdown(f"""
-- **Coverage ≠ access:** the official {facts['value_pct']}% is network coverage; DOSM measures households online.
+- **Coverage ≠ access:** the official {facts['value_pct']}% is network coverage of populated areas (mainly outdoor); DOSM measures households online. Two different indicators, not a measured gap.
+- **No indoor signal data:** indoor connectivity depends on building materials, signal penetration, distance to the site, terrain and network capacity, which we do not measure.
 - **Survey precision:** DOSM publishes no district margins of error; our {ui.INFERRED_N} and margin are estimates ({nsmall} districts flagged).
 - **Ookla is crowd-sourced:** fixed tests only come from homes that already have fixed broadband.
 - **Proxies, not coverage maps:** no public fibre-route data exists.
@@ -160,7 +161,8 @@ st.markdown(f"""
 """)
 with st.expander("Full detail on each limitation"):
     st.markdown(f"""
-- **Coverage vs access.** The official {facts['value_pct']}% is network coverage of populated areas; DOSM measures households online. They are different things and are shown side by side, not as a contradiction.
+- **Coverage vs access.** The official {facts['value_pct']}% is network coverage of populated areas, mainly from an outdoor perspective; DOSM measures whether households are online. They are two different indicators (where the network reaches outdoors vs whether households are online), shown side by side, not a measured gap and not a contradiction.
+- **Indoor connectivity is not measured.** Whether a signal works indoors depends on building materials, signal penetration, distance to the site, terrain and network capacity. None of these is in our data.
 - **Survey precision.** DOSM does not publish district sample sizes or margins of error. Our **inferred sample size** comes from the published percentages ({nsmall} districts flagged), and our **approximate margin of error (simple random-sampling formula)** (±{gi.internet_moe95_pp.min():.0f}–{gi.internet_moe95_pp.max():.0f} pp) probably understates the true error. Neither is a DOSM figure. Districts not flagged are not necessarily precise.
 - **Ookla is crowd-sourced.** Tests are run by users who choose to test. Fixed results only come from homes that already have fixed broadband, and fixed wireless or satellite home links can count as "fixed".
 - **Proxies.** "Fixed tests per 1,000 residents" and "fixed network likely nearby" (a fixed tile within 2 km) are proxies, not coverage maps. There is no public fibre-route data.
@@ -180,7 +182,7 @@ ui.next_step("views/1_Overview.py", "Back to the overview", "start the story aga
 st.markdown(f"Data notes for every file: [data/README.md]({REPO}/blob/main/data/README.md)")
 
 ui.footer([
-    f"Official coverage: [{facts['source_name']}]({facts['source_url']})",
+    f"Network coverage of populated areas (mainly outdoor): [{facts['source_name']}]({facts['source_url']})",
     "DOSM ICTHS 2024–2025; OpenDOSM (income, population, amenities); DOSM Census 2020; MOE school list (Jun 2022)",
     f"Speedtest® by Ookla® Global Fixed and Mobile Network Performance Maps, {gi.ookla_quarter.iloc[0]} (CC BY-NC-SA 4.0)",
     "Hansard, Dewan Rakyat, 11 Nov 2026; costs: config/costs.yaml",

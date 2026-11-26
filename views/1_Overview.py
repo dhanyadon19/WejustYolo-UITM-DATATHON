@@ -19,20 +19,20 @@ def val(state: str, ind: str, strata: str) -> float:
 
 
 ui.page("Beyond Coverage",
-        "Malaysia's networks reach almost every populated area. Fewer households are actually online, "
+        "Mobile networks reach almost every populated area, mainly outdoors. Fewer households are online, "
         "and far fewer rural homes have fixed broadband.")
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Official network coverage", ui.fmt_pct(facts["value_pct"], 2),
+c1.metric(facts["label"], ui.fmt_pct(facts["value_pct"], 2),
           help=f"{facts['definition']} As at {facts['as_of']}. Source: {facts['source_name']}.")
 c2.metric(f"Households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "total")))
 c3.metric(f"Rural households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "rural")))
 c4.metric(f"Rural fixed broadband, {year}", ui.fmt_pct(val("Malaysia", "fixed_broadband", "rural")))
-st.caption(f"Coverage measures where the network reaches; household access measures who is online. "
+st.caption(f"{facts['comparison_note']} "
            f"Coverage: [{facts['source_name']}]({facts['source_url']}). Household figures: DOSM ICTHS {year}, Table 1.2.")
 
 # --- 1. Coverage vs household access by state
-st.subheader("Coverage is near-universal; household access is not")
+st.subheader("Where the network reaches vs who is online: two different indicators")
 states = cur[(cur.indicator == "internet") & (cur.strata == "total") & (cur.state != "Malaysia")].sort_values("pct")
 # Dot plot, not bars: the axis does not start at 0, and bar length would exaggerate the gaps.
 hl = states.state.isin(["Sabah", "Sarawak"])
@@ -46,7 +46,7 @@ for mask, col, size in ((~hl, ui.MUTED, 10), (hl, ui.ACCENT, 13)):
         textposition=["middle right" if nr else "middle left" for nr in near[mask]], textfont=dict(color=ui.INK_2, size=11),
         hovertemplate="%{y}: %{x:.1f}% of households online<extra></extra>", showlegend=False))
 fig.add_vline(x=facts["value_pct"], line_color=ui.INK_2, line_dash="dot", line_width=1.5)
-fig.add_annotation(x=facts["value_pct"], y=1.0, yref="paper", yanchor="bottom", text=f"Official coverage {facts['value_pct']}%",
+fig.add_annotation(x=facts["value_pct"], y=1.0, yref="paper", yanchor="bottom", text=f"Network coverage {facts['value_pct']}% (mainly outdoor)",
                    showarrow=False, xanchor="right", font=dict(color=ui.INK_2, size=12))
 lo = float(states["pct"].min())
 ui.style(fig, height=520, legend=False, margin=dict(l=10, r=20, t=40, b=10))
@@ -54,9 +54,9 @@ fig.update_xaxes(range=[lo - 6, 102.5], title="% of households with internet acc
 fig.update_yaxes(categoryorder="array", categoryarray=states["state"].tolist()[::-1])  # lowest access on top
 st.plotly_chart(fig, width="stretch")
 ui.what(f"Share of households with internet access in {year}, by state (grey dots; Sabah and Sarawak in blue); "
-        f"the dotted line marks official network coverage ({facts['value_pct']}% of populated areas), "
-        "a different measure from household access, shown for context.",
-        data=f"DOSM ICTHS {year} (Table 1.2) · official coverage as at {facts['as_of']}")
+        f"the dotted line marks {facts['label'].lower()} ({facts['value_pct']}%) for context. "
+        + facts["comparison_note"],
+        data=f"DOSM ICTHS {year} (Table 1.2) · network coverage (mainly outdoor) as at {facts['as_of']}")
 
 # --- 2. Urban vs rural, and 3. rural mobile vs fixed broadband
 left, right = st.columns(2)
@@ -163,6 +163,6 @@ ui.what(f"{ind_lab[ind]} among households in {place}, by urban/rural strata. Yea
 ui.next_step("views/2_Schools.py", "Schools without fibre",
              "the gap is sharpest in schools. See which states Parliament flagged.")
 ui.footer([
-    f"Official coverage: [{facts['source_name']}]({facts['source_url']}) ({facts['published']})",
+    f"Network coverage of populated areas (mainly outdoor): [{facts['source_name']}]({facts['source_url']}) ({facts['published']})",
     "DOSM, ICT Use and Access by Individuals and Households Survey Report 2024 and 2025, Tables 1.2 and 6.4–6.6",
 ])
