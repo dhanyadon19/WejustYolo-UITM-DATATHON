@@ -110,7 +110,7 @@ st.dataframe(pd.DataFrame(rows, columns=["Item", "Amount (estimate)", "Basis / s
 ui.what("Unit costs used by the costing (all estimates).", data="config/costs.yaml (sources below; compiled Nov 2026)")
 srcs = sorted(set(t["sources"] + f["sources"] + s["sources"]))
 st.markdown("Sources: " + " · ".join(f"[{i + 1}]({u})" for i, u in enumerate(srcs)))
-cases = {"Main (Residential)": "cost_main_rm", "Lite plan": "cost_lite_rm",
+cases = {"Main (Residential): " + ui.REF_COST: "cost_main_rm", "Lite plan": "cost_lite_rm",
          "Upper bound (cost sensitivity, not a recommendation)": "cost_upper_bound_rm",
          "Rule sensitivity: tower test on all households": "cost_rule_all_hh_rm"}
 sar = co.state == "Sarawak"

@@ -221,3 +221,42 @@ def osm_snapshot() -> str:
     f = settlements()["osm_extract"].dropna()
     m = re.search(r"-(\d{6})\.osm\.pbf$", f.iloc[0]) if len(f) else None
     return datetime.strptime(m.group(1), "%y%m%d").strftime("%d %b %Y").lstrip("0") if m else "date unknown"
+
+
+@st.cache_data(show_spinner=False)
+def hansard_date() -> str:
+    """Date of the Hansard sitting behind the schools-without-fibre figures, from its source text ('11.11.2026')."""
+    import re
+    from datetime import datetime
+    src = csv("hansard_schools")["source"].dropna().astype(str)
+    m = re.search(r"(\d{1,2}\.\d{1,2}\.\d{4})", src.iloc[0]) if len(src) else None
+    return datetime.strptime(m.group(1), "%d.%m.%Y").strftime("%d %b %Y").lstrip("0") if m else "date unknown"
+
+
+@st.cache_data(show_spinner=False)
+def data_years() -> str:
+    """One line of data years for the footer, all read from data/processed and config/facts.yaml."""
+    from datetime import datetime
+    tr = csv("dosm_hh_internet_trend")["year"].dropna()
+    q = csv("costing_clusters")["ookla_quarter"].dropna()
+    cy = census_year()
+    cov = yaml_config("facts")["official_coverage_populated_areas"]["as_of"]
+    parts = [f"DOSM ICTHS {int(tr.min())}–{int(tr.max())}" if len(tr) else None,
+             f"Ookla {q.iloc[0]}" if len(q) else None,
+             "MOE school list June 2022",
+             f"Census {cy}" if cy else None,
+             f"OpenStreetMap {osm_snapshot()}",
+             f"Hansard {hansard_date()}",
+             f"network coverage as at {datetime.strptime(str(cov), '%Y-%m-%d').strftime('%d %b %Y').lstrip('0')}"]
+    return ", ".join(p for p in parts if p)
+
+
+@st.cache_data(show_spinner=False)
+def servable_share(scope: str) -> dict:
+    """Settlements that appear servable through existing networks (types A + E: take-up support or FWA) vs the rest
+    (types B, D, C: new infrastructure). Proxy-based estimates from settlement_types_summary.csv."""
+    t = type_summary(scope)
+    n = float(t["settlements"].sum())
+    ex = float(t.loc[t["settlement_type"].isin(["A", "E"]), "settlements"].sum())
+    new = int(t.loc[t["settlement_type"].isin(["B", "D", "C"]), "settlements"].sum())
+    return {"n": int(n), "existing": int(ex), "new": new, "share": ex / n if n else float("nan")}

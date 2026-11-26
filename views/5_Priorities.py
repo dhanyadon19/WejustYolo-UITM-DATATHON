@@ -186,8 +186,10 @@ else:
     top = math.ceil(total_m / step) * step  # slider end: the full planned cost, rounded up to the step
     budget_m = st.slider(f"Five-year budget, RM million ({where})", 0.0, top, value=round(top / 2 / step) * step,
                          step=step, format="RM%.1fm", key=f"budget_{scope}_{case}",
-                         help="Up to the estimated five-year cost of every planned tower and satellite settlement in "
-                              "this selection.")
+                         help=f"Up to {ui.fmt_rm(q['cost'].sum())}, the estimated five-year cost of every planned tower "
+                              f"and satellite settlement in this selection ({ui.REF_COST}).")
+    st.caption(f"Slider maximum {ui.fmt_rm(q['cost'].sum())}: {ui.REF_COST}. Types A (take-up) and C (small cell or "
+               "community Wi-Fi) are not costed, so this is not a total across settlement types.")
     budget = budget_m * 1e6
     # fund in order and stop at the first settlement the rest of the budget cannot cover, so need order is kept
     funded = q[q["cum_cost"] <= budget + 0.5]

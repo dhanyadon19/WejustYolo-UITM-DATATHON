@@ -40,6 +40,8 @@ def cost_basis_short(basis) -> str:
     b = str(basis).split(",")[0]
     return b if b[:2].isupper() or b[:1].isdigit() else b[:1].lower() + b[1:]
 NOT_COSTED = "not costed (no public cost source)"
+# Label for every total of the tower-vs-satellite cost screen (e.g. the national RM0.44bn): never a total across types
+REF_COST = "reference: cost if every settlement without a nearby network were served by towers or satellite only"
 
 def ramp_bin(share, ramp=TAKEUP_RAMP):
     """Index of share (0-1) in len(ramp) equal bins (the top bin includes 1), or None if missing."""
@@ -79,20 +81,38 @@ def page(title: str, intro: str | None = None) -> None:
         st.markdown(f"<p style='color:{INK_2};margin-top:-0.6rem'>{intro}</p>", unsafe_allow_html=True)
 
 
+_SENTENCE_END = __import__("re").compile(r"(?<!e\.g\.)(?<!i\.e\.)(?<!vs\.)(?<=[a-z0-9%)\]][.])\s+(?=[A-Z(])")
+
+
+def _split_first(text: str) -> tuple[str, str]:
+    """First sentence and the rest ('W.P. Kuala Lumpur', 'e.g.' and decimals are not sentence ends)."""
+    parts = _SENTENCE_END.split(text.strip(), maxsplit=1)
+    return parts[0], (parts[1] if len(parts) > 1 else "")
+
+
 def what(text: str | list[str], data: str | None = None) -> None:
-    """Short 'what this shows' caption under a chart or table, with the data source and year.
-    A list is shown as bullet points (one short point each)."""
+    """'What this shows' caption under a chart or table, with the data source and year.
+    One clear sentence stays visible (the first point of a list, or the first sentence of a text); the rest goes
+    into a small 'More detail' fold, so nothing (caveat or source) is removed. The data badge is always visible."""
     # the data badge sits on its own line; "What this shows:" starts on the next one
     chip = (f"<span style='background:#f3f2ee;border-radius:4px;padding:1px 6px;color:{INK_2};"
             f"display:inline-block;line-height:1.6;margin-bottom:3px'>Data: {data}</span><br/>") if data else ""
     if isinstance(text, (list, tuple)):
-        items = "".join(f"<li style='margin:0 0 2px 0'>{t}</li>" for t in text)
-        body = f"<b>What this shows:</b></p><ul style='color:{INK_2};font-size:0.88rem;margin:-0.6rem 0 0.8rem 0'>{items}</ul>"
-        st.markdown(f"<p style='color:{INK_2};font-size:0.88rem;margin:-0.4rem 0 0.3rem 0'>{chip}{body}",
-                    unsafe_allow_html=True)
-        return
-    st.markdown(f"<p style='color:{INK_2};font-size:0.88rem;margin-top:-0.4rem'>{chip}<b>What this shows:</b> {text}</p>",
-                unsafe_allow_html=True)
+        first, rest = (text[0] if text else ""), list(text[1:])
+    else:
+        first, more = _split_first(text)
+        rest = [more] if more else []
+    more_html = ""
+    if rest:
+        if len(rest) > 1:
+            body = ("<ul style='margin:0.2rem 0 0 0;padding-left:1.2rem'>"
+                    + "".join(f"<li style='margin:0 0 2px 0'>{t}</li>" for t in rest) + "</ul>")
+        else:
+            body = f"<div style='margin:0.2rem 0 0 0'>{rest[0]}</div>"
+        more_html = (f"<details style='margin:0.15rem 0 0 0'><summary style='cursor:pointer;color:{MUTED};"
+                     f"font-size:0.82rem'>More detail</summary>{body}</details>")
+    st.markdown(f"<div style='color:{INK_2};font-size:0.88rem;margin:-0.4rem 0 0.8rem 0'>{chip}"
+                f"<b>What this shows:</b> {first}{more_html}</div>", unsafe_allow_html=True)
 
 
 def next_step(page: str, label: str, why: str) -> None:
@@ -111,6 +131,8 @@ def go_to_district(state: str, district: str) -> None:
 
 
 def footer(sources: list[str], osm: bool = False, basemap: bool = False) -> None:
+    from app_utils import data  # lazy: data does not import ui, but keep ui importable on its own
+
     st.divider()
     lines = [f"- {s}" for s in sources]
     if osm:
@@ -119,6 +141,9 @@ def footer(sources: list[str], osm: bool = False, basemap: bool = False) -> None
         lines.append(f"- {BASEMAP_CREDIT}")
     st.markdown(f"<div style='color:{MUTED};font-size:0.8rem'><b>Sources</b></div>", unsafe_allow_html=True)
     st.markdown("\n".join(lines), help=None)
+    app = data.yaml_config("app")
+    st.markdown(f"<div style='color:{MUTED};font-size:0.8rem;margin-top:0.4rem'>Last updated {app['last_updated']} · "
+                f"{app['team']} · {app['event']} · Data years: {data.data_years()}</div>", unsafe_allow_html=True)
 
 
 def style(fig: go.Figure, height: int = 420, legend: bool = True, **layout) -> go.Figure:
@@ -310,6 +335,43 @@ def _rank_line(label: str, rank, of, lo, hi) -> str:
     return f"{label} rank **{int(rank)}**{of_txt}{rng}."
 
 
+def _stat(value: str, label: str) -> str:
+    """Big number with a small label under it (HTML, for type cards)."""
+    return (f"<div><div style='font-size:1.55rem;font-weight:650;color:{INK};line-height:1.15'>{value}</div>"
+            f"<div style='font-size:0.75rem;color:{MUTED}'>{label}</div></div>")
+
+
+def type_card(code: str, label: str, stats_html: str, tech: str, cost: str) -> str:
+    """One settlement-type card: the map's type colour as top stripe and dot (identity); numbers stay in ink."""
+    col = TYPE_COLOURS.get(code, MUTED_LIGHT)
+    return (f"<div style='border:1px solid {GRID};border-top:5px solid {col};border-radius:8px;padding:10px 12px;"
+            f"background:#ffffff'>"
+            f"<div style='font-weight:600;color:{INK};font-size:0.92rem'><span style='color:{col}'>●</span> "
+            f"{code}. {label}</div>"
+            f"<div style='display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 8px 0'>{stats_html}</div>"
+            f"<div style='font-size:0.8rem;color:{INK_2};line-height:1.35'><b>Candidate technologies (screening):</b> "
+            f"{tech}</div>"
+            f"<div style='font-size:0.8rem;color:{INK_2};line-height:1.35;margin-top:5px'><b>Five-year cost:</b> "
+            f"{cost}</div></div>")
+
+
+def card_grid(cards: list[str], min_px: int = 220) -> None:
+    """Cards side by side; they wrap to one per row on a phone."""
+    st.markdown(f"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax({min_px}px,1fr));gap:10px;"
+                f"margin:0.2rem 0 0.8rem 0'>{''.join(cards)}</div>", unsafe_allow_html=True)
+
+
+def metric_cards(items: list[tuple], min_px: int = 200) -> None:
+    """Headline numbers as clean cards whose labels wrap (st.metric truncates long labels).
+    items: (label, value, help or None); help shows on hover over the card."""
+    import html
+    cards = [f"<div title='{html.escape(h or '', quote=True)}' style='border:1px solid {GRID};border-radius:8px;"
+             f"padding:12px 14px;background:#ffffff'><div style='font-size:0.85rem;color:{INK_2};line-height:1.3'>"
+             f"{lab}</div><div style='font-size:2rem;font-weight:600;color:{INK};line-height:1.25;margin-top:4px'>"
+             f"{val}</div></div>" for lab, val, h in items]
+    card_grid(cards, min_px)
+
+
 def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, sources: str,
                 on_host_click=None, types=None) -> None:
     """Summary card for one district: 'If I'm responsible for this district, what should I do?'
@@ -367,25 +429,28 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
                                " for them, take-up support (subsidies, awareness, help signing up) is the main lever."
                                if isnum(pw) and pw > 0 else ""))
         else:
-            items = []
             none_lack = "DOSM data suggest no households here lack home internet"  # access gap 0%
+            cards = []
             for t in (types.itertuples() if types is not None else []):
-                head = f"- **{t.settlement_type}. {t.type_label}:** {_plural(int(t.n), 'settlement')}"
-                ppl = (f", with an estimated {fmt_num(t.people)} rural people without home internet"
-                       if round(t.people) > 0 else f"; {none_lack}")
                 if t.settlement_type == "A":
-                    cost = ("Take-up support has no public cost source, so it is not costed. *Proxy: an Ookla "
-                            "fixed-broadband test within 2 km of the school, not a coverage map.*")
+                    cost = ("not costed: take-up support has no public cost source. <i>Proxy: an Ookla "
+                            "fixed-broadband test within 2 km of the school, not a coverage map.</i>")
                 elif isnum(t.cost):
-                    basis = cost_basis_short(t.type_cost_basis)
-                    cost = f"Estimated five-year cost {fmt_rm(t.cost)} ({basis})."
+                    cost = f"{fmt_rm(t.cost)} ({cost_basis_short(t.type_cost_basis)}, estimate)"
                     if round(t.cost) == 0:  # access gap 0%: nothing to pay for
-                        cost = "No estimated cost: no households here lack home internet."
+                        cost = "none: no households here lack home internet"
                     elif t.settlement_type == "D" and round(t.people) == 0:
-                        cost = f"Estimated five-year cost {fmt_rm(t.cost)}: the school's satellite link only."
+                        cost = f"{fmt_rm(t.cost)}: the school's satellite link only (estimate)"
                 else:
-                    cost = f"Five-year cost: {NOT_COSTED}."
-                items.append(f"{head}{ppl}. Candidate technologies (screening): {t.candidate_technologies}. {cost}")
+                    cost = NOT_COSTED
+                ppl = (_stat(fmt_num(t.people), "people offline (est.)") if round(t.people) > 0
+                       else f"<div style='font-size:0.78rem;color:{INK_2};max-width:11rem'>{none_lack}</div>")
+                cards.append(type_card(t.settlement_type, t.type_label,
+                                       _stat(f"{int(t.n):,}", "settlement" + ("" if int(t.n) == 1 else "s")) + ppl,
+                                       t.candidate_technologies, cost))
+            if cards:
+                card_grid(cards)
+            items = []
             if not (n["satellite"] or n["tower"]):
                 lever = ("so take-up support is the main lever." if tk is not None and round(tk["people"]) > 0
                          else "and no take-up gap is estimated either.")
@@ -393,9 +458,9 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
                              f"nearby (our proxy), {lever}")
             else:
                 lo, hi = sorted([sum(f["cost_lite"] for f in fixes.values()), sum(f["cost_main"] for f in fixes.values())])
-                rng = fmt_rm(hi) if fmt_rm(lo) == fmt_rm(hi) else f"{fmt_rm(lo)}–{fmt_rm(hi)} (Lite to Residential plan)"
-                items.append(f"- **Cost screen used in the rankings** (tower or satellite for every settlement without a "
-                             f"fixed network nearby): {rng}. {TOWER_WIDER}")
+                rng = fmt_rm(hi) if fmt_rm(lo) == fmt_rm(hi) else f"{fmt_rm(lo)}–{fmt_rm(hi)}, Lite to Residential plan"
+                items.append(f"- **Cost screen used in the rankings:** {rng} ({REF_COST}). Not a total of the "
+                             f"cards above: types A and C are not costed. {TOWER_WIDER}")
             st.markdown("\n".join(items))
 
         # 3. Check on the ground

@@ -22,14 +22,51 @@ ui.page("Beyond Coverage",
         "Mobile networks reach almost every populated area, mainly outdoors. Fewer households are online, "
         "and far fewer rural homes have fixed broadband.")
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric(facts["label"], ui.fmt_pct(facts["value_pct"], 2),
-          help=f"{facts['definition']} As at {facts['as_of']}. Source: {facts['source_name']}.")
-c2.metric(f"Households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "total")))
-c3.metric(f"Rural households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "rural")))
-c4.metric(f"Rural fixed broadband, {year}", ui.fmt_pct(val("Malaysia", "fixed_broadband", "rural")))
-st.caption(f"{facts['comparison_note']} "
-           f"Coverage: [{facts['source_name']}]({facts['source_url']}). Household figures: DOSM ICTHS {year}, Table 1.2.")
+# --- Start here: three key findings, every number read from data/ or config/facts.yaml
+hz = data.csv("hansard_schools")
+h_tot = hz[hz.state.str.startswith("Total")].iloc[0]
+h_sar = hz[hz.state == "Sarawak"]
+mys_s, sar_s = data.servable_share("All Malaysia"), data.servable_share("Sarawak")
+gi_all = data.csv("gap_index_districts")
+top_sar = gi_all[(gi_all.state == "Sarawak") & (gi_all.rank_sarawak == 1)]["district"]
+top_sar = top_sar.iloc[0] if len(top_sar) else None
+
+
+def in_ten(share) -> str:
+    return f"about {round(10 * share)} in 10" if ui.isnum(share) else ui.DASH
+
+
+with st.container(border=True):
+    st.markdown("#### Start here: three key findings")
+    st.markdown("\n".join([
+        f"1. **{facts['label']} is {ui.fmt_pct(facts['value_pct'], 2)}**, but only "
+        f"{ui.fmt_pct(val('Malaysia', 'internet', 'total'))} of households are online and "
+        f"{ui.fmt_pct(val('Malaysia', 'fixed_broadband', 'rural'))} of rural homes have fixed broadband "
+        f"(DOSM {year}): two different indicators, not a measured gap.",
+        f"2. **{in_ten(mys_s['share']).capitalize()} rural settlements nationally ({in_ten(sar_s['share'])} in "
+        f"Sarawak) appear servable through existing networks** (take-up support or home broadband over the mobile "
+        f"network, FWA); only ~{mys_s['new']:,} ({sar_s['new']:,} in Sarawak) appear to need new infrastructure. "
+        "*Proxy-based estimates.*",
+        f"3. **{int(h_tot.schools_without_fibre):,} of {int(h_tot.schools_total):,} schools in six states lack fibre**"
+        + (f", {int(h_sar.schools_without_fibre.iloc[0]):,} of them in Sarawak" if len(h_sar) else "")
+        + f" (Hansard, Dewan Rakyat, {data.hansard_date()}).",
+    ]))
+    if top_sar:
+        st.markdown(f"<span style='color:{ui.INK_2};font-size:0.9rem'><b>Try:</b> Sarawak map → pick {top_sar} "
+                    f"(Sarawak's highest need) → <i>Open {top_sar} in District detail</i>.</span>", unsafe_allow_html=True)
+        st.page_link("views/3_Sarawak_map.py", label=f"Open the Sarawak map at {top_sar}", icon=":material/map:",
+                     query_params={"district": top_sar})
+
+ui.metric_cards([
+    (facts["label"], ui.fmt_pct(facts["value_pct"], 2), f"{facts['definition']} As at {facts['as_of']}."),
+    (f"Households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "total")), None),
+    (f"Rural households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "rural")), None),
+    (f"Rural households with fixed broadband, {year}", ui.fmt_pct(val("Malaysia", "fixed_broadband", "rural")), None),
+])
+st.markdown(f"<div style='border-left:3px solid {ui.ACCENT};padding:2px 10px;color:{ui.INK_2};font-size:0.9rem;"
+            f"margin:0.2rem 0 0.4rem 0'>{facts['comparison_note']}</div>",
+            unsafe_allow_html=True)
+st.caption(f"Coverage: [{facts['source_name']}]({facts['source_url']}). Household figures: DOSM ICTHS {year}, Table 1.2.")
 
 # --- 1. Coverage vs household access by state
 st.subheader("Where the network reaches vs who is online: two different indicators")
@@ -120,20 +157,22 @@ if len(ts):
         tech = f"<br/><span style='font-size:0.85em;color:{ui.INK_2}'>{t.candidate_technologies}</span>"
         rows.append([f"{swatch} **{t.settlement_type}. {t.type_label}**{tech}", f"{int(t.settlements):,}",
                      f"{t.people_without_home_internet:,.0f}", cost])
-    rows.append(["**Total**", f"**{int(ts.settlements.sum()):,}**", f"**{ts.people_without_home_internet.sum():,.0f}**", ""])
+    # settlements and people add up; costs do not (A and C are not costed), so the total row has no cost
+    rows.append(["**All types**", f"**{int(ts.settlements.sum()):,}**", f"**{ts.people_without_home_internet.sum():,.0f}**",
+                 f"<span style='color:{ui.INK_2}'>no total: A and C are not costed</span>"])
     # markdown table: wraps on narrow screens instead of scrolling sideways
     head = ["Settlement type and candidate technologies (screening)", "Rural settlements",
             "Rural people without home internet", "Five-year cost (estimate, where costed)"]
     st.markdown("\n".join(["| " + " | ".join(head) + " |", "|---|--:|--:|---|"]
                           + ["| " + " | ".join(r_) + " |" for r_ in rows]), unsafe_allow_html=True)
     screen = ts.screen_cost_main_rm.sum()
-    ui.what(["One settlement per rural MOE school. Types follow simple rules on fixed network nearby, demand, "
-             "mobile signal, terrain and road distance (see Method & limitations); all are proxies.",
+    ui.what(["One settlement per rural MOE school, grouped by simple rules on fixed network nearby, demand, "
+             "mobile signal, terrain and road distance (proxies; see Method & limitations).",
              "Candidate technologies are a screening list, not a recommendation; a site survey decides.",
              "Costs only where we have a cited public unit cost: tower, satellite per household, FWA retail plan. "
              "Small cells, community Wi-Fi sites and microwave links have no public cost source, so they are not costed.",
-             f"For comparison, the tower-vs-satellite cost screen used in the rankings totals {ui.fmt_rm(screen)} "
-             f"for the same settlements ({scope}).",
+             f"For comparison, the tower-vs-satellite cost screen used in the rankings: {ui.fmt_rm(screen)} "
+             f"({scope}; {ui.REF_COST}). It is not a total of the types above.",
              ui.TAKEUP_TXT],
             data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {int(acc_year)} · "
                  f"Ookla {cl_q.iloc[0] if len(cl_q) else ui.DASH} · OpenStreetMap {data.osm_snapshot()} · "
