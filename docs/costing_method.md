@@ -116,12 +116,12 @@ Districts with no planned settlements (cost 0) have **no estimated-beneficiaries
 
 ## 6a. Settlement types and technology options (added 26 Nov 2026, expert feedback)
 
-Expert feedback from an MCMC officer: do not frame the choice as satellite vs tower; group settlements by demand, distance to
+Expert feedback from a telecom industry expert: do not frame the choice as satellite vs tower; group settlements by demand, distance to
 existing networks, current service quality and terrain, then match a technology mix. `scripts/build_settlements.py` adds
 mobile signal (Ookla), terrain (Terrain Tiles) and road distance (OpenStreetMap) to every settlement and assigns one type by
 ordered rules (`config/settlement_types.yaml`): **A** Network nearby (fixed tile within 2 km) → **B** Larger unconnected
-village (households without home internet ≥ tower break-even) → **E** Good mobile signal nearby (nearest mobile tile within
-2 km ≥ 35 Mbps) → **D** Isolated or difficult terrain (road > 5 km or mean slope ≥ 15°) → **C** Small village, reachable.
+village (households without home internet ≥ tower break-even) → **E** Good mobile signal nearby (at least 20 Ookla mobile
+tests within 2 km, combined, with mean download ≥ 35 Mbps; fewer tests are too noisy to judge) → **D** Isolated or difficult terrain (road > 5 km or mean slope ≥ 15°) → **C** Small village, reachable.
 
 Costs per type use cited unit costs only. B (tower) and D (satellite per household + school terminal) equal the existing
 `cost_main` for those settlements (tested). E uses a cited FWA retail plan: Yes 5G Advanced Home WiFi, RM99/month on a
@@ -135,14 +135,14 @@ is unchanged and still drives the rankings and the budget planner; its totals ar
 |---|---|--:|--:|---|--:|
 | All Malaysia | A. Network nearby | 3,456 | 467,809 | not costed (no public cost source) | RM0.0m |
 | All Malaysia | B. Larger unconnected village | 7 | 10,567 | RM14.9m | RM14.9m |
-| All Malaysia | E. Good mobile signal nearby | 460 | 56,789 | RM84.9m | RM221.1m |
-| All Malaysia | D. Isolated or difficult terrain | 41 | 4,330 | RM16.7m | RM16.7m |
-| All Malaysia | C. Small village, reachable | 358 | 48,808 | not costed (no public cost source) | RM186.3m |
+| All Malaysia | E. Good mobile signal nearby | 83 | 10,906 | RM16.1m | RM41.9m |
+| All Malaysia | D. Isolated or difficult terrain | 55 | 5,738 | RM21.6m | RM21.6m |
+| All Malaysia | C. Small village, reachable | 721 | 93,283 | not costed (no public cost source) | RM360.5m |
 | Sarawak | A. Network nearby | 778 | 114,459 | not costed (no public cost source) | RM0.0m |
 | Sarawak | B. Larger unconnected village | 0 | 0 | – | RM0.0m |
-| Sarawak | E. Good mobile signal nearby | 205 | 31,546 | RM48.6m | RM125.3m |
-| Sarawak | D. Isolated or difficult terrain | 23 | 2,696 | RM11.2m | RM11.2m |
-| Sarawak | C. Small village, reachable | 208 | 32,457 | not costed (no public cost source) | RM126.5m |
+| Sarawak | E. Good mobile signal nearby | 39 | 6,293 | RM9.5m | RM24.5m |
+| Sarawak | D. Isolated or difficult terrain | 28 | 2,948 | RM12.4m | RM12.4m |
+| Sarawak | C. Small village, reachable | 369 | 57,459 | not costed (no public cost source) | RM226.0m |
 
 ## 7. Unsourced assumptions (label in the app)
 

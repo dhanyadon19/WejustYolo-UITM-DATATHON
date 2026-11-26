@@ -145,7 +145,7 @@ stc = data.yaml_config("settlement_types")
 mq, tr, rd = stc["mobile_quality"], stc["terrain"], stc["road"]
 fwa = costs["fwa"]
 st.markdown(f"""
-Added after **expert feedback from an MCMC officer** (Nov 2026): rather than a tower-vs-satellite choice, group settlements
+Added after **expert feedback from a telecom industry expert** (Nov 2026): rather than a tower-vs-satellite choice, group settlements
 by demand, distance to existing networks, current service quality and terrain, then match a technology mix.
 
 - **One settlement per rural MOE school** ({len(cl):,}). Rules are applied in order; the first match wins, so each settlement has exactly one type.
@@ -160,7 +160,7 @@ st.markdown(f"""
 **Inputs (all proxies, computed in scripts/build_settlements.py and cached; never fetched by the app)**
 - **Demand:** estimated households and people without home internet (Census 2020 households × DOSM ICTHS {int(gi.access_year.max())} access gap).
 - **Fixed network nearby:** an Ookla fixed tile within 2 km (existing proxy).
-- **Mobile signal:** nearest Ookla {gi.ookla_quarter.iloc[0]} mobile tile within {mq['search_km']} km. *Good* = mean download ≥ {mq['good_min_mbps']} Mbps, the [JENDELA Phase 1 mobile speed target]({mq['source_url']}) (also a mean, from Ookla); *weak* = below; *no tests* = no tile within {mq['search_km']} km (not proof of no signal). Many tiles hold only a few tests.
+- **Mobile signal:** all Ookla {gi.ookla_quarter.iloc[0]} mobile tiles within {mq['search_km']} km combined (total tests, test-weighted mean download). Judged only with at least {mq['min_tests']} tests: single tiles with 1–3 tests are too noisy. *Good* = mean download ≥ {mq['good_min_mbps']} Mbps, the [JENDELA Phase 1 mobile speed target]({mq['source_url']}) (also a mean, from Ookla); *weak* = below; *too few tests* = 1–{mq['min_tests'] - 1} tests; *no tests* = no tile within {mq['search_km']} km (not proof of no signal).
 - **Terrain:** mean slope within {tr['radius_m']} m from [Terrain Tiles]({tr['source_url']}) (zoom {tr['zoom']}, ~38 m, SRTM-based). Flat < {tr['flat_max_deg']}°, hilly {tr['flat_max_deg']}–{tr['steep_min_deg']}°, steep ≥ {tr['steep_min_deg']}°.
 - **Road distance:** straight line to the nearest motorable road in [OpenStreetMap]({rd['source_url']}) (Geofabrik extract, {data.osm_snapshot()}, ODbL; tracks and paths excluded). Near ≤ {rd['near_max_km']} km, far {rd['near_max_km']}–{rd['very_far_min_km']} km, very far > {rd['very_far_min_km']} km.
 - **Break-even (type B):** households without home internet ≥ the tower vs satellite break-even (section 4).

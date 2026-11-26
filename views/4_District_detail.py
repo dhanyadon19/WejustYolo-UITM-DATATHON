@@ -77,7 +77,8 @@ if len(sett):
     plan = plan.assign(
         settlement_type=at.settlement_type.values, settlement_type_label=at.type_label.values,
         candidate_technologies_screening=at.candidate_technologies.values,
-        mobile_quality_proxy=at.mobile_quality.values, mobile_tile_dl_mbps=at.mobile_tile_dl_mbps.round(1).values,
+        mobile_quality_proxy=at.mobile_quality.values, mobile_tests_2km=at.mobile_tests_2km.values,
+        mobile_dl_mbps_2km=at.mobile_dl_mbps_2km.round(1).values,
         terrain_proxy=at.terrain.values, slope_mean_deg=at.slope_mean_deg.round(1).values,
         road_proxy=at.road.values, road_km=at.road_km.round(2).values,
         type_cost_basis=at.type_cost_basis.values,
@@ -92,7 +93,7 @@ if len(sett):
         "Costs: five-year, RM, from config/costs.yaml (retail prices and public statements). Main = Residential satellite "
         "plan, Lite = Residential Lite plan; satellite cost includes one Business terminal for the school.",
         "settlement_type: rule-based screening (config/settlement_types.yaml); candidate technologies are a screening "
-        "list, not a recommendation. mobile_quality: nearest Ookla mobile tile within 2 km vs the JENDELA 35 Mbps target; "
+        "list, not a recommendation. mobile_quality: all Ookla mobile tiles within 2 km combined, judged only with at least 20 tests, vs the JENDELA 35 Mbps target; "
         "terrain: mean slope within 500 m (Terrain Tiles); road: straight-line km to the nearest motorable OSM road. "
         "All proxies. est_5yr_type_cost_rm is empty where there is no public cost source.",
         f"Data: MOE school list June 2022; Census {cyear if cyear else ui.DASH}; DOSM ICTHS {access_year}; Ookla {quarter}; "

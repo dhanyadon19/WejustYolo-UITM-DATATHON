@@ -127,7 +127,7 @@ def settlement_points(state: str) -> pd.DataFrame:
     cl = cl[(cl["state"] == state) & cl["lon"].notna() & cl["lat"].notna()]
     at = csv("settlements")[["state", "district", "school_code", "settlement_type", "type_label", "candidate_technologies",
                              "type_cost_basis", "type_costed", "type_cost_5yr_rm", "mobile_quality", "mobile_tile_km",
-                             "mobile_tile_dl_mbps", "terrain", "slope_mean_deg", "road", "road_km"]]
+                             "mobile_tests_2km", "mobile_dl_mbps_2km", "terrain", "slope_mean_deg", "road", "road_km"]]
     cl = cl.merge(at, on=["state", "district", "school_code"], how="left")
     return cl[["district", "lon", "lat", "category_main", "unconnected_people", "cost_main"]
               + list(at.columns[3:])].reset_index(drop=True)

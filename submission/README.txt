@@ -122,5 +122,5 @@ C. Run it on your own computer (Windows commands; on macOS/Linux use python3.12 
   - Licences: Ookla open data and EOxCloudless imagery are CC BY-NC-SA 4.0 (non-commercial use only); OpenStreetMap
     data is ODbL (district boundaries in Sarawak, roads); OpenDOSM data is CC BY 4.0. Only aggregated public data are
     used; there is no personal data.
-  - Expert input: the settlement types and the "mainly outdoor" wording follow expert feedback from an MCMC officer
+  - Expert input: the settlement types and the "mainly outdoor" wording follow expert feedback from a telecom industry expert
     (Nov 2026). Candidate technologies are a screening list, not a recommendation; a site survey decides.

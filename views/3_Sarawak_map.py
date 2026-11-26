@@ -236,10 +236,10 @@ if terrain:
     pts["t1"] = [f"Type {t}. {lab}" if isinstance(lab, str) else ui.DASH for t, lab in zip(pts.settlement_type, pts.type_label)]
     pts["t2"] = ["Candidate technologies (screening): " + (c if isinstance(c, str) else ui.DASH)
                  for c in pts.candidate_technologies]
-    mq = {"good": "good", "weak": "weak", "no_tests": "no tests within 2 km"}
+    mq = {"good": "good", "weak": "weak", "few_tests": "too few tests to judge", "no_tests": "no tests within 2 km"}
     pts["t3"] = ["Mobile signal (Ookla): " + mq.get(q, ui.DASH)
-                 + (f" (nearest test tile {km:.1f} km, {mbps:,.0f} Mbps)" if q in ("good", "weak") else "")
-                 for q, km, mbps in zip(pts.mobile_quality, pts.mobile_tile_km, pts.mobile_tile_dl_mbps)]
+                 + (f" ({int(n):,} tests within 2 km, mean {mbps:,.0f} Mbps)" if q in ("good", "weak", "few_tests") else "")
+                 for q, n, mbps in zip(pts.mobile_quality, pts.mobile_tests_2km, pts.mobile_dl_mbps_2km)]
     pts["t4"] = [f"Terrain: {t} (mean slope {sl:.0f}°)" if isinstance(t, str) else "Terrain: missing"
                  for t, sl in zip(pts.terrain, pts.slope_mean_deg)]
     pts["t5"] = [f"Road: {r.replace('_', ' ')} ({'under 0.1' if km < 0.1 else f'{km:,.1f}'} km to nearest mapped road)"

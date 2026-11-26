@@ -5,8 +5,9 @@ All attributes are PROXIES computed here and cached; the app never fetches them.
 
   demand          households / people without home internet (from costing_clusters.csv, unchanged)
   fixed_nearby    Ookla fixed tile within 2 km (existing proxy, unchanged)
-  mobile_quality  nearest Ookla MOBILE tile (centroid) within 2 km: good (mean download >= 35 Mbps, JENDELA
-                  Phase 1 target) / weak / no_tests
+  mobile_quality  ALL Ookla MOBILE tiles (centroids) within 2 km combined: total tests and test-weighted mean
+                  download. good (>= 20 tests and >= 35 Mbps, JENDELA Phase 1 target) / weak (>= 20 tests, < 35) /
+                  few_tests (1-19 tests: too noisy to judge) / no_tests
   terrain         mean slope over a 500 m circle from Terrain Tiles z12 (SRTM-based): flat / hilly / steep
   road            straight-line km to the nearest motorable OSM road (Geofabrik extract): near / far / very_far
   settlement_type A-E by the ordered rules in config/settlement_types.yaml (first match wins)
@@ -68,15 +69,24 @@ def mobile_quality(cl: pd.DataFrame, quarter: str, cfg: dict) -> pd.DataFrame:
         utm = p.estimate_utm_crs()
         minx, miny, maxx, maxy = p.total_bounds
         t = tiles.cx[minx - 0.1:maxx + 0.1, miny - 0.1:maxy + 0.1]
-        j = gpd.sjoin_nearest(p.to_crs(utm), t.to_crs(utm)[["avg_d_kbps", "tests", "geometry"]], how="left",
-                              max_distance=search, distance_col="d")
-        j = j[~j.index.duplicated()]  # ties: keep one
-        parts.append(pd.DataFrame({"mobile_tile_km": j["d"] / 1000, "mobile_tile_dl_mbps": j["avg_d_kbps"] / 1000,
-                                   "mobile_tile_tests": j["tests"]}, index=j.index))
+        pu, tu = p.to_crs(utm), t.to_crs(utm)[["avg_d_kbps", "tests", "geometry"]]
+        # nearest tile (distance only, for the tooltip)
+        near = gpd.sjoin_nearest(pu, tu, how="left", max_distance=search, distance_col="d")
+        near = near[~near.index.duplicated()]
+        # every tile within the search radius, combined: total tests, test-weighted mean download
+        j = gpd.sjoin(pu, tu, how="inner", predicate="dwithin", distance=search)
+        j["kbps_x_tests"] = j["avg_d_kbps"] * j["tests"]
+        g = j.groupby(level=0).agg(tiles=("tests", "size"), tests=("tests", "sum"), kt=("kbps_x_tests", "sum"))
+        parts.append(pd.DataFrame({"mobile_tile_km": near["d"] / 1000,
+                                   "mobile_tiles_2km": g["tiles"].reindex(p.index).fillna(0).astype(int),
+                                   "mobile_tests_2km": g["tests"].reindex(p.index).fillna(0).astype(int),
+                                   "mobile_dl_mbps_2km": (g["kt"] / g["tests"] / 1000).reindex(p.index)},
+                                  index=p.index))
     m = pd.concat(parts).reindex(cl.index)
-    good = cfg["good_min_mbps"]
-    m["mobile_quality"] = np.where(m.mobile_tile_km.isna(), "no_tests",
-                                   np.where(m.mobile_tile_dl_mbps >= good, "good", "weak"))
+    good, min_t = cfg["good_min_mbps"], cfg["min_tests"]
+    m["mobile_quality"] = np.select(
+        [m.mobile_tests_2km == 0, m.mobile_tests_2km < min_t, m.mobile_dl_mbps_2km >= good],
+        ["no_tests", "few_tests", "good"], "weak")
     return m
 
 
@@ -257,7 +267,8 @@ def main() -> None:
     s["ookla_quarter"] = quarter
     s["osm_extract"] = osm_file
     cols = KEY + ["school_name", "lon", "lat", "households", "unconnected_households", "unconnected_people",
-                  "fixed_nearby", "nearest_fixed_tile_km", "mobile_tile_km", "mobile_tile_dl_mbps", "mobile_tile_tests",
+                  "fixed_nearby", "nearest_fixed_tile_km", "mobile_tile_km", "mobile_tiles_2km", "mobile_tests_2km",
+                  "mobile_dl_mbps_2km",
                   "mobile_quality", "elevation_m", "slope_mean_deg", "relief_m", "terrain", "terrain_missing",
                   "road_km", "road", "road_missing", "settlement_type", "type_label", "candidate_technologies",
                   "type_cost_basis", "type_costed", "type_cost_5yr_rm", "category_main", "cost_main",
