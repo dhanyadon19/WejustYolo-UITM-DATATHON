@@ -101,33 +101,44 @@ with right:
             f"{val('Malaysia', 'fixed_broadband', 'rural'):.1f}% have fixed broadband.",
             data=f"DOSM ICTHS {year}, Table 1.2")
 
-# --- Action summary: which fix the rural settlements need (main case)
-st.subheader("What would close the rural gap (estimates)")
-fb = data.fix_breakdown()
-agg = fb.groupby("category")[["n", "people", "cost_main"]].sum()
+# --- Action summary: settlement types and candidate technologies (screening)
+st.subheader("What would close the rural gap: settlement types (estimates)")
 cl_q = data.csv("costing_clusters")["ookla_quarter"].dropna()
 acc_year = data.csv("gap_index_districts")["access_year"].max()
 cyear = data.census_year()
-rows = []
-for cat, label in (("takeup_gap", "Take-up support (proxy)"), ("satellite", "Satellite"), ("tower", "Tower")):
-    if cat in agg.index:
-        a = agg.loc[cat]
-        rows.append([label, f"{int(a.n):,}", f"{a.people:,.0f}", "not costed" if cat == "takeup_gap" else ui.fmt_rm(a.cost_main)])
-if rows:
-    rows.append(["**Total**", f"**{int(agg.n.sum()):,}**", f"**{agg.people.sum():,.0f}**", f"**{ui.fmt_rm(agg.cost_main.sum())}**"])
+scope = st.radio("Area", ["All Malaysia", "Sarawak"], horizontal=True, key="ov_type_scope", label_visibility="collapsed")
+ts = data.type_summary(scope)
+if len(ts):
+    rows = []
+    for t in ts.itertuples():
+        if t.type_cost_basis == ui.NOT_COSTED or not ui.isnum(t.type_cost_5yr_rm):
+            cost = ui.NOT_COSTED if t.settlements else ui.DASH
+        else:
+            cost = f"{ui.fmt_rm(t.type_cost_5yr_rm)} ({t.type_cost_basis.split(',')[0]})"
+        swatch = f"<span style='color:{ui.TYPE_COLOURS.get(t.settlement_type, ui.MUTED)}'>●</span>"
+        rows.append([f"{swatch} **{t.settlement_type}. {t.type_label}**", f"{int(t.settlements):,}",
+                     f"{t.people_without_home_internet:,.0f}", t.candidate_technologies, cost])
+    rows.append(["**Total**", f"**{int(ts.settlements.sum()):,}**", f"**{ts.people_without_home_internet.sum():,.0f}**", "", ""])
     # markdown table: wraps on narrow screens instead of scrolling sideways
-    head = ["Fix", "Rural settlements", "Rural people without home internet", "5-year cost (main case)"]
-    st.markdown("\n".join(["| " + " | ".join(head) + " |", "|---|--:|--:|--:|"] + ["| " + " | ".join(r_) + " |" for r_ in rows]))
-    ui.what(["One settlement per rural MOE school, all states.",
-             "Fixed network likely nearby (our proxy) = take-up support (subsidies, awareness, help signing up), "
-             "not new infrastructure.",
-             "The rest are screened for a tower or satellite on five-year cost (Residential satellite plan).",
-             "People counts and costs are estimates. " + ui.TAKEUP_TXT],
+    head = ["Settlement type", "Rural settlements", "Rural people without home internet",
+            "Candidate technologies (screening)", "Five-year cost (estimate, where costed)"]
+    st.markdown("\n".join(["| " + " | ".join(head) + " |", "|---|--:|--:|---|---|"]
+                          + ["| " + " | ".join(r_) + " |" for r_ in rows]), unsafe_allow_html=True)
+    screen = ts.screen_cost_main_rm.sum()
+    ui.what(["One settlement per rural MOE school. Types follow simple rules on fixed network nearby, demand, "
+             "mobile signal, terrain and road distance (see Method & limitations); all are proxies.",
+             "Candidate technologies are a screening list, not a recommendation; a site survey decides.",
+             "Costs only where we have a cited public unit cost: tower, satellite per household, FWA retail plan. "
+             "Small cells, community Wi-Fi sites and microwave links have no public cost source, so they are not costed.",
+             f"For comparison, the tower-vs-satellite cost screen used in the rankings totals {ui.fmt_rm(screen)} "
+             f"for the same settlements ({scope}).",
+             ui.TAKEUP_TXT],
             data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {int(acc_year)} · "
-                 f"Ookla {cl_q.iloc[0] if len(cl_q) else ui.DASH} · config/costs.yaml")
+                 f"Ookla {cl_q.iloc[0] if len(cl_q) else ui.DASH} · OpenStreetMap {data.osm_snapshot()} · "
+                 "Terrain Tiles · config/costs.yaml")
     ui.caveat()
 else:
-    ui.fallback("No costing data available.")
+    ui.fallback("No settlement data available.")
 
 # --- 4. Trend
 st.subheader(f"Trend, {int(trend.year.min())}–{int(trend.year.max())}")

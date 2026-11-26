@@ -139,8 +139,71 @@ Full method: [docs/costing_method.md]({REPO}/blob/main/docs/costing_method.md)
 """)
 ui.caveat()
 
-# --- 5. Limitations
-st.header("5. Limitations")
+# --- 5. Settlement types and technology options
+st.header("5. Settlement types and technology options")
+stc = data.yaml_config("settlement_types")
+mq, tr, rd = stc["mobile_quality"], stc["terrain"], stc["road"]
+fwa = costs["fwa"]
+st.markdown(f"""
+Added after **expert feedback from an MCMC officer** (Nov 2026): rather than a tower-vs-satellite choice, group settlements
+by demand, distance to existing networks, current service quality and terrain, then match a technology mix.
+
+- **One settlement per rural MOE school** ({len(cl):,}). Rules are applied in order; the first match wins, so each settlement has exactly one type.
+- **Candidate technologies are a screening list**, not a recommendation. A site survey decides.
+""")
+ui.table(pd.DataFrame([{"type": f"{k}. {v['label']}", "rule": v["rule"], "tech": v["candidates"]}
+                       for k, v in ((k, stc["types"][k]) for k in stc["order"])]),
+         [("type", "Type", None), ("rule", "Rule (in this order)", None), ("tech", "Candidate technologies (screening)", None)])
+ui.what("Settlement types, their rules and candidate technologies (config/settlement_types.yaml).",
+        data="config/settlement_types.yaml")
+st.markdown(f"""
+**Inputs (all proxies, computed in scripts/build_settlements.py and cached; never fetched by the app)**
+- **Demand:** estimated households and people without home internet (Census 2020 households × DOSM ICTHS {int(gi.access_year.max())} access gap).
+- **Fixed network nearby:** an Ookla fixed tile within 2 km (existing proxy).
+- **Mobile signal:** nearest Ookla {gi.ookla_quarter.iloc[0]} mobile tile within {mq['search_km']} km. *Good* = mean download ≥ {mq['good_min_mbps']} Mbps, the [JENDELA Phase 1 mobile speed target]({mq['source_url']}) (also a mean, from Ookla); *weak* = below; *no tests* = no tile within {mq['search_km']} km (not proof of no signal). Many tiles hold only a few tests.
+- **Terrain:** mean slope within {tr['radius_m']} m from [Terrain Tiles]({tr['source_url']}) (zoom {tr['zoom']}, ~38 m, SRTM-based). Flat < {tr['flat_max_deg']}°, hilly {tr['flat_max_deg']}–{tr['steep_min_deg']}°, steep ≥ {tr['steep_min_deg']}°.
+- **Road distance:** straight line to the nearest motorable road in [OpenStreetMap]({rd['source_url']}) (Geofabrik extract, {data.osm_snapshot()}, ODbL; tracks and paths excluded). Near ≤ {rd['near_max_km']} km, far {rd['near_max_km']}–{rd['very_far_min_km']} km, very far > {rd['very_far_min_km']} km.
+- **Break-even (type B):** households without home internet ≥ the tower vs satellite break-even (section 4).
+""")
+tsum = data.csv("settlement_types_summary")
+piv = tsum.pivot_table(index=["settlement_type", "type_label"], columns="scope", values="settlements", aggfunc="sum").reset_index()
+ppl = tsum.pivot_table(index="settlement_type", columns="scope", values="people_without_home_internet", aggfunc="sum")
+piv["people_mys"] = piv.settlement_type.map(ppl.get("All Malaysia", {}))
+piv["people_sar"] = piv.settlement_type.map(ppl.get("Sarawak", {}))
+cst = tsum[tsum.scope == "All Malaysia"].set_index("settlement_type")
+piv["cost"] = [ui.fmt_rm(cst.type_cost_5yr_rm.get(k)) if ui.isnum(cst.type_cost_5yr_rm.get(k)) else ui.NOT_COSTED
+               for k in piv.settlement_type]
+piv["basis"] = piv.settlement_type.map(cst.type_cost_basis)
+piv = piv.sort_values("settlement_type", key=lambda x: x.map({k: i for i, k in enumerate(ui.TYPE_ORDER)}))
+ui.table(piv, [("settlement_type", "Type", None), ("type_label", "Name", None),
+               ("All Malaysia", "Settlements (Malaysia)", ",.0f"), ("people_mys", "People offline (Malaysia)", ",.0f",
+                "Estimated rural people without home internet"),
+               ("Sarawak", "Settlements (Sarawak)", ",.0f"), ("people_sar", "People offline (Sarawak)", ",.0f"),
+               ("cost", "Five-year cost, Malaysia (estimate)", None), ("basis", "Cost basis", None)],
+         download="beyond_coverage_settlement_types.csv",
+         notes=["Beyond Coverage: settlement types (rule-based screening; config/settlement_types.yaml). ESTIMATES and PROXIES.",
+                "Costs only where a cited public unit cost exists (config/costs.yaml); otherwise not costed.",
+                f"Data: MOE school list June 2022; Census 2020; DOSM ICTHS {int(gi.access_year.max())}; Ookla {gi.ookla_quarter.iloc[0]}; "
+                f"OpenStreetMap {data.osm_snapshot()}; Terrain Tiles."])
+ui.what(["Settlements and estimated people without home internet by type.",
+         f"Costed only with a cited unit cost: tower (type B), satellite per household plus the school terminal (D), "
+         f"and FWA at a retail 5G home plan, RM{fwa['monthly_rm']}/month with the router included "
+         f"([source]({fwa['sources'][0]}), accessed {fwa['accessed']}), for E. FWA assumes the nearby mobile site has spare "
+         "capacity: no network build cost is included.",
+         "Types A and C are not costed: we found no public Malaysian cost for take-up support, small cells, community "
+         "Wi-Fi sites or microwave links.",
+         "The tower-vs-satellite cost screen (section 4) is unchanged and still drives the rankings and budget planner."],
+        data=f"Ookla {gi.ookla_quarter.iloc[0]} · OpenStreetMap {data.osm_snapshot()} · Terrain Tiles · config/costs.yaml")
+st.markdown("""
+**What this cannot tell you**
+- **No tower locations and no fibre routes:** neither is public, so "network nearby" relies on where people ran speed tests.
+- **No indoor signal:** Ookla tests and coverage figures say little about signal inside buildings.
+- **Terrain is a proxy:** slope near the school, not a line-of-sight or radio model; forest cover is not included.
+- **Road distance is straight-line** and depends on how complete OpenStreetMap is in rural Borneo; rivers are not counted.
+""")
+
+# --- 6. Limitations
+st.header("6. Limitations")
 st.markdown(f"""
 - **Coverage ≠ access:** the official {facts['value_pct']}% is network coverage of populated areas (mainly outdoor); DOSM measures households online. Two different indicators, not a measured gap.
 - **No indoor signal data:** indoor connectivity depends on building materials, signal penetration, distance to the site, terrain and network capacity, which we do not measure.
@@ -156,7 +219,8 @@ st.markdown(f"""
 - **3D view is context only:** no line-of-sight or signal model.
 - **Satellite in practice:** needs power and clear sky; the monthly fee is a real cost; no mobile coverage.
 - **Take-up proxy may be too generous:** the same proxy undercounted schools without fibre by about {abs(tot.pct_diff_2km):.0f}%, so the main cost is likely understated.
-- **Tower and satellite only:** fibre PoPs appear only as an upper-bound cost sensitivity.
+- **Settlement types are a screen:** rules and proxies, not a site survey or radio plan (section 5).
+- **Fibre PoPs** appear only as an upper-bound cost sensitivity.
 - **Licences:** Ookla CC BY-NC-SA 4.0 (non-commercial); OSM boundaries ODbL.
 """)
 with st.expander("Full detail on each limitation"):
@@ -175,7 +239,7 @@ with st.expander("Full detail on each limitation"):
 - **3D view is context only.** The 3D view shows terrain context only; it does not model line-of-sight or signal blocking (future work: add tower locations and a line-of-sight model).
 - **Satellite in practice.** A terminal needs continuous power and a clear view of the sky (tall forest and hills can block it), and heavy rain can slow it. The monthly fee is a real cost to low-income households: the five-year cost includes the fee, but not who pays it once any subsidy ends. It serves a fixed location only: no mobile coverage on roads or farms.
 - **Take-up proxy may be too generous.** The same type of proxy (a fixed tile within 2 km) undercounted schools without fibre by about {abs(tot.pct_diff_2km):.0f}% against Hansard ({int(tot.est_2km):,} flagged vs {int(tot.hansard_no_fibre):,} in the six states; state errors vary widely), so the take-up group is likely overstated and the main cost understated; the upper bound covers this case.
-- **No other technologies.** The screen compares tower and satellite only; fibre PoPs appear only as an upper-bound cost sensitivity, not as a recommendation.
+- **Technology options.** The cost screen behind the rankings compares tower and satellite only. Settlement types (section 5) add candidate technologies (FWA, small cells, community Wi-Fi, microwave backhaul, fibre connection), but only FWA has a cited cost; the others are not costed. Fibre PoPs appear only as an upper-bound cost sensitivity, not as a recommendation.
 - **Licences.** Ookla data is CC BY-NC-SA 4.0 (non-commercial); OSM-derived boundaries are ODbL.
 """)
 ui.next_step("views/1_Overview.py", "Back to the overview", "start the story again from the national picture.")

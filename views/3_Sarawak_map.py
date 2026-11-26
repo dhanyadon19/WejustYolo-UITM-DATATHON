@@ -93,8 +93,11 @@ def swatch(colour: str, label: str, dot: bool = False) -> str:
 
 
 if terrain:
-    legend = "<b>Rural settlement (school location)</b>, by fix: &nbsp; " + " &nbsp;&nbsp; ".join(
-        swatch(ui.FIX_COLOURS[c], ui.FIX_LABELS[c], dot=True) for c in ["takeup_gap", "satellite", "tower"])
+    present = set(data.settlement_points(STATE).settlement_type.dropna())
+    type_labels = data.yaml_config("settlement_types")["types"]
+    legend = "<b>Rural settlement (school location)</b>, by settlement type: &nbsp; " + " &nbsp;&nbsp; ".join(
+        swatch(ui.TYPE_COLOURS[t], f"{t}. {type_labels[t]['label'] if t in type_labels else 'Not classified (missing data)'}",
+               dot=True) for t in ui.TYPE_ORDER if t in present)
     legend += (" &nbsp;&nbsp; <span style='white-space:nowrap'><span style='display:inline-block;width:16px;"
                "border-top:2px solid #fff;outline:1px solid #888;vertical-align:3px;margin-right:5px'></span>"
                f"District boundary</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Heights exaggerated ×{tx:g}</span>")
@@ -228,21 +231,31 @@ if terrain:
     dec = el["decoder"]
     terrain_ext = [{"@@type": "TerrainExtension"}]
     pts = data.settlement_points(STATE).copy()
-    pts["colour"] = [ui.hex_rgb(ui.FIX_COLOURS.get(c, ui.MUTED_LIGHT), 245) for c in pts.category_main]
+    pts["colour"] = [ui.hex_rgb(ui.TYPE_COLOURS.get(t, ui.MUTED_LIGHT), 245) for t in pts.settlement_type]
     pts["t0"] = "Rural settlement in " + pts["district"] + " district"
-    pts["t1"] = ["Fix: " + ui.FIX_LABELS.get(c, ui.DASH) for c in pts.category_main]
-    pts["t2"] = ["Estimated people without home internet: " + ui.fmt_num(v) for v in pts.unconnected_people]
-    pts["t3"] = ["Estimated 5-year cost (main case): "
-                 + ("not costed (take-up support)" if c == "takeup_gap" else ui.fmt_rm(v))
-                 for c, v in zip(pts.category_main, pts.cost_main)]
+    pts["t1"] = [f"Type {t}. {lab}" if isinstance(lab, str) else ui.DASH for t, lab in zip(pts.settlement_type, pts.type_label)]
+    pts["t2"] = ["Candidate technologies (screening): " + (c if isinstance(c, str) else ui.DASH)
+                 for c in pts.candidate_technologies]
+    mq = {"good": "good", "weak": "weak", "no_tests": "no tests within 2 km"}
+    pts["t3"] = ["Mobile signal (Ookla): " + mq.get(q, ui.DASH)
+                 + (f" (nearest test tile {km:.1f} km, {mbps:,.0f} Mbps)" if q in ("good", "weak") else "")
+                 for q, km, mbps in zip(pts.mobile_quality, pts.mobile_tile_km, pts.mobile_tile_dl_mbps)]
+    pts["t4"] = [f"Terrain: {t} (mean slope {sl:.0f}°)" if isinstance(t, str) else "Terrain: missing"
+                 for t, sl in zip(pts.terrain, pts.slope_mean_deg)]
+    pts["t5"] = [f"Road: {r.replace('_', ' ')} ({km:,.1f} km to nearest mapped road)" if isinstance(r, str)
+                 else "Road: missing" for r, km in zip(pts.road, pts.road_km)]
+    pts["t6"] = ["Estimated people without home internet: " + ui.fmt_num(v) for v in pts.unconnected_people]
     # satellite cost = terminals for unconnected households + one Business terminal for the school (costs.yaml);
     # where the school's link is most of the cost, say so
     sat_cfg = data.yaml_config("costs")["satellite"]
     school_link = sat_cfg["kit_rm"] + 60 * sat_cfg["monthly_rm"]["business_from"]
-    pts["t4"] = [f"Includes the school's satellite link ({ui.fmt_rm(school_link)})"
-                 if c == "satellite" and ui.isnum(v) and v > 0 and school_link / v > 0.5 else ""
-                 for c, v in zip(pts.category_main, pts.cost_main)]
-    pts = pts[["lon", "lat", "colour", "t0", "t1", "t2", "t3", "t4"]]
+    pts["t7"] = ["Five-year cost (estimate): "
+                 + (("none (no households here lack home internet)" if round(v) == 0
+                     else f"{ui.fmt_rm(v)}, {ui.cost_basis_short(b_)}") if bool(ok) and ui.isnum(v) else ui.NOT_COSTED)
+                 + (f"; includes the school's satellite link ({ui.fmt_rm(school_link)})"
+                    if t == "D" and ui.isnum(v) and v > 0 and school_link / v > 0.5 else "")
+                 for t, ok, v, b_ in zip(pts.settlement_type, pts.type_costed, pts.type_cost_5yr_rm, pts.type_cost_basis)]
+    pts = pts[["lon", "lat", "colour"] + [f"t{i}" for i in range(8)]]
     layers = [
         # dark backdrop under the terrain so far-away tiles that have not loaded yet do not show as white gaps
         pdk.Layer("PolygonLayer", [{"p": [[95, -15], [135, -15], [135, 25], [95, 25]]}], id="backdrop",
@@ -271,7 +284,7 @@ if terrain:
                   extensions=terrain_ext, terrain_draw_mode=S("offset"), billboard=True,
                   parameters={"depthCompare": "always", "depthWriteEnabled": False}),
     ]
-    tooltip = {"html": "<b>{t0}</b><br/>{t1}<br/>{t2}<br/>{t3}<br/>{t4}", "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
+    tooltip = {"html": "<b>{t0}</b><br/><b>{t1}</b><br/>{t2}<br/>{t3}<br/>{t4}<br/>{t5}<br/>{t6}<br/>{t7}", "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
     # dark, label-free basemap under the terrain: if the terrain is slow or fails, the box is dark, not Streamlit's
     # default light basemap (which looked like an empty white map)
     deck = pdk.Deck(layers=layers, initial_view_state=VIEW, map_style=pdk.map_styles.CARTO_DARK_NO_LABELS,
@@ -326,12 +339,15 @@ weights_txt = ", ".join("{} {}".format(k_.replace("_", " "), v["weight"]) for k_
 if terrain:
     ui.what([f"Sarawak's terrain: satellite image on elevation, heights exaggerated ×{tx:g}.",
              "Each dot is a rural settlement (school location): a rural MOE school standing for the village around it.",
-             "Colour = the fix our cost screen suggests: green = take-up support (fixed network likely nearby, proxy), "
-             "orange = satellite, blue = tower.",
+             "Colour = settlement type, from simple rules on fixed network nearby, demand, mobile signal, terrain and "
+             "road distance (all proxies; see Method & limitations).",
+             "Hover a dot for its type, candidate technologies (screening), mobile signal, terrain, road distance, "
+             "estimated people without home internet and five-year cost where costed.",
              "Hills and forest help explain why many inland settlements are far from any network and costly to reach.",
-             "Hover a dot for estimated people without home internet and cost. " + ui.TAKEUP_TXT],
+             ui.TAKEUP_TXT],
             data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {access_year} · "
-                 f"Ookla {quarter} · config/costs.yaml · {tiles['imagery']['name']} · Terrain Tiles")
+                 f"Ookla {quarter} · OpenStreetMap {data.osm_snapshot()} · config/costs.yaml · "
+                 f"{tiles['imagery']['name']} · Terrain Tiles")
 else:
     ui.what([f"Each Sarawak district in 3D: height = Connectivity Gap Index (0 = best, 1 = worst nationally; "
              f"weights {weights_txt}).",

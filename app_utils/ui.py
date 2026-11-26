@@ -33,6 +33,12 @@ TAKEUP_RAMP = ["#74c19b", "#4fae82", "#2f8f64", "#1f6f4b", "#134f35"]
 TYPE_ORDER = ["A", "B", "E", "D", "C", "U"]
 TYPE_COLOURS = {"A": "#58b98c", "B": "#1c5cab", "E": "#9085e9", "D": "#eb6834", "C": "#d4b000", "U": "#c3c2b7"}
 SCREENING = "candidate technologies (screening)"
+
+
+def cost_basis_short(basis) -> str:
+    """'FWA retail plan per household, five-year (costs.yaml)' -> 'FWA retail plan per household' (acronyms kept)."""
+    b = str(basis).split(",")[0]
+    return b if b[:2].isupper() or b[:1].isdigit() else b[:1].lower() + b[1:]
 NOT_COSTED = "not costed (no public cost source)"
 
 def ramp_bin(share, ramp=TAKEUP_RAMP):
@@ -305,13 +311,14 @@ def _rank_line(label: str, rank, of, lo, hi) -> str:
 
 
 def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, sources: str,
-                on_host_click=None) -> None:
+                on_host_click=None, types=None) -> None:
     """Summary card for one district: 'If I'm responsible for this district, what should I do?'
 
     r        one row of data.district_table()
     fixes    {category: row with n, people, cost_main, cost_lite} from data.fix_breakdown(); {} if none
     n_*      number of ranked districts nationally / in the district's state (for 'rank X of N')
     host     district whose polygon contains this one (no-boundary districts), else None
+    types    data.district_types(state, district): settlements, people, candidate technologies, cost per type
     Never raises on missing values: every figure degrades to a short message."""
     name, state = r.district, r.state
     with st.container(border=True):
@@ -361,43 +368,48 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
         else:
             items = []
             none_lack = "DOSM data suggest no households here lack home internet"  # access gap 0%
-            if n["takeup_gap"]:
-                if round(tk["people"]) > 0:
-                    items.append(
-                        f"- **Take-up support:** {_plural(n['takeup_gap'], 'settlement')} where our proxy suggests a fixed "
-                        f"network is likely nearby, with an estimated {fmt_num(tk['people'])} rural people without home "
-                        "internet. Help them get connected: subsidies for the monthly fee or installation, awareness of what "
-                        "is available, and help signing up. *Proxy: an Ookla fixed-broadband test within 2 km of the "
-                        "school, not a coverage map.*")
+            for t in (types.itertuples() if types is not None else []):
+                head = f"- **{t.settlement_type}. {t.type_label}:** {_plural(int(t.n), 'settlement')}"
+                ppl = (f", with an estimated {fmt_num(t.people)} rural people without home internet"
+                       if round(t.people) > 0 else f"; {none_lack}")
+                if t.settlement_type == "A":
+                    cost = ("Take-up support has no public cost source, so it is not costed. *Proxy: an Ookla "
+                            "fixed-broadband test within 2 km of the school, not a coverage map.*")
+                elif isnum(t.cost):
+                    basis = cost_basis_short(t.type_cost_basis)
+                    cost = f"Estimated five-year cost {fmt_rm(t.cost)} ({basis})."
+                    if round(t.cost) == 0:  # access gap 0%: nothing to pay for
+                        cost = "No estimated cost: no households here lack home internet."
+                    elif t.settlement_type == "D" and round(t.people) == 0:
+                        cost = f"Estimated five-year cost {fmt_rm(t.cost)}: the school's satellite link only."
                 else:
-                    items.append(f"- **Take-up support:** {_plural(n['takeup_gap'], 'settlement')} where our proxy suggests "
-                                 f"a fixed network is likely nearby; {none_lack}, so no take-up action is indicated.")
-            if n["satellite"]:
-                lo, hi = sorted([sat["cost_lite"], sat["cost_main"]])
-                cost = (fmt_rm(hi) if fmt_rm(lo) == fmt_rm(hi)
-                        else f"{fmt_rm(lo)}–{fmt_rm(hi)} (Lite plan to Residential plan)")
-                if round(sat["people"]) > 0:
-                    items.append(f"- **Satellite:** {_plural(n['satellite'], 'settlement')}, with an estimated "
-                                 f"{fmt_num(sat['people'])} rural people without home internet. Estimated 5-year cost {cost}.")
-                else:
-                    items.append(f"- **Satellite:** {_plural(n['satellite'], 'settlement')}; {none_lack}, so the "
-                                 f"estimated 5-year cost ({cost}) is the school's satellite link only.")
-            if n["tower"]:
-                items.append(f"- **Tower:** {_plural(n['tower'], 'settlement')}, with an estimated {fmt_num(tw['people'])} "
-                             f"rural people without home internet. Estimated 5-year cost {fmt_rm(tw['cost_main'])}.")
-            elif n["satellite"]:
-                items.append("- **Tower:** No towers pass the cost screen.")
+                    cost = f"Five-year cost: {NOT_COSTED}."
+                items.append(f"{head}{ppl}. Candidate technologies (screening): {t.candidate_technologies}. {cost}")
             if not (n["satellite"] or n["tower"]):
                 lever = ("so take-up support is the main lever." if tk is not None and round(tk["people"]) > 0
                          else "and no take-up gap is estimated either.")
                 items.append("- **New infrastructure:** none costed. Every rural settlement has a fixed network likely "
                              f"nearby (our proxy), {lever}")
+            else:
+                lo, hi = sorted([sum(f["cost_lite"] for f in fixes.values()), sum(f["cost_main"] for f in fixes.values())])
+                rng = fmt_rm(hi) if fmt_rm(lo) == fmt_rm(hi) else f"{fmt_rm(lo)}–{fmt_rm(hi)} (Lite to Residential plan)"
+                items.append(f"- **Cost screen used in the rankings** (tower or satellite for every settlement without a "
+                             f"fixed network nearby): {rng}. {TOWER_WIDER}")
             st.markdown("\n".join(items))
 
         # 3. Check on the ground
-        if n["satellite"]:
-            st.markdown("**3. Check on the ground before choosing satellite**")
-            st.markdown("\n".join(f"- {c}" for c in GROUND_CHECKS) + f"\n\n{TOWER_WIDER}")
+        present = set(types.settlement_type) if types is not None and len(types) else set()
+        checks = []
+        if present & {"D", "C"} or n["satellite"]:
+            checks += GROUND_CHECKS
+        if present & {"E", "B"}:
+            checks.append("**Mobile signal indoors:** coverage maps are mainly outdoor; test inside homes and check "
+                          "the nearest site has spare capacity for home broadband (FWA).")
+        if present & {"C", "B"}:
+            checks.append("**Backhaul:** a line of sight for a microwave link, or a satellite link, to the nearest network.")
+        if checks:
+            st.markdown("**3. Check on the ground before choosing a technology**")
+            st.markdown("\n".join(f"- {c}" for c in checks))
 
         caveat()
         st.caption(f"Data: {sources}. All costs and people counts are estimates.")
