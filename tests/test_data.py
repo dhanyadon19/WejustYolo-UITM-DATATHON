@@ -210,3 +210,93 @@ def test_funding_queue_order(cl, scope, case):
     assert all(g["cost_per_person"].is_monotonic_increasing for _, g in q.groupby(["state", "district"]))
     assert math.isclose(q["cost"].sum(), planned[f"cost_{case}"].sum(), rel_tol=1e-12)
     assert np.allclose(q["cum_cost"].iloc[-1], q["cost"].sum())
+
+
+# --- settlement attributes and types (build_settlements.py; expert feedback, Nov 2026) ---
+@pytest.fixture(scope="module")
+def st_() -> pd.DataFrame:
+    return pd.read_csv(PROC / "settlements.csv")
+
+
+@pytest.fixture(scope="module")
+def stypes() -> dict:
+    return yml("settlement_types")
+
+
+def test_settlements_match_clusters(st_, cl):
+    k = ["state", "district", "school_code"]
+    assert len(st_) == len(cl) and not st_.duplicated(k).any()
+    assert set(map(tuple, st_[k].astype(str).values)) == set(map(tuple, cl[k].astype(str).values))
+
+
+@pytest.mark.parametrize("value,flag", [("terrain", "terrain_missing"), ("road", "road_missing")])
+def test_attribute_missing_is_flagged(st_, value, flag):
+    """No silent NaN: a value is empty exactly when its *_missing flag is set."""
+    assert (st_[value].isna() == st_[flag]).all()
+    num = {"terrain": "slope_mean_deg", "road": "road_km"}[value]
+    assert (st_[num].isna() == st_[flag]).all()
+
+
+def test_mobile_quality_classes(st_, stypes):
+    c = stypes["mobile_quality"]
+    assert st_["mobile_quality"].notna().all()
+    assert set(st_["mobile_quality"]) <= {"good", "weak", "no_tests"}
+    near = st_["mobile_tile_km"].notna()
+    assert (st_.loc[~near, "mobile_quality"] == "no_tests").all()
+    assert (st_.loc[near, "mobile_tile_km"] <= c["search_km"] + 1e-9).all()
+    good = st_["mobile_tile_dl_mbps"] >= c["good_min_mbps"]
+    assert (st_.loc[near & good, "mobile_quality"] == "good").all()
+    assert (st_.loc[near & ~good, "mobile_quality"] == "weak").all()
+
+
+def test_terrain_and_road_classes_follow_config(st_, stypes):
+    t, r = stypes["terrain"], stypes["road"]
+    s = st_.dropna(subset=["slope_mean_deg"])
+    want = np.select([s.slope_mean_deg < t["flat_max_deg"], s.slope_mean_deg >= t["steep_min_deg"]], ["flat", "steep"], "hilly")
+    assert (s["terrain"] == want).all()
+    s = st_.dropna(subset=["road_km"])
+    want = np.select([s.road_km <= r["near_max_km"], s.road_km > r["very_far_min_km"]], ["near", "very_far"], "far")
+    assert (s["road"] == want).all()
+
+
+def test_every_settlement_has_exactly_one_type(st_, stypes, unit):
+    assert st_["settlement_type"].notna().all()
+    assert set(st_["settlement_type"]) <= set(stypes["types"]) | {"U"}
+    # recompute the ordered rules
+    be = unit["main"]["breakeven"]
+    nf, below = ~st_.fixed_nearby, st_.unconnected_households < be
+    iso = (st_.slope_mean_deg >= stypes["terrain"]["steep_min_deg"]) | (st_.road_km > stypes["road"]["very_far_min_km"])
+    want = np.select([st_.fixed_nearby, nf & ~below, nf & below & (st_.mobile_quality == "good"), nf & below & iso,
+                      nf & below & (st_.slope_mean_deg.isna() | st_.road_km.isna())], ["A", "B", "E", "D", "U"], "C")
+    diff = st_[st_.settlement_type != want]
+    assert diff.empty, f"{len(diff)} settlements break the type rules, e.g. {diff.school_code.head(3).tolist()}"
+
+
+def test_type_costs_reconcile(st_, cl, stypes, unit):
+    """Costed types use cited unit costs only; B and D equal the existing tower / satellite screen costs."""
+    costed = st_.settlement_type.map({k: v["costed"] for k, v in stypes["types"].items()}).fillna("none")
+    assert (st_["type_costed"] == (costed != "none")).all()
+    assert st_.loc[~st_.type_costed, "type_cost_5yr_rm"].isna().all()
+    assert st_.loc[st_.type_costed, "type_cost_5yr_rm"].notna().all()
+    m = st_.merge(cl[["state", "district", "school_code", "cost_main", "category_main"]],
+                  on=["state", "district", "school_code"], suffixes=("", "_cl"))
+    for k, cat in (("B", "tower"), ("D", "satellite")):
+        sub = m[m.settlement_type == k]
+        assert (sub.category_main_cl == cat).all()
+        assert np.allclose(sub.type_cost_5yr_rm, sub.cost_main_cl, rtol=1e-9, atol=0.5)
+    c = yml("costs")["fwa"]
+    fwa = m[m.settlement_type == "E"]
+    assert np.allclose(fwa.type_cost_5yr_rm, fwa.unconnected_households * (c["cpe_rm"] + 60 * c["monthly_rm"]))
+    assert c["five_year_cost_per_household_rm"] == c["cpe_rm"] + 60 * c["monthly_rm"]
+    # the existing screen is untouched: every settlement keeps its cost_main
+    assert np.allclose(m.cost_main, m.cost_main_cl)
+
+
+def test_type_summary_matches_settlements(st_):
+    sm = pd.read_csv(PROC / "settlement_types_summary.csv")
+    for scope, sub in (("All Malaysia", st_), ("Sarawak", st_[st_.state == "Sarawak"])):
+        g = sub.groupby("settlement_type").agg(n=("school_code", "size"), p=("unconnected_people", "sum"))
+        s = sm[sm.scope == scope].set_index("settlement_type")
+        assert s.settlements.sum() == len(sub)
+        for k, row in g.iterrows():
+            assert s.loc[k, "settlements"] == row.n and math.isclose(s.loc[k, "people_without_home_internet"], row.p, rel_tol=1e-9)

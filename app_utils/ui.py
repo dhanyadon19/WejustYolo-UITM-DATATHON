@@ -26,6 +26,14 @@ FIX_COLOURS["none (take-up gap only)"] = FIX_COLOURS["takeup_gap"]
 # Validated with the dataviz validator (--ordinal, light surface): monotone lightness, visible steps, light end 2.08:1.
 TAKEUP_RAMP = ["#74c19b", "#4fae82", "#2f8f64", "#1f6f4b", "#134f35"]
 
+# Settlement types (config/settlement_types.yaml), legend order A, B, E, D, C (+ U if any data is missing).
+# A/B/D reuse the take-up / tower / satellite colours. Validated all-pairs on light (dataviz validator: lightness,
+# chroma, CVD >= 9.6, normal-vision >= 16.3). Green and gold are below 3:1 on light and the set is outside the
+# dark-surface lightness band, so dots always carry a white ring, a legend, tooltips and a table view.
+TYPE_ORDER = ["A", "B", "E", "D", "C", "U"]
+TYPE_COLOURS = {"A": "#58b98c", "B": "#1c5cab", "E": "#9085e9", "D": "#eb6834", "C": "#d4b000", "U": "#c3c2b7"}
+SCREENING = "candidate technologies (screening)"
+NOT_COSTED = "not costed (no public cost source)"
 
 def ramp_bin(share, ramp=TAKEUP_RAMP):
     """Index of share (0-1) in len(ramp) equal bins (the top bin includes 1), or None if missing."""

@@ -175,3 +175,34 @@ def funding_queue(scope: str, case: str) -> pd.DataFrame:
     q["cum_cost"] = q["cost"].cumsum()
     return q[["state", "district", "need_rank", "school_code", "category", "people", "cost", "cost_per_person",
               "cum_cost"]]
+
+
+@st.cache_data(show_spinner=False)
+def settlements() -> pd.DataFrame:
+    """Settlement attributes and types (build_settlements.py): one row per rural settlement (rural MOE school)."""
+    return csv("settlements")
+
+
+@st.cache_data(show_spinner=False)
+def type_summary(scope: str) -> pd.DataFrame:
+    """Settlement types for scope 'All Malaysia' or 'Sarawak' (settlement_types_summary.csv), legend order."""
+    t = csv("settlement_types_summary")
+    t = t[t["scope"] == scope].copy()
+    order = {k: i for i, k in enumerate(["A", "B", "E", "D", "C", "U"])}
+    return t.sort_values("settlement_type", key=lambda s: s.map(order)).reset_index(drop=True)
+
+
+@st.cache_data(show_spinner=False)
+def district_types(state: str, district: str) -> pd.DataFrame:
+    """Per settlement type in one district: settlements, estimated people without home internet, candidate
+    technologies, five-year cost where a cited unit cost exists (NaN otherwise)."""
+    s = settlements()
+    s = s[(s["state"] == state) & (s["district"] == district)]
+    if s.empty:
+        return s
+    g = s.groupby(["settlement_type", "type_label", "candidate_technologies", "type_cost_basis"], dropna=False).agg(
+        n=("school_code", "size"), people=("unconnected_people", "sum"),
+        costed=("type_costed", "all"), cost=("type_cost_5yr_rm", "sum")).reset_index()
+    g.loc[~g["costed"], "cost"] = float("nan")
+    order = {k: i for i, k in enumerate(["A", "B", "E", "D", "C", "U"])}
+    return g.sort_values("settlement_type", key=lambda x: x.map(order)).reset_index(drop=True)

@@ -1,0 +1,73 @@
+# Settlement attributes and settlement types (scripts/build_settlements.py -> data/processed/settlements.csv).
+# Rule-based SCREENING, not engineering design. Every attribute is a PROXY (see data/README.md).
+# Prompted by expert feedback from an MCMC officer (Nov 2026): categorise settlements by density, terrain,
+# distance to existing networks, current service quality and demand, then match a technology mix.
+# Compiled 2026-11-26.
+
+mobile_quality:
+  # Nearest Ookla MOBILE tile (centroid) within search_km of the settlement (rural MOE school).
+  search_km: 2
+  good_min_mbps: 35
+  # 35 Mbps = JENDELA Phase 1 national target for mobile broadband speed, a MEAN speed from Ookla data
+  # (JENDELA Phase 1 Concluding Report, MCMC, p.4-6). Ookla tile speeds are also test means, so the
+  # comparison is like-for-like. Phase 2 target is 100 Mbps (same report): a stricter line, not used.
+  source_url: https://myjendela.my/Sitejendela/media/Doc/JENDELA-Phase-1-Concluding-Report.pdf
+  classes:
+    good: "nearest mobile tile within 2 km has mean download >= 35 Mbps"
+    weak: "nearest mobile tile within 2 km has mean download < 35 Mbps"
+    no_tests: "no Ookla mobile test tile within 2 km (no tests nearby; NOT proof of no signal)"
+
+terrain:
+  # Terrain Tiles (AWS Open Data, terrarium, zoom 12, ~38 m pixels; SRTM-based in Malaysia), the tiles the
+  # Sarawak 3D map uses. Copernicus GLO-30 was preferred but needs a raster library the project does not
+  # carry (rasterio); SRTM 30 m gives the same resolution class.
+  zoom: 12
+  radius_m: 500            # mean slope over a 500 m circle around the school: the village, not one pixel
+  flat_max_deg: 5          # flat < 5 deg, hilly 5-15 deg, steep >= 15 deg: our simple cut-offs, set from
+  steep_min_deg: 15        # the distribution (build 2026-11-26, 4,322 settlements: median 4.1 deg, 90th pct 9.8,
+  # 95th pct 13.3), so 'flat' is about two thirds of settlements and 'steep' the top ~4%. A ~38 m DEM smooths
+  # small-scale slopes, so 'steep' is conservative. A proxy for build difficulty and line-of-sight, not a survey.
+  source_url: https://registry.opendata.aws/terrain-tiles/
+
+road:
+  # Straight-line distance from the school to the nearest motorable OpenStreetMap road (Geofabrik extract).
+  # Motorable = public road classes below. 'track' (often 4WD logging or farm roads) and paths are excluded:
+  # they may not carry ordinary vehicles or equipment all year. Rivers (common access in Sarawak) are not
+  # counted. OSM completeness in rural Borneo varies: a 'very far' result can be a missing road.
+  motorable: [motorway, motorway_link, trunk, trunk_link, primary, primary_link, secondary, secondary_link,
+              tertiary, tertiary_link, unclassified, residential, living_street, service, road]
+  near_max_km: 1
+  very_far_min_km: 5
+  # near <= 1 km, far 1-5 km, very far > 5 km. Distribution (build 2026-11-26): median 0.03 km, 95th pct 0.56 km,
+  # 99th pct 6.6 km: schools almost always sit on a mapped road, so 'very far' (60 settlements) picks out
+  # island, river-access and interior sites. Straight-line distance, not travel distance.
+  source_url: https://download.geofabrik.de/asia/malaysia-singapore-brunei.html
+
+# Types are assigned in this order: the first rule that matches wins, so every settlement has exactly one.
+types:
+  A:
+    label: "Network nearby"
+    rule: "fixed network likely nearby (Ookla fixed tile within 2 km, existing proxy)"
+    candidates: "Take-up support (subsidies, awareness, help signing up); fibre (FTTH) connection or Fixed Wireless Access on the existing network"
+    costed: none            # take-up support: no public cost source; no new infrastructure
+  B:
+    label: "Larger unconnected village"
+    rule: "no fixed network nearby; households without home internet >= tower break-even (costs.yaml)"
+    candidates: "4G/5G macro tower, with Fixed Wireless Access for homes; microwave backhaul if far from a road or fibre"
+    costed: tower           # five-year tower cost (costs.yaml, cited); FWA and microwave not costed
+  E:
+    label: "Good mobile signal nearby"
+    rule: "no fixed network nearby; below break-even; nearest mobile tile within 2 km >= 35 Mbps"
+    candidates: "Fixed Wireless Access (4G/5G home broadband) on the existing mobile network; a small cell if capacity runs short"
+    costed: fwa             # FWA retail plan per household (costs.yaml, cited); small cell not costed
+  D:
+    label: "Isolated or difficult terrain"
+    rule: "no fixed network nearby; below break-even; road very far (> 5 km) or steep terrain (>= 15 deg)"
+    candidates: "Satellite broadband (incl. low-earth-orbit) per household, or community Wi-Fi with satellite backhaul"
+    costed: satellite       # satellite per household + school terminal (costs.yaml, cited)
+  C:
+    label: "Small village, reachable"
+    rule: "everything else: no fixed network nearby, below break-even, road within 5 km, not steep, weak or no mobile tests"
+    candidates: "Small cell or community Wi-Fi, with microwave or satellite backhaul"
+    costed: none            # no public cost source for small cells, community Wi-Fi sites or microwave links
+order: [A, B, E, D, C]
