@@ -62,7 +62,8 @@ if len(sett):
 
     plan = pd.DataFrame({
         "state": sett.state, "district": sett.district, "school_code": sett.school_code,
-        "settlement_school_name": sett.school_name, "longitude": sett.lon, "latitude": sett.lat,
+        "settlement_school_name": sett.school_name, "school_name_short": [ui.school_short(n) for n in sett.school_name],
+        "longitude": sett.lon, "latitude": sett.lat,
         "fixed_network_nearby_proxy": ["yes" if bool(v) else "no" for v in sett.fixed_nearby],
         "fix_main": [fix_txt(c) for c in sett.category_main],
         "est_households": sett.households.round(1),
@@ -78,6 +79,7 @@ if len(sett):
         settlement_type=at.settlement_type.values, settlement_type_label=at.type_label.values,
         candidate_technologies_screening=at.candidate_technologies.values,
         mobile_quality_proxy=at.mobile_quality.values, mobile_tests_2km=at.mobile_tests_2km.values,
+        terrain_slope_class=at.terrain.values,
         mobile_dl_mbps_2km=at.mobile_dl_mbps_2km.round(1).values,
         terrain_proxy=at.terrain.values, slope_mean_deg=at.slope_mean_deg.round(1).values,
         road_proxy=at.road.values, road_km=at.road_km.round(2).values,
@@ -220,7 +222,7 @@ else:
                      f"population {ui.fmt_int(r.population_year).replace(',', '')}")
 
 # --- 5. Fixes and cost
-st.subheader("Rural settlements, recommended fixes and cost (estimates)")
+st.subheader("Rural settlements: cost screen (estimates)")
 if not r.has_boundary:
     ui.fallback("No settlements costed: no map boundary" + (f" (its rural schools are counted under {host})." if host else "."))
 elif not ui.isnum(r.rural_settlements):
@@ -257,6 +259,57 @@ else:
              "All costs are estimates. " + ui.TAKEUP_TXT],
             data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {access_year} · Ookla {quarter} · config/costs.yaml")
     ui.caveat()
+
+# --- 6. Every settlement, sortable (MOE school names; attributes are proxies, people are estimates)
+at_d = data.settlements()
+at_d = at_d[(at_d.state == state) & (at_d.district == district)].reset_index(drop=True)
+if len(at_d):
+    st.subheader(f"Settlements in {district} ({len(at_d):,})")
+    MQ = {"good": "Good", "weak": "Weak", "few_tests": "Too few tests", "no_tests": "No tests"}
+    tb = pd.DataFrame({
+        "School": [ui.school_short(n) for n in at_d.school_name],
+        "Type": at_d.settlement_type.values,
+        "Offline (est.)": at_d.unconnected_people.round(0).astype("Int64").values,
+        "Mobile signal (2 km)": [MQ.get(q, q) + (f": {int(n):,} test{'' if n == 1 else 's'}, {v:,.0f} Mbps"
+                                                 if n > 0 and ui.isnum(v) else "")
+                                 for q, n, v in zip(at_d.mobile_quality, at_d.mobile_tests_2km, at_d.mobile_dl_mbps_2km)],
+        "Terrain": at_d.terrain.str.capitalize().values,
+        "Road (km)": at_d.road_km.round(2).values,
+        "Candidate technologies (screening)": at_d.candidate_technologies.values,
+    }).sort_values(["Type", "Offline (est.)"], ascending=[True, False],
+                   key=lambda c: c.map({k: i for i, k in enumerate(ui.TYPE_ORDER)}) if c.name == "Type" else c)
+    tb["Type"] = [f"{t}. {lab}" for t, lab in zip(tb["Type"], at_d.loc[tb.index, "type_label"])]
+    st.dataframe(tb, hide_index=True, width="stretch", height=min(36 * (len(tb) + 1) + 4, 460), column_config={
+        "School": st.column_config.TextColumn(pinned=True, help="Each rural MOE school stands for "
+                                                                  "its village (MOE school list, June 2022)."),
+        "Type": st.column_config.TextColumn(help="Settlement type (config/settlement_types.yaml): screening rules, "
+                                                 "not a survey."),
+        "Offline (est.)": st.column_config.NumberColumn(format="localized", help="People offline (estimate): rural people "
+                                                               "without home internet in this settlement."),
+        "Mobile signal (2 km)": st.column_config.TextColumn(help="All Ookla mobile tiles within 2 km combined: tests "
+                                                                 "and test-weighted mean download. Judged good or weak "
+                                                                 "only with at least 20 tests (proxy)."),
+        "Terrain": st.column_config.TextColumn(help="Mean slope within 500 m (Terrain Tiles): flat, hilly or steep."),
+        "Road (km)": st.column_config.NumberColumn(format="%.2f", help="Straight-line distance to the nearest "
+                                                   "motorable OpenStreetMap road."),
+        "Candidate technologies (screening)": st.column_config.TextColumn(width="medium"),
+    })
+    ui.download_csv(tb.assign(**{"Mobile tests (2 km)": at_d.loc[tb.index, "mobile_tests_2km"].values,
+                                 "Mobile Mbps (2 km)": at_d.loc[tb.index, "mobile_dl_mbps_2km"].round(1).values,
+                                 "MOE school name": at_d.loc[tb.index, "school_name"].values,
+                                 "School code": at_d.loc[tb.index, "school_code"].values}),
+                    f"beyond_coverage_{ui.slug(district)}_settlements.csv", "Download this table (CSV)", [
+        f"Beyond Coverage: rural settlements in {district}, {state}; one per rural MOE school (MOE list, June 2022).",
+        "ESTIMATES and PROXIES: people offline = Census households x DOSM access gap; mobile = Ookla "
+        f"{quarter} tiles within 2 km (judged only with >= 20 tests); terrain = Terrain Tiles slope; road = "
+        f"straight-line km to OpenStreetMap {data.osm_snapshot()} road. Candidate technologies are a screening list, "
+        "not a recommendation."], key="dl_settlements")
+    ui.what(["One row per rural settlement, named after the MOE school it is anchored on; click a column header to sort.",
+             "Types follow ordered screening rules (see Method & limitations, section 5); every attribute is a proxy "
+             "and people offline is an estimate.",
+             "Mobile signal combines all Ookla tiles within 2 km and is judged only with at least 20 tests."],
+            data=f"MOE school list, June 2022 · DOSM ICTHS {access_year} · Ookla {quarter} · "
+                 f"OpenStreetMap {data.osm_snapshot()} · Terrain Tiles")
 
 ui.next_step("views/5_Priorities.py", "Priorities",
              f"see where {district} sits against other districts on need and estimated beneficiaries per RM1m.")

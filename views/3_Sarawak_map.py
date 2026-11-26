@@ -232,7 +232,9 @@ if terrain:
     terrain_ext = [{"@@type": "TerrainExtension"}]
     pts = data.settlement_points(STATE).copy()
     pts["colour"] = [ui.hex_rgb(ui.TYPE_COLOURS.get(t, ui.MUTED_LIGHT), 245) for t in pts.settlement_type]
-    pts["t0"] = "Rural settlement in " + pts["district"] + " district"
+    # the settlement is anchored on a rural MOE school: name it (MOE name, short form)
+    pts["t0"] = ["Rural settlement near " + ui.school_short(n) + ", " + d + " district" if isinstance(n, str)
+                 else "Rural settlement in " + d + " district" for n, d in zip(pts.school_name, pts.district)]
     pts["t1"] = [f"Type {t}. {lab}" if isinstance(lab, str) else ui.DASH for t, lab in zip(pts.settlement_type, pts.type_label)]
     pts["t2"] = ["Candidate technologies (screening): " + (c if isinstance(c, str) else ui.DASH)
                  for c in pts.candidate_technologies]

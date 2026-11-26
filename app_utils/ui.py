@@ -40,6 +40,34 @@ def cost_basis_short(basis) -> str:
     b = str(basis).split(",")[0]
     return b if b[:2].isupper() or b[:1].isdigit() else b[:1].lower() + b[1:]
 NOT_COSTED = "not costed (no public cost source)"
+
+# MOE school-type prefixes -> the usual short forms (longest first)
+_SCHOOL_PREFIX = [("SEKOLAH JENIS KEBANGSAAN (CINA)", "SJK(C)"), ("SEKOLAH JENIS KEBANGSAAN (TAMIL)", "SJK(T)"),
+                  ("SEKOLAH JENIS KEBANGSAAN", "SJK"), ("SEKOLAH MENENGAH KEBANGSAAN", "SMK"),
+                  ("SEKOLAH KEBANGSAAN", "SK"), ("SEKOLAH MENENGAH", "SM"), ("SEKOLAH RENDAH", "SR"), ("SEKOLAH", "Sekolah")]
+_KEEP_UPPER = {"FELDA", "FELCRA", "RISDA", "LKTP", "LDG", "RPS", "SJK", "SMK", "SK", "II", "III", "IV"}
+
+
+def school_short(name) -> str:
+    """MOE school name in its usual short form: 'SEKOLAH KEBANGSAAN NANGA LIPUS' -> 'SK Nanga Lipus'.
+    Only reformats the MOE name (prefix abbreviated, rest in title case); never invents one."""
+    if not isinstance(name, str) or not name.strip():
+        return DASH
+    n = " ".join(name.split()).upper()
+    pre = ""
+    for long, short in _SCHOOL_PREFIX:
+        if n.startswith(long + " ") or n == long:
+            pre, n = short, n[len(long):].strip()
+            break
+
+    def word(w):
+        core = w.strip("().,&")
+        if core in _KEEP_UPPER or (core and not any(v in core for v in "AEIOU") and not core.isdigit() and len(core) > 3):
+            return w
+        return w.capitalize() if not w.startswith("(") else "(" + w[1:].capitalize()
+
+    rest = " ".join(word(w) for w in n.split())
+    return f"{pre} {rest}".strip()
 # Label for every total of the tower-vs-satellite cost screen (e.g. the national RM0.44bn): never a total across types
 REF_COST = "reference: cost if every settlement without a nearby network were served by towers or satellite only"
 
