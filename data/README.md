@@ -202,7 +202,8 @@ Streamed by the viewer's browser at run time; nothing is downloaded into `data/`
 **Caveats**
 - **Display only.** Terrain and imagery are context; no number in the app is computed from them.
 - **3D view is context only.** The 3D view shows terrain context only; it does not model line-of-sight or signal blocking (future work: add tower locations and a line-of-sight model).
-- **Heights are exaggerated** ×4 for the whole state and ×3 in a district view, with a maximum zoom of 11 (set in `views/3_Sarawak_map.py`), so interior hills read while the coast stays flat and close-ups don't look crumpled.
+- **Heights are exaggerated** ×4 for the whole state and ×3 in a district view, so interior hills read while the coast stays flat.
+- **Zoom (intentional):** the map *view* stops at zoom 11 (`TERRAIN_MAX_ZOOM`) so close-ups don't look crumpled, while terrain and imagery tiles are *fetched* up to zoom 12 (`TERRAIN_TILE_MAX_ZOOM`), one level finer than the closest view, so it stays sharp. Both are set in `views/3_Sarawak_map.py`.
 - **Non-commercial.** Like Ookla (CC BY-NC-SA 4.0), the imagery limits the app to non-commercial use. Esri World Imagery was not used: its account/API-key terms could not be confirmed.
 - **Availability.** Both are third-party public endpoints with no service guarantee; the "Gap Index blocks" view (Carto basemap) is the fallback and the default on phones. If an imagery tile is slow or refused (EOX throttles bursts), that patch of terrain shows in a dark neutral colour until reload; the map says so under the credits.
 
