@@ -324,7 +324,8 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
     with st.container(border=True):
         st.markdown(f"### What to do in {name}")
         st.markdown(f"<p style='color:{INK_2};margin-top:-0.6rem'>If you are responsible for this district: "
-                    "how great the need is, which fix fits each rural settlement, and the estimated cost.</p>",
+                    "how great the need is, what kinds of rural settlement it has, candidate technologies (screening) "
+                    "and the estimated cost where one can be costed.</p>",
                     unsafe_allow_html=True)
 
         # 1. Need

@@ -242,7 +242,8 @@ if terrain:
                  for q, km, mbps in zip(pts.mobile_quality, pts.mobile_tile_km, pts.mobile_tile_dl_mbps)]
     pts["t4"] = [f"Terrain: {t} (mean slope {sl:.0f}°)" if isinstance(t, str) else "Terrain: missing"
                  for t, sl in zip(pts.terrain, pts.slope_mean_deg)]
-    pts["t5"] = [f"Road: {r.replace('_', ' ')} ({km:,.1f} km to nearest mapped road)" if isinstance(r, str)
+    pts["t5"] = [f"Road: {r.replace('_', ' ')} ({'under 0.1' if km < 0.1 else f'{km:,.1f}'} km to nearest mapped road)"
+                 if isinstance(r, str)
                  else "Road: missing" for r, km in zip(pts.road, pts.road_km)]
     pts["t6"] = ["Estimated people without home internet: " + ui.fmt_num(v) for v in pts.unconnected_people]
     # satellite cost = terminals for unconnected households + one Business terminal for the school (costs.yaml);

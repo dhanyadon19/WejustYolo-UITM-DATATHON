@@ -116,13 +116,15 @@ if len(ts):
         else:
             cost = f"{ui.fmt_rm(t.type_cost_5yr_rm)} ({t.type_cost_basis.split(',')[0]})"
         swatch = f"<span style='color:{ui.TYPE_COLOURS.get(t.settlement_type, ui.MUTED)}'>●</span>"
-        rows.append([f"{swatch} **{t.settlement_type}. {t.type_label}**", f"{int(t.settlements):,}",
-                     f"{t.people_without_home_internet:,.0f}", t.candidate_technologies, cost])
-    rows.append(["**Total**", f"**{int(ts.settlements.sum()):,}**", f"**{ts.people_without_home_internet.sum():,.0f}**", "", ""])
+        # candidate technologies sit under the type name, so the table keeps four columns and fits a phone
+        tech = f"<br/><span style='font-size:0.85em;color:{ui.INK_2}'>{t.candidate_technologies}</span>"
+        rows.append([f"{swatch} **{t.settlement_type}. {t.type_label}**{tech}", f"{int(t.settlements):,}",
+                     f"{t.people_without_home_internet:,.0f}", cost])
+    rows.append(["**Total**", f"**{int(ts.settlements.sum()):,}**", f"**{ts.people_without_home_internet.sum():,.0f}**", ""])
     # markdown table: wraps on narrow screens instead of scrolling sideways
-    head = ["Settlement type", "Rural settlements", "Rural people without home internet",
-            "Candidate technologies (screening)", "Five-year cost (estimate, where costed)"]
-    st.markdown("\n".join(["| " + " | ".join(head) + " |", "|---|--:|--:|---|---|"]
+    head = ["Settlement type and candidate technologies (screening)", "Rural settlements",
+            "Rural people without home internet", "Five-year cost (estimate, where costed)"]
+    st.markdown("\n".join(["| " + " | ".join(head) + " |", "|---|--:|--:|---|"]
                           + ["| " + " | ".join(r_) + " |" for r_ in rows]), unsafe_allow_html=True)
     screen = ts.screen_cost_main_rm.sum()
     ui.what(["One settlement per rural MOE school. Types follow simple rules on fixed network nearby, demand, "

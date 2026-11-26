@@ -276,6 +276,35 @@ Weights are in `config/weights.yaml`: access_gap 0.4, mobile_speed 0.2, fixed_re
   - **State-level cross-check:** the school list is within −5.7% to +3.2% of 2025 enrolment for every state except Labuan (−8.1%) and Putrajaya (−13.9%).
   - **Missing schools:** 18 schools with missing or suspect coordinates are not placed in any district.
 
+## Raw: OpenStreetMap extract (`data/raw/osm/`, gitignored)
+
+- **Source:** Geofabrik, Malaysia-Singapore-Brunei extract, https://download.geofabrik.de/asia/malaysia-singapore-brunei.html (the `-latest` URL redirects to a dated file, saved under that name: `malaysia-singapore-brunei-261124.osm.pbf`, 24 Nov 2026, 254 MB).
+- **Downloaded:** 2026-11-26 by `scripts/download_settlement_inputs.py`. **Licence:** ODbL 1.0 (© OpenStreetMap contributors).
+- **Used for:** distance from each rural settlement to the nearest motorable road (classes in `config/settlement_types.yaml`; tracks and paths excluded).
+- **Caveats:** completeness varies in rural Borneo (a missing road makes a settlement look 'very far'); rivers are not counted; straight-line, not travel, distance.
+
+## Raw: Terrain Tiles (`data/raw/terrain_tiles/`, gitignored)
+
+- **Source:** Terrain Tiles on AWS Open Data (Mapzen/Tilezen), terrarium PNG, https://registry.opendata.aws/terrain-tiles/ (same tiles as the Sarawak 3D map; `config/map_tiles.yaml`). Zoom 12 (~38 m pixels); Malaysian tiles come from SRTM.
+- **Downloaded:** 2026-11-26, 1,941 tiles within ~1.1 km of a rural settlement, by `scripts/download_settlement_inputs.py`. **Licence/attribution:** per source (USGS SRTM, GMTED2010; NOAA ETOPO1), see `config/map_tiles.yaml`.
+- **Why not Copernicus GLO-30:** preferred, but reading its GeoTIFFs needs a raster library (rasterio) the project does not carry; SRTM 30 m is the same resolution class.
+
+## Processed: settlement attributes and types (from `scripts/build_settlements.py`), PROXIES and ESTIMATES
+
+Prompted by expert feedback from an MCMC officer (Nov 2026). `settlements.csv`: one row per rural settlement in `costing_clusters.csv` (4,322), same keys (state, district, school_code).
+
+| Column | Meaning |
+|---|---|
+| `mobile_tile_km`, `mobile_tile_dl_mbps`, `mobile_tile_tests` | nearest Ookla 2026Q3 mobile tile (centroid) within 2 km; empty if none |
+| `mobile_quality` | good (>= 35 Mbps, JENDELA Phase 1 mean mobile speed target, [report](https://myjendela.my/Sitejendela/media/Doc/JENDELA-Phase-1-Concluding-Report.pdf)), weak (< 35), no_tests (no tile within 2 km: not proof of no signal). Many tiles hold 1-3 tests |
+| `elevation_m`, `slope_mean_deg`, `relief_m`, `terrain` | Terrain Tiles z12: elevation at the school, mean slope and max-min elevation within 500 m; flat < 5 deg, hilly 5-15, steep >= 15 (median 4.1 deg, 95th pct 13.3) |
+| `road_km`, `road` | straight-line km to the nearest motorable OSM road; near <= 1, far 1-5, very far > 5 km (median 0.03 km, 99th pct 6.6 km) |
+| `terrain_missing`, `road_missing` | True where the input failed (a missing tile or no OSM file); the value is then empty, never guessed (0 missing in this build) |
+| `settlement_type`, `type_label`, `candidate_technologies` | ordered rules in `config/settlement_types.yaml` (A, B, E, D, C; first match wins; U = not classified when a deciding input is missing) |
+| `type_cost_basis`, `type_costed`, `type_cost_5yr_rm` | five-year cost only with a cited unit cost: B tower, D satellite per household + school terminal (both equal `cost_main`), E FWA retail plan per household (`costs.yaml` fwa); A and C empty = 'not costed (no public cost source)' |
+
+Counts (this build): Malaysia A 3,456, B 7, E 460, D 41, C 358; Sarawak A 778, B 0, E 205, D 23, C 208. `settlement_types_summary.csv`: per scope (All Malaysia, Sarawak) and type: settlements, people without home internet, candidate technologies, type cost (empty where not costed) and the tower-vs-satellite screen cost of the same settlements.
+
 ## Processed: costing (from `scripts/build_costing.py`), ESTIMATES
 
 The method, sources, sensitivity results and unsourced assumptions are in [`docs/costing_method.md`](../docs/costing_method.md). Costs come from `config/costs.yaml`.
