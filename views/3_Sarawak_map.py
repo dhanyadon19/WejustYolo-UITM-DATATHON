@@ -1,4 +1,4 @@
-"""Sarawak map: 3D terrain with rural settlements by fix, or 3D district blocks (height = Gap Index).
+"""Sarawak map: 3D terrain with rural settlements by settlement type, or 3D district blocks (height = Gap Index).
 
 ?district=<name> opens the map focused on that Sarawak district (used by District detail's "Show on map")."""
 import math
@@ -62,7 +62,7 @@ focus = qp_d if qp_d in set(d.district) else None
 tx = TERRAIN_X_DISTRICT if focus else TERRAIN_X  # exaggeration for this render
 
 ui.page("Sarawak: where the gap is deepest, and why it is hard to reach",
-        "Rural settlements on Sarawak's terrain, coloured by the fix our cost screen suggests; or the districts as "
+        "Rural settlements on Sarawak's terrain, coloured by settlement type (candidate technologies, screening); or the districts as "
         "blocks whose height is the Connectivity Gap Index.")
 
 # 3D terrain streams many map tiles; phones default to the lighter Gap Index view (switchable).
