@@ -172,10 +172,10 @@ for _, r in d.iterrows():
         # tooltip fields are plain text (deck.gl escapes them); the markup lives in the tooltip template
         p.update({"t0": f"{r.district} (district)", "t1": f"Need score {p['cgi']} · Sarawak need rank {need}",
                   "t2": f"Households online (DOSM {access_year}) {access}",
-                  "t3": "Small sample: low confidence" if small_r else ""})
+                  "t3": "Small sample: low confidence" if small_r else "", "t4": ""})
         # districts share the tooltip template with the settlements: every field it names must exist (empty here),
         # or deck.gl prints the raw placeholder; empty fields sit in <div>s, which collapse
-        p.update({f"t{i}": "" for i in range(4, 8)})
+        p.update({f"t{i}": "" for i in range(5, 8)})
     else:
         if key == "largest_group":
             cat = r[key] if isinstance(r[key], str) else None

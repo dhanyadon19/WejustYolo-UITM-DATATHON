@@ -181,9 +181,8 @@ ui.table(tbl, [("district", "District", None)] + ([("state", "State", None)] if 
                                                                   "planned (tower or satellite) settlements"),
     ("takeup_pct", "Take-up (%)", ".0f", "Share of rural settlements where our proxy suggests a fixed network is "
                                          "likely nearby (take-up gap)"),
-    ("fix", "Ref. cost-screen result", None, "Reference cost-screen result: tower or satellite, whichever serves most "
-                                             "rural people without home internet among planned settlements (towers and "
-                                             "satellite only; not the settlement-type grouping)"),
+    ("fix", "Ref. cost-screen result", None, "Result of the reference tower-vs-satellite screen for this district's "
+                                             "planned settlements; not the settlement-type recommendation."),
     ("small", "Small sample", None, "Yes = DOSM estimate rests on a small inferred sample: low confidence"),
 ], download=f"beyond_coverage_priorities_{ui.slug(scope)}_{'residential' if case == 'main' else 'lite'}.csv", notes=[
     f"Beyond Coverage: need and estimated beneficiaries per RM1m, {where}.",
