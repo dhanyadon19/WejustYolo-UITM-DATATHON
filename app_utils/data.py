@@ -142,14 +142,18 @@ def census_year() -> int | None:
 
 @st.cache_data(show_spinner=False)
 def settlement_groups() -> pd.DataFrame:
-    """Per district: rural people without home internet by settlement category (main case)."""
-    cl = csv("costing_clusters")
-    t = cl.pivot_table(index=["state", "district"], columns="category_main", values="unconnected_people",
-                       aggfunc="sum", fill_value=0).reset_index()
-    for c in ["takeup_gap", "tower", "satellite"]:
+    """Per district: estimated rural people without home internet by settlement-type group (settlements.csv):
+    A (network nearby), E (good mobile signal nearby), new (B, C, D: new infrastructure). largest_group is the group
+    holding most of them (ties go to A, then E). Proxy-based estimates."""
+    s = settlements()
+    s = s.assign(group=s["settlement_type"].map({"A": "A", "E": "E"}).fillna("new"))
+    t = s.pivot_table(index=["state", "district"], columns="group", values="unconnected_people",
+                      aggfunc="sum", fill_value=0).reset_index()
+    for c in ["A", "E", "new"]:
         if c not in t:
             t[c] = 0.0
-    t["largest_group"] = t[["takeup_gap", "tower", "satellite"]].idxmax(axis=1)
+    t = t.rename(columns={"A": "people_A", "E": "people_E", "new": "people_new"})
+    t["largest_group"] = t[["people_A", "people_E", "people_new"]].idxmax(axis=1).str.replace("people_", "")
     return t
 
 

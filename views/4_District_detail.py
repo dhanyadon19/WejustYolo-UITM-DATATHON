@@ -69,7 +69,7 @@ if len(sett):
         "fix_main": [fix_txt(c) for c in sett.category_main],
         "est_households": sett.households.round(1),
         "est_households_without_home_internet": sett.unconnected_households.round(1),
-        "est_people_without_home_internet": sett.unconnected_people.round(0).astype("Int64"),
+        "est_people_without_home_internet_district_avg": sett.unconnected_people.round(0).astype("Int64"),
         "est_5yr_cost_main_rm": pd.array([rm(c, v) for c, v in zip(sett.category_main, sett.cost_main)], dtype="Int64"),
         "fix_lite": [fix_txt(c) for c in sett.category_lite],
         "est_5yr_cost_lite_rm": pd.array([rm(c, v) for c, v in zip(sett.category_lite, sett.cost_lite)], dtype="Int64"),
@@ -90,7 +90,7 @@ if len(sett):
         f"Beyond Coverage: action plan for {district}, {state}. One row per rural settlement (one per rural MOE school).",
         "ESTIMATES ONLY: a cost screen, not a funding recommendation or a full cost-benefit comparison.",
         f"Households: Census {cyear if cyear else ui.DASH} rural households split equally across the district's rural "
-        f"schools; without home internet = households x DOSM ICTHS {access_year} access gap; people = x household size.",
+        f"schools; without home internet = households x DOSM ICTHS {access_year} access gap; people = x household size. A district average per settlement: real villages vary.",
         f"fixed_network_nearby_proxy: an Ookla {quarter} fixed tile within 2 km (a proxy). These settlements need take-up "
         "support, not infrastructure, so their cost is left empty.",
         "Costs: five-year, RM, from config/costs.yaml (retail prices and public statements). Main = Residential satellite "
@@ -302,18 +302,20 @@ else:
     n_ex = int(at_d.settlement_type.isin(["A", "E"]).sum())
     ui.finding(f"{district}: {n_ex:,} of {len(at_d):,} rural settlements could use existing networks (types A and E)",
                f"Settlements in {district} ({len(at_d):,}), one per rural MOE school", level=4)
+    OFFLINE_AVG = ("People offline are a district average per settlement (households split equally across rural "
+                   "schools); real villages vary.")
     MQ = {"good": "Good", "weak": "Weak", "few_tests": "Too few tests", "no_tests": "No tests"}
     tb = pd.DataFrame({
         "School": [ui.school_short(n) for n in at_d.school_name],
         "Type": at_d.settlement_type.values,
-        "Offline (est.)": at_d.unconnected_people.round(0).astype("Int64").values,
+        "Offline (est., district average)": at_d.unconnected_people.round(0).astype("Int64").values,
         "Mobile signal (2 km)": [MQ.get(q, q) + (f": {int(n):,} test{'' if n == 1 else 's'}, {v:,.0f} Mbps"
                                                  if n > 0 and ui.isnum(v) else "")
                                  for q, n, v in zip(at_d.mobile_quality, at_d.mobile_tests_2km, at_d.mobile_dl_mbps_2km)],
         "Terrain": at_d.terrain.str.capitalize().values,
         "Road (km)": at_d.road_km.round(2).values,
         "Candidate technologies (screening)": at_d.candidate_technologies.values,
-    }).sort_values(["Type", "Offline (est.)"], ascending=[True, False],
+    }).sort_values(["Type", "Offline (est., district average)"], ascending=[True, False],
                    key=lambda c: c.map({k: i for i, k in enumerate(ui.TYPE_ORDER)}) if c.name == "Type" else c)
     tb["Type"] = [f"{t}. {lab}" for t, lab in zip(tb["Type"], at_d.loc[tb.index, "type_label"])]
     st.dataframe(tb, hide_index=True, width="stretch", height=min(36 * (len(tb) + 1) + 4, 460), column_config={
@@ -321,8 +323,9 @@ else:
                                                                   "its village (MOE school list, June 2022)."),
         "Type": st.column_config.TextColumn(help="Settlement type (config/settlement_types.yaml): screening rules, "
                                                  "not a survey."),
-        "Offline (est.)": st.column_config.NumberColumn(format="localized", help="People offline (estimate): rural people "
-                                                               "without home internet in this settlement."),
+        "Offline (est., district average)": st.column_config.NumberColumn(format="localized", help="People offline (estimate): the district's "
+                                                               "rural people without home internet split equally "
+                                                               "across its rural schools, so every row is the same."),
         "Mobile signal (2 km)": st.column_config.TextColumn(help="All Ookla mobile tiles within 2 km combined: tests "
                                                                  "and test-weighted mean download. Judged good or weak "
                                                                  "only with at least 20 tests (proxy)."),
@@ -331,13 +334,14 @@ else:
                                                    "motorable OpenStreetMap road."),
         "Candidate technologies (screening)": st.column_config.TextColumn(width="medium"),
     })
+    st.caption(OFFLINE_AVG)
     ui.download_csv(tb.assign(**{"Mobile tests (2 km)": at_d.loc[tb.index, "mobile_tests_2km"].values,
                                  "Mobile Mbps (2 km)": at_d.loc[tb.index, "mobile_dl_mbps_2km"].round(1).values,
                                  "MOE school name": at_d.loc[tb.index, "school_name"].values,
                                  "School code": at_d.loc[tb.index, "school_code"].values}),
                     f"beyond_coverage_{ui.slug(district)}_settlements.csv", "Download this table (CSV)", [
         f"Beyond Coverage: rural settlements in {district}, {state}; one per rural MOE school (MOE list, June 2022).",
-        "ESTIMATES and PROXIES: people offline = Census households x DOSM access gap; mobile = Ookla "
+        "ESTIMATES and PROXIES: people offline = Census households x DOSM access gap; " + OFFLINE_AVG + " Mobile = Ookla "
         f"{quarter} tiles within 2 km (judged only with >= 20 tests); terrain = Terrain Tiles slope; road = "
         f"straight-line km to OpenStreetMap {data.osm_snapshot()} road. Candidate technologies are a screening list, "
         "not a recommendation."], key="dl_settlements")

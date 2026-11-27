@@ -1,4 +1,5 @@
 """Method & limitations: index, sensitivity, school-proxy validation, cost assumptions, limitations."""
+import html
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -28,9 +29,17 @@ labels = {"access_gap": ("100 − household internet access %", f"DOSM ICTHS {in
           "fixed_reach": ("Ookla fixed tests per 1,000 residents (inverted) — a PROXY", f"Ookla {gi.ookla_quarter.iloc[0]}; population {int(gi.population_year.max())}"),
           "low_income": ("Median household income (inverted)",
                          f"OpenDOSM HIES {int(gi.income_year.max())} ({int(gi.income_year.min())} where {int(gi.income_year.max())} is missing)")}
-st.dataframe(pd.DataFrame([{"Indicator": k, "Definition": labels[k][0], "Source": labels[k][1], "Weight": v["weight"],
-                            "Why this weight": v["reason"]} for k, v in w.items()]), hide_index=True, width="stretch",
-             column_config={"Why this weight": st.column_config.TextColumn(width="large")})
+# a static HTML table (wraps long reasons; the canvas table rendered as an empty box on the live app)
+_th = f"text-align:left;padding:6px 8px;border-bottom:1px solid {ui.GRID};color:{ui.INK_2};font-weight:600"
+_td = f"padding:6px 8px;border-bottom:1px solid {ui.GRID};vertical-align:top"
+st.markdown(f"<div style='overflow-x:auto'><table style='border-collapse:collapse;width:100%;font-size:0.88rem'>"
+            "<tr>" + "".join(f"<th style='{_th}'>{h}</th>" for h in
+                             ("Indicator", "Definition", "Source", "Weight", "Why this weight")) + "</tr>"
+            + "".join(f"<tr><td style='{_td}'>{html.escape(k)}</td><td style='{_td}'>{html.escape(labels[k][0])}</td>"
+                      f"<td style='{_td}'>{html.escape(labels[k][1])}</td>"
+                      f"<td style='{_td};text-align:right'>{v['weight']}</td>"
+                      f"<td style='{_td}'>{html.escape(str(v['reason']))}</td></tr>" for k, v in w.items())
+            + "</table></div>", unsafe_allow_html=True)
 ui.what("The four indicators, their sources and weights (config/weights.yaml).",
         data=f"DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · HIES {int(gi.income_year.max())} · population {int(gi.population_year.max())}")
 nsmall = int(gi.small_sample_flag.sum())

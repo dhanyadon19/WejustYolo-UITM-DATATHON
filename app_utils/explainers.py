@@ -190,18 +190,25 @@ def settlements_bar(scope: str) -> None:
             text=[f"{k} {v:,}" if v / max(n, 1) >= 0.06 else ""], textposition="inside", insidetextanchor="middle",
             textfont=dict(color="#ffffff" if k == "B" else ui.INK, size=12),
             hovertemplate=f"{k}. {ts.loc[k, 'type_label']}: %{{x:,}} settlements ({100 * v / max(n, 1):.1f}%)<extra></extra>"))
-    ui.style(fig, height=170, margin=dict(l=4, r=4, t=36, b=4))
-    fig.update_layout(barmode="stack", legend=dict(orientation="h", y=-0.15, yanchor="top", x=0, font=dict(size=11),
-                                                  traceorder="normal"),
-                      bargap=0.25, height=165, margin=dict(l=4, r=4, t=26, b=4))
+    ui.style(fig, height=70, margin=dict(l=4, r=4, t=0, b=0), legend=False)
+    # label and legend are HTML (they wrap on a phone; inside the figure they were clipped or scrolled)
+    fig.update_layout(barmode="stack", bargap=0.25, height=70, margin=dict(l=4, r=4, t=0, b=0), showlegend=False)
     fig.update_xaxes(visible=False, range=[0, n])
-    fig.update_yaxes(visible=False)
+    # fixed y range: the bar (-0.375..0.375) and the bracket just above it, no empty band
+    fig.update_yaxes(visible=False, range=[-0.4, 0.62], fixedrange=True)
     # bracket over A + E: servable through existing networks
     ex = sv["existing"]
-    fig.add_shape(type="line", x0=0, x1=ex, y0=0.55, y1=0.55, line=dict(color=ui.INK_2, width=1.5))
-    fig.add_annotation(x=ex / 2, y=0.62, text=f"{ui.about_one_in(sv['share'])} servable through existing networks "
-                       "(A + E, proxy-based)", showarrow=False, yanchor="bottom", font=dict(size=12, color=ui.INK))
+    fig.add_shape(type="line", x0=0, x1=ex, y0=0.52, y1=0.52, line=dict(color=ui.INK_2, width=1.5))
+    st.markdown(f"<div style='font-size:0.85rem;color:{ui.INK};margin:0 0 -0.7rem 4px'>"
+                f"{ui.about_one_in(sv['share'])} servable through existing networks (A + E, proxy-based)</div>",
+                unsafe_allow_html=True)
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+    st.markdown("<div style='font-size:0.8rem;color:" + ui.INK_2 + ";margin-top:-0.8rem;display:flex;flex-wrap:wrap;"
+                "gap:4px 14px'>" + "".join(
+                    f"<span style='white-space:nowrap'><span style='display:inline-block;width:11px;height:11px;"
+                    f"border-radius:2px;background:{ui.TYPE_COLOURS[k]};vertical-align:-1px;margin-right:5px'></span>"
+                    f"{k}. {ts.loc[k, 'type_label']}</span>" for k in BAR_ORDER if k in ts.index) + "</div>",
+                unsafe_allow_html=True)
     small = [f"{k} {int(ts.loc[k, 'settlements']):,}" for k in BAR_ORDER
              if k in ts.index and int(ts.loc[k, "settlements"]) / max(n, 1) < 0.06]
     if small:

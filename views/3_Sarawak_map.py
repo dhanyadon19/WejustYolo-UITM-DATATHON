@@ -112,8 +112,11 @@ if terrain:
                f"District boundary</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Heights exaggerated ×{tx:g}</span>")
 else:
     if key == "largest_group":
-        legend = " &nbsp;&nbsp; ".join(swatch(ui.FIX_COLOURS[c], ui.FIX_LABELS[c])
-                                       for c in ["tower", "satellite", "takeup_gap"])
+        used = [c for c in ["A", "E", "new"] if (d.largest_group == c).any()]
+        legend = ("<b>Where most rural people without home internet live</b>, by settlement type: &nbsp; "
+                  + " &nbsp;&nbsp; ".join(swatch(ui.GROUP_COLOURS[c], ui.GROUP_LABELS[c]) for c in used))
+        if d.largest_group.isna().any():
+            legend += " &nbsp; " + swatch(ui.MUTED_LIGHT, "No rural school")
     else:
         nb = len(ui.TAKEUP_RAMP)
         legend = ("<b>Rural settlements needing take-up support</b> (fixed network likely nearby, proxy): &nbsp; "
@@ -169,14 +172,16 @@ for _, r in d.iterrows():
         # tooltip fields are plain text (deck.gl escapes them); the markup lives in the tooltip template
         p.update({"t0": f"{r.district} (district)", "t1": f"Need score {p['cgi']} · Sarawak need rank {need}",
                   "t2": f"Households online (DOSM {access_year}) {access}",
-                  "t3": "Small sample: low confidence" if small_r else ""})
+                  "t3": "Small sample: low confidence" if small_r else "", "t4": ""})
         # districts share the tooltip template with the settlements: every field it names must exist (empty here),
         # or deck.gl prints the raw placeholder; empty fields sit in <div>s, which collapse
-        p.update({f"t{i}": "" for i in range(4, 8)})
+        p.update({f"t{i}": "" for i in range(5, 8)})
     else:
         if key == "largest_group":
             cat = r[key] if isinstance(r[key], str) else None
-            colour, label = ui.FIX_COLOURS.get(cat, ui.MUTED_LIGHT), ui.FIX_LABELS.get(cat, ui.DASH)
+            colour = ui.GROUP_COLOURS.get(cat, ui.MUTED_LIGHT)
+            label = (ui.GROUP_LABELS[cat] + ": the largest share of rural people without home internet (estimate)"
+                     if cat in ui.GROUP_LABELS else "no rural school")
         else:
             b = ui.ramp_bin(r.share_settlements_takeup_gap)
             colour = ui.MUTED_LIGHT if b is None else ui.TAKEUP_RAMP[b]
@@ -259,7 +264,8 @@ if terrain:
     pts["t5"] = [f"Road: {r.replace('_', ' ')} ({'under 0.1' if km < 0.1 else f'{km:,.1f}'} km to nearest mapped road)"
                  if isinstance(r, str)
                  else "Road: missing" for r, km in zip(pts.road, pts.road_km)]
-    pts["t6"] = ["Estimated people without home internet: " + ui.fmt_num(v) for v in pts.unconnected_people]
+    pts["t6"] = ["Estimated people without home internet (district average): " + ui.fmt_num(v)
+                 for v in pts.unconnected_people]
     # satellite cost = terminals for unconnected households + one Business terminal for the school (costs.yaml);
     # where the school's link is most of the cost, say so
     sat_cfg = data.yaml_config("costs")["satellite"]
@@ -367,8 +373,9 @@ if terrain:
 else:
     ui.what([f"Each Sarawak district in 3D: height = Need score (Connectivity Gap Index; 0 = best, 1 = worst nationally; "
              f"weights {weights_txt}).",
-             ("Colour = the group holding most of the district's rural people without home internet: take-up gap "
-              "(fixed network likely nearby, a proxy), or settlements screened for a tower or satellite."
+             ("Colour = the settlement-type group holding most of the district's estimated rural people without home "
+              "internet: network nearby (A: take-up support), good mobile signal nearby (E: home broadband over the "
+              "mobile network), or new infrastructure (B, C, D). Proxy-based estimates."
               if key == "largest_group" else
               "Colour = share of rural settlements with a fixed network likely nearby (Ookla fixed tile within 2 km "
               "of the school, a proxy), where take-up support may come first; darker = larger share."),

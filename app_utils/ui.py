@@ -22,6 +22,11 @@ FIX_COLOURS = {"tower": "#1c5cab", "satellite": "#eb6834", "takeup_gap": "#58b98
 FIX_LABELS = {"tower": "Tower", "satellite": "Satellite", "takeup_gap": "Take-up gap (fixed network likely nearby)",
               "none (take-up gap only)": "Take-up gap only"}
 FIX_COLOURS["none (take-up gap only)"] = FIX_COLOURS["takeup_gap"]
+# settlement-type groups (Sarawak map, Need score blocks): A and E keep their type colours; B, C, D together use the
+# satellite / type D orange (validated all-pairs with the A green and E purple in TYPE_COLOURS)
+GROUP_COLOURS = {"A": "#58b98c", "E": "#9085e9", "new": "#eb6834"}
+GROUP_LABELS = {"A": "Mostly network nearby (A)", "E": "Mostly good mobile signal nearby (E)",
+                "new": "Mostly needs new infrastructure (B, C, D)"}
 # Sequential (one hue, light -> dark) ramp around the take-up green, for shares binned in equal steps of 0-100%.
 # Validated with the dataviz validator (--ordinal, light surface): monotone lightness, visible steps, light end 2.08:1.
 TAKEUP_RAMP = ["#74c19b", "#4fae82", "#2f8f64", "#1f6f4b", "#134f35"]
