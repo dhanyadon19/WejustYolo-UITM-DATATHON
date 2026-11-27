@@ -199,7 +199,7 @@ if len(ts):
             data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {int(acc_year)} · "
                  f"Ookla {cl_q.iloc[0] if len(cl_q) else ui.DASH} · OpenStreetMap {data.osm_snapshot()} · "
                  "Terrain Tiles · config/costs.yaml")
-    ui.caveat()
+    ui.see_method_costs()
 else:
     ui.fallback("No settlement data available.")
 explainers.terms_expander()

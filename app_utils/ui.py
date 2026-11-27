@@ -186,8 +186,15 @@ COST_SCREEN = ("Cost screen, not a full cost-benefit comparison: households are 
 
 
 def caveat(text: str = COST_SCREEN) -> None:
+    """The cost-screen disclaimer. Shown in full only on Method, the District profile Reference cost tab and the
+    Where to invest 'Range and sensitivity cases' expander; other pages use see_method_costs()."""
     st.markdown(f"<div style='border-left:3px solid {MUTED_LIGHT};padding:2px 10px;color:{INK_2};font-size:0.85rem'>"
                 f"{text}</div>", unsafe_allow_html=True)
+
+
+def see_method_costs() -> None:
+    """Short pointer to the cost caveats on Method & limitations (instead of repeating the disclaimer)."""
+    st.page_link("views/6_Method.py", label="Cost caveats: see Method & limitations", icon=":material/info:")
 
 OSM_CREDIT = "© OpenStreetMap contributors"
 BASEMAP_CREDIT = "Basemap © OpenStreetMap contributors © CARTO"
@@ -601,5 +608,4 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
             st.markdown("**3. Check on the ground before choosing a technology**")
             st.markdown("\n".join(f"- {c}" for c in checks))
 
-        caveat()
         st.caption(f"Data: {sources}. All costs and people counts are estimates.")
