@@ -3,6 +3,7 @@ budget planner."""
 import math
 
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -96,8 +97,11 @@ for cat in ["tower", "satellite"]:
                       "<br>People-reached-per-RM1m rank %{y} (range %{customdata[7]}–%{customdata[8]})"
                       "<br>%{customdata[2]:,.0f} rural people reached · %{customdata[3]:,.0f} per RM1m (estimate)"
                       "<br>5-year cost RM%{customdata[4]:,.1f}m (estimate)<br>Small sample: %{customdata[9]}<extra></extra>"))
-# label the five districts highest on both axes, right next to their bubble (no leader lines)
-lab = d.assign(score=d.need_rank + d.ben_rank).nsmallest(5, "score")
+# label the three highest-need districts (the title names rank 1) and the five highest on both axes, right next
+# to their bubble (no leader lines)
+top_need = d.nsmallest(3, "need_rank")
+lab = pd.concat([top_need, d.assign(score=d.need_rank + d.ben_rank).nsmallest(5, "score")])
+lab = lab[~lab.index.duplicated()]
 for _, r in lab.iterrows():
     # shift each label left by its own bubble radius (area sizemode: diameter px = sqrt(size / sizeref)) + white border
     radius = max(np.sqrt(r.planned_people_without_internet / sref), 5) / 2 + 2
@@ -114,6 +118,7 @@ for qx, qy, xa, ya, txt in ((1, 1, "right", "top", "<b>Act first</b>"),
     fig.add_annotation(x=qx, y=qy, xref="paper", yref="paper", xanchor=xa, yanchor=ya, text=txt, showarrow=False,
                        font=dict(size=11, color=ui.MUTED), bgcolor="rgba(252,252,251,0.8)")
 ui.style(fig, height=560)
+fig.update_layout(showlegend=len(fig.data) > 1)  # one colour only (e.g. every Sarawak district is satellite): no legend
 pad = max(1.0, 0.035 * n)  # room so the largest rank-1 bubble is not clipped at the plot edge
 step = 5 if n <= 60 else 20
 ticks = [1] + list(range(step, n + 1, step))  # no rank-0 tick in the padding
@@ -136,7 +141,10 @@ ui.what([f"Each bubble is a district ({'Sarawak' if scope == 'Sarawak' else 'all
          "beneficiaries: rural people without home internet reached per RM1m of five-year infrastructure cost).",
          "Top-right = high need and many people reached per RM1m. Bottom-right = high need but costly per person: "
          "check the Lite plan and the district's take-up share.",
-         "Size = rural people reached; colour = reference cost-screen result (tower or satellite); labels = the five districts highest on both.",
+         "Size = rural people reached; colour = reference cost-screen result ("
+         + (" or ".join(ui.FIX_LABELS[c].lower() for c in ("tower", "satellite") if (d[fix_col] == c).any())
+            if len(fig.data) > 1 else f"{ui.FIX_LABELS[d[fix_col].iloc[0]].lower()} for every district here")
+         + "); labels = the three highest-need districts and the five highest on both.",
          "Settlements with a fixed network likely nearby (take-up gap) are not costed here."],
         data=DATA)
 
