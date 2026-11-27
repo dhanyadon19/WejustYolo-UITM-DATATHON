@@ -1,11 +1,11 @@
-"""District detail: one district's access, speeds, context, need ranks, fixes and cost."""
+"""District profile: one district's action plan, then tabs: settlements, households & speeds, Need score, reference cost."""
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
 from app_utils import data, ui
 
-st.set_page_config(page_title="District detail · Beyond Coverage", layout="wide")
+st.set_page_config(page_title="District profile · Beyond Coverage", layout="wide")
 
 dt = data.district_table()
 w = data.yaml_config("weights")["weights"]
@@ -14,7 +14,7 @@ access_year = int(dt["access_year"].dropna().iloc[0])
 n_indexed = int(dt["indexed"].sum())
 host_of = data.unmapped_host()
 
-ui.page("District detail", "Everything we know about one district, with its uncertainty.")
+ui.page("District profile", "What to do in one district first; the detail, with its uncertainty, is in the tabs below.")
 
 # Preselection: from the Sarawak map / Priorities (session state) or a shared link (?state=...&district=...)
 qp = st.query_params
@@ -62,7 +62,8 @@ if len(sett):
 
     plan = pd.DataFrame({
         "state": sett.state, "district": sett.district, "school_code": sett.school_code,
-        "settlement_school_name": sett.school_name, "longitude": sett.lon, "latitude": sett.lat,
+        "settlement_school_name": sett.school_name, "school_name_short": [ui.school_short(n) for n in sett.school_name],
+        "longitude": sett.lon, "latitude": sett.lat,
         "fixed_network_nearby_proxy": ["yes" if bool(v) else "no" for v in sett.fixed_nearby],
         "fix_main": [fix_txt(c) for c in sett.category_main],
         "est_households": sett.households.round(1),
@@ -77,7 +78,9 @@ if len(sett):
     plan = plan.assign(
         settlement_type=at.settlement_type.values, settlement_type_label=at.type_label.values,
         candidate_technologies_screening=at.candidate_technologies.values,
-        mobile_quality_proxy=at.mobile_quality.values, mobile_tile_dl_mbps=at.mobile_tile_dl_mbps.round(1).values,
+        mobile_quality_proxy=at.mobile_quality.values, mobile_tests_2km=at.mobile_tests_2km.values,
+        terrain_slope_class=at.terrain.values,
+        mobile_dl_mbps_2km=at.mobile_dl_mbps_2km.round(1).values,
         terrain_proxy=at.terrain.values, slope_mean_deg=at.slope_mean_deg.round(1).values,
         road_proxy=at.road.values, road_km=at.road_km.round(2).values,
         type_cost_basis=at.type_cost_basis.values,
@@ -92,15 +95,23 @@ if len(sett):
         "Costs: five-year, RM, from config/costs.yaml (retail prices and public statements). Main = Residential satellite "
         "plan, Lite = Residential Lite plan; satellite cost includes one Business terminal for the school.",
         "settlement_type: rule-based screening (config/settlement_types.yaml); candidate technologies are a screening "
-        "list, not a recommendation. mobile_quality: nearest Ookla mobile tile within 2 km vs the JENDELA 35 Mbps target; "
+        "list, not a recommendation. mobile_quality: all Ookla mobile tiles within 2 km combined, judged only with at least 20 tests, vs the JENDELA 35 Mbps target; "
         "terrain: mean slope within 500 m (Terrain Tiles); road: straight-line km to the nearest motorable OSM road. "
         "All proxies. est_5yr_type_cost_rm is empty where there is no public cost source.",
         f"Data: MOE school list June 2022; Census {cyear if cyear else ui.DASH}; DOSM ICTHS {access_year}; Ookla {quarter}; "
         f"OpenStreetMap {data.osm_snapshot()} (ODbL); Terrain Tiles (AWS Open Data).",
     ], key="dl_action_plan")
 
-# --- 1. Household access 2024 / 2025
-st.subheader("Households with internet")
+# --- details in tabs (design guide: action plan first, details on demand)
+small = bool(r.small_sample_flag) if ui.isnum(r.small_sample_flag) else False
+tab_set, tab_hh, tab_need, tab_cost = st.tabs(["Settlements", "Households & speeds", "Need score", "Reference cost"])
+
+# --- Households & speeds: 1. household access 2024 / 2025
+tab_hh.__enter__()
+v25, m25 = r.internet_2025, r.internet_moe95_pp_2025
+ui.finding(f"{district}: {ui.est_pct(v25, m25 if small else None)} of households online in {access_year}"
+           if ui.isnum(v25) else f"{district}: no DOSM household access figure",
+           "Households with internet, DOSM 2024 and 2025", conf="low" if small else "solid", level=4)
 if not (ui.isnum(r.internet_2024) or ui.isnum(r.internet_2025)):
     ui.fallback("No DOSM household access figure for this district.")
 else:
@@ -131,10 +142,12 @@ ui.what(["Share of households with internet access (DOSM ICTHS Table 3.1).",
          "Error bars = our approximate 95% margin of error (simple random-sampling formula, inferred sample size), "
          "shown only where the sample is small.",
          "DOSM does not publish these margins: they are our estimates."],
-        data="DOSM ICTHS 2024 and 2025, Table 3.1")
+        data="DOSM ICTHS 2024 and 2025, Table 3.1", conf="low" if small else "solid")
 
 # --- 2. Speeds
-st.subheader(f"Measured speeds (Ookla, {quarter})")
+ui.finding((f"Mobile download averages {r.mb_dl_mbps:.0f} Mbps" if ui.isnum(r.mb_dl_mbps) else "No mobile speed tests")
+           + (f"; fixed {r.fx_dl_mbps:.0f} Mbps where homes have it" if ui.isnum(r.fx_dl_mbps) else ""),
+           f"Measured speeds (Ookla, {quarter}): user-run tests", conf="indicative", level=4)
 if not ui.isnum(r.mb_dl_mbps) and not ui.isnum(r.fx_dl_mbps):
     ui.fallback("No Ookla speeds: no map boundary" + (f" (its tests are counted under {host})." if host else ".")
                 if not r.has_boundary else "No Ookla tests were assigned to this district.")
@@ -157,10 +170,13 @@ else:
         notes.append(f"only {ui.fmt_int(r.mb_tests)} mobile tests (low sample)")
     ui.what("Speeds from user-run Speedtest results in the district. Fixed speeds come only from homes that already "
             "have fixed broadband, so a fast fixed speed does not mean wide coverage." + (" Note: " + "; ".join(notes) + "." if notes else ""),
-            data=f"Ookla {quarter}; population 2026")
+            data=f"Ookla {quarter}; population 2026", conf="indicative")
 
 # --- 3. Context
-st.subheader("Context")
+ui.finding((f"Median household income RM{r.income_median:,.0f} a month" if ui.isnum(r.income_median) else "Context")
+           + (f"; an estimated {r.people_without_home_internet:,.0f} people without home internet"
+              if ui.isnum(r.people_without_home_internet) else ""),
+           "Context: income, electricity, population, pupils", conf="solid", level=4)
 
 
 def yr(v) -> str:
@@ -182,23 +198,30 @@ ctx_sources = [f"HIES {int(r.income_year)}" if ui.isnum(r.income_year) else "",
                f"OpenDOSM amenities {int(r.amenities_year)}" if ui.isnum(r.amenities_year) else "",
                f"population {int(r.population_year)}" if ui.isnum(r.population_year) else "",
                "MOE school list, June 2022", f"DOSM ICTHS {access_year}"]
-ui.what("Background indicators for the district.", data=" · ".join(s for s in ctx_sources if s))
+ui.what("Background indicators for the district. People without home internet is our estimate (population × "
+        "share of households offline).", data=" · ".join(s for s in ctx_sources if s), conf="solid")
+tab_hh.__exit__(None, None, None)
 
-# --- 4. Need
-st.subheader("Need: Connectivity Gap Index")
+# --- Need score (Connectivity Gap Index)
+tab_need.__enter__()
+if ui.isnum(r.rank_national):
+    ui.finding(f"{district} ranks {int(r.rank_national)} of {n_indexed} nationally on need "
+               f"(range {ui.range_text(r.rank_national_dirichlet_p05, r.rank_national_dirichlet_p95)})",
+               "Need score (Connectivity Gap Index): four indicators, weighted", conf="low" if small else "indicative",
+               level=4)
 if not r.indexed:
-    ui.fallback("Not in the Gap Index: without a map boundary there are no Ookla indicators for this district.")
+    ui.fallback("No Need score: without a map boundary there are no Ookla indicators for this district.")
 else:
     n1, n2 = st.columns([1, 2])
     with n1:
-        st.metric("Gap Index (0 best – 1 worst)", ui.fmt_num(r.cgi, ".2f"))
-        st.markdown(f"**National need rank:** {ui.fmt_int(r.rank_national)} of {n_indexed}  \n"
-                    f"Range under 1,000 random weightings: {ui.range_text(r.rank_national_dirichlet_p05, r.rank_national_dirichlet_p95)}  \n"
-                    f"With equal weights: {ui.fmt_int(r.rank_national_equal)}"
+        st.metric("Need score (0 best – 1 worst)", ui.fmt_num(r.cgi, ".2f"), help=ui.NEED_TECH)
+        st.markdown(f"**National need rank {ui.fmt_int(r.rank_national)}** of {n_indexed} (range "
+                    f"{ui.range_text(r.rank_national_dirichlet_p05, r.rank_national_dirichlet_p95)} under 1,000 random "
+                    f"weightings)  \nWith equal weights: rank {ui.fmt_int(r.rank_national_equal)}"
                     + (f"  \nWithin the approximate margin of error: {ui.range_text(r.rank_national_moe_min, r.rank_national_moe_max)}"
                        if ui.isnum(r.rank_national_moe_min) else ""))
         if state == "Sarawak":
-            st.markdown(f"**Sarawak need rank:** {ui.rank_range(r.rank_sarawak, r.rank_sarawak_p05, r.rank_sarawak_p95)}"
+            st.markdown(f"**Sarawak need rank {ui.rank_range(r.rank_sarawak, r.rank_sarawak_p05, r.rank_sarawak_p95)}**"
                         + (f"; within the approximate margin of error {ui.range_text(r.rank_sarawak_moe_min, r.rank_sarawak_moe_max)}"
                            if ui.isnum(r.rank_sarawak_moe_min) else ""))
     with n2:
@@ -213,13 +236,23 @@ else:
         fig.update_xaxes(range=[0, 1.35], title="Normalised score (1 = worst district nationally)")
         fig.update_yaxes(autorange="reversed")
         st.plotly_chart(fig, width="stretch")
-        ui.what("The four indicators behind the Gap Index, each scaled 0–1 across all districts (1 = worst), with the "
-                "weight each carries.",
+        ui.what("The four indicators behind the Need score (Connectivity Gap Index), each scaled 0–1 across all "
+                "districts (1 = worst), with the weight each carries.", conf="low" if small else "indicative",
                 data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES {ui.fmt_int(r.income_year).replace(',', '')} · "
                      f"population {ui.fmt_int(r.population_year).replace(',', '')}")
 
-# --- 5. Fixes and cost
-st.subheader("Rural settlements, recommended fixes and cost (estimates)")
+tab_need.__exit__(None, None, None)
+
+# --- Reference cost: the tower-vs-satellite cost screen used in the rankings (not a total across settlement types)
+tab_cost.__enter__()
+if ui.isnum(r.cost_main_rm) and r.cost_main_rm > 0:
+    lo_c, hi_c = sorted([r.cost_lite_rm, r.cost_main_rm])
+    ui.finding(f"Reference cost for {district}: {ui.fmt_rm(lo_c)}–{ui.fmt_rm(hi_c)} over five years"
+               if ui.fmt_rm(lo_c) != ui.fmt_rm(hi_c) else f"Reference cost for {district}: {ui.fmt_rm(hi_c)} over five years",
+               f"Cost screen used in the rankings: {ui.REF_COST}", conf="indicative", level=4)
+else:
+    ui.finding(f"No reference cost for {district}", f"Cost screen used in the rankings: {ui.REF_COST}",
+               conf="indicative", level=4)
 if not r.has_boundary:
     ui.fallback("No settlements costed: no map boundary" + (f" (its rural schools are counted under {host})." if host else "."))
 elif not ui.isnum(r.rural_settlements):
@@ -235,13 +268,13 @@ else:
     f3.metric("Towers", ui.fmt_int(r.n_tower))
     f4.metric("Satellite settlements", ui.fmt_int(r.n_satellite))
     g1, g2, g3, g4 = st.columns(4)
-    g1.metric("5-year cost, main (Residential)", ui.fmt_rm(r.cost_main_rm))
-    g2.metric("5-year cost, Lite plan", ui.fmt_rm(r.cost_lite_rm))
-    g3.metric("Upper bound (cost sensitivity)", ui.fmt_rm(r.cost_upper_bound_rm),
+    g1.metric("Reference cost (Residential plan)", ui.fmt_rm(r.cost_main_rm), help=ui.REF_COST.capitalize() + ".")
+    g2.metric("Sensitivity: Lite plan", ui.fmt_rm(r.cost_lite_rm))
+    g3.metric("Sensitivity: upper bound", ui.fmt_rm(r.cost_upper_bound_rm),
               help="Adds one fibre PoP per take-up-gap settlement, capex only. A cost sensitivity, not a recommendation.")
-    g4.metric("Main fix", ui.FIX_LABELS.get(r.main_fix, r.main_fix) if isinstance(r.main_fix, str) else ui.DASH)
+    g4.metric("Cost-screen fix", ui.FIX_LABELS.get(r.main_fix, r.main_fix) if isinstance(r.main_fix, str) else ui.DASH)
     if ui.isnum(r.people_per_rm_m_main):
-        st.markdown(f"**Estimated beneficiaries per RM1m:** {r.people_per_rm_m_main:,.0f} rural people without home "
+        st.markdown(f"**{ui.REACH} (estimate):** {r.people_per_rm_m_main:,.0f} rural people without home "
                     f"internet reached per RM1m (national rank {ui.fmt_int(r.value_rank_national)}"
                     + (f", Sarawak {int(r.value_rank_sarawak)}" if ui.isnum(r.value_rank_sarawak) else "")
                     + f"); {ui.fmt_num(r.students_per_rm_m_main, ',.0f')} pupils per RM1m. Whole-district figure: "
@@ -254,11 +287,71 @@ else:
              "The rest get a tower if enough households without home internet make it cheaper than satellite over "
              "five years; otherwise satellite.",
              "All costs are estimates. " + ui.TAKEUP_TXT],
-            data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {access_year} · Ookla {quarter} · config/costs.yaml")
+            data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {access_year} · Ookla {quarter} · config/costs.yaml",
+            conf="indicative")
     ui.caveat()
+tab_cost.__exit__(None, None, None)
 
-ui.next_step("views/5_Priorities.py", "Priorities",
-             f"see where {district} sits against other districts on need and estimated beneficiaries per RM1m.")
+# --- 6. Every settlement, sortable (MOE school names; attributes are proxies, people are estimates)
+at_d = data.settlements()
+at_d = at_d[(at_d.state == state) & (at_d.district == district)].reset_index(drop=True)
+tab_set.__enter__()
+if not len(at_d):
+    ui.fallback(f"No rural settlements of its own: {district} has no rural MOE school"
+                + (f" or no map boundary (its rural schools are counted under {host})." if host else "."))
+else:
+    n_ex = int(at_d.settlement_type.isin(["A", "E"]).sum())
+    ui.finding(f"{district}: {n_ex:,} of {len(at_d):,} rural settlements could use existing networks (types A and E)",
+               f"Settlements in {district} ({len(at_d):,}), one per rural MOE school", conf="indicative", level=4)
+    MQ = {"good": "Good", "weak": "Weak", "few_tests": "Too few tests", "no_tests": "No tests"}
+    tb = pd.DataFrame({
+        "School": [ui.school_short(n) for n in at_d.school_name],
+        "Type": at_d.settlement_type.values,
+        "Offline (est.)": at_d.unconnected_people.round(0).astype("Int64").values,
+        "Mobile signal (2 km)": [MQ.get(q, q) + (f": {int(n):,} test{'' if n == 1 else 's'}, {v:,.0f} Mbps"
+                                                 if n > 0 and ui.isnum(v) else "")
+                                 for q, n, v in zip(at_d.mobile_quality, at_d.mobile_tests_2km, at_d.mobile_dl_mbps_2km)],
+        "Terrain": at_d.terrain.str.capitalize().values,
+        "Road (km)": at_d.road_km.round(2).values,
+        "Candidate technologies (screening)": at_d.candidate_technologies.values,
+    }).sort_values(["Type", "Offline (est.)"], ascending=[True, False],
+                   key=lambda c: c.map({k: i for i, k in enumerate(ui.TYPE_ORDER)}) if c.name == "Type" else c)
+    tb["Type"] = [f"{t}. {lab}" for t, lab in zip(tb["Type"], at_d.loc[tb.index, "type_label"])]
+    st.dataframe(tb, hide_index=True, width="stretch", height=min(36 * (len(tb) + 1) + 4, 460), column_config={
+        "School": st.column_config.TextColumn(pinned=True, help="Each rural MOE school stands for "
+                                                                  "its village (MOE school list, June 2022)."),
+        "Type": st.column_config.TextColumn(help="Settlement type (config/settlement_types.yaml): screening rules, "
+                                                 "not a survey."),
+        "Offline (est.)": st.column_config.NumberColumn(format="localized", help="People offline (estimate): rural people "
+                                                               "without home internet in this settlement."),
+        "Mobile signal (2 km)": st.column_config.TextColumn(help="All Ookla mobile tiles within 2 km combined: tests "
+                                                                 "and test-weighted mean download. Judged good or weak "
+                                                                 "only with at least 20 tests (proxy)."),
+        "Terrain": st.column_config.TextColumn(help="Mean slope within 500 m (Terrain Tiles): flat, hilly or steep."),
+        "Road (km)": st.column_config.NumberColumn(format="%.2f", help="Straight-line distance to the nearest "
+                                                   "motorable OpenStreetMap road."),
+        "Candidate technologies (screening)": st.column_config.TextColumn(width="medium"),
+    })
+    ui.download_csv(tb.assign(**{"Mobile tests (2 km)": at_d.loc[tb.index, "mobile_tests_2km"].values,
+                                 "Mobile Mbps (2 km)": at_d.loc[tb.index, "mobile_dl_mbps_2km"].round(1).values,
+                                 "MOE school name": at_d.loc[tb.index, "school_name"].values,
+                                 "School code": at_d.loc[tb.index, "school_code"].values}),
+                    f"beyond_coverage_{ui.slug(district)}_settlements.csv", "Download this table (CSV)", [
+        f"Beyond Coverage: rural settlements in {district}, {state}; one per rural MOE school (MOE list, June 2022).",
+        "ESTIMATES and PROXIES: people offline = Census households x DOSM access gap; mobile = Ookla "
+        f"{quarter} tiles within 2 km (judged only with >= 20 tests); terrain = Terrain Tiles slope; road = "
+        f"straight-line km to OpenStreetMap {data.osm_snapshot()} road. Candidate technologies are a screening list, "
+        "not a recommendation."], key="dl_settlements")
+    ui.what(["One row per rural settlement, named after the MOE school it is anchored on; click a column header to sort.",
+             "Types follow ordered screening rules (see Method & limitations, section 5); every attribute is a proxy "
+             "and people offline is an estimate.",
+             "Mobile signal combines all Ookla tiles within 2 km and is judged only with at least 20 tests."],
+            data=f"MOE school list, June 2022 · DOSM ICTHS {access_year} · Ookla {quarter} · "
+                 f"OpenStreetMap {data.osm_snapshot()} · Terrain Tiles", conf="indicative")
+tab_set.__exit__(None, None, None)
+
+ui.next_step("views/5_Priorities.py", "Where to invest",
+             f"see where {district} sits against other districts on need and people reached per RM1m.")
 ui.footer([
     "DOSM ICTHS 2024 and 2025, Table 3.1; inferred sample sizes and approximate margins of error (simple random-sampling "
     "formula) are our estimates from the published percentages",

@@ -240,13 +240,24 @@ def test_attribute_missing_is_flagged(st_, value, flag):
 def test_mobile_quality_classes(st_, stypes):
     c = stypes["mobile_quality"]
     assert st_["mobile_quality"].notna().all()
-    assert set(st_["mobile_quality"]) <= {"good", "weak", "no_tests"}
+    assert set(st_["mobile_quality"]) <= {"good", "weak", "few_tests", "no_tests"}
+    n = st_["mobile_tests_2km"]
     near = st_["mobile_tile_km"].notna()
-    assert (st_.loc[~near, "mobile_quality"] == "no_tests").all()
+    assert (near == (n > 0)).all()  # a tile within 2 km <=> some tests within 2 km
     assert (st_.loc[near, "mobile_tile_km"] <= c["search_km"] + 1e-9).all()
-    good = st_["mobile_tile_dl_mbps"] >= c["good_min_mbps"]
-    assert (st_.loc[near & good, "mobile_quality"] == "good").all()
-    assert (st_.loc[near & ~good, "mobile_quality"] == "weak").all()
+    assert (st_.loc[n == 0, "mobile_quality"] == "no_tests").all()
+    few = (n > 0) & (n < c["min_tests"])
+    assert (st_.loc[few, "mobile_quality"] == "few_tests").all()  # 1-19 tests: never judged good or weak
+    enough = n >= c["min_tests"]
+    good = st_["mobile_dl_mbps_2km"] >= c["good_min_mbps"]
+    assert (st_.loc[enough & good, "mobile_quality"] == "good").all()
+    assert (st_.loc[enough & ~good, "mobile_quality"] == "weak").all()
+
+
+def test_type_e_needs_min_tests(st_, stypes):
+    e = st_[st_["settlement_type"] == "E"]
+    assert (e["mobile_tests_2km"] >= stypes["mobile_quality"]["min_tests"]).all()
+    assert (e["mobile_dl_mbps_2km"] >= stypes["mobile_quality"]["good_min_mbps"]).all()
 
 
 def test_terrain_and_road_classes_follow_config(st_, stypes):

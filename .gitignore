@@ -16,3 +16,6 @@ venv/
 # OS and editor
 .DS_Store
 Thumbs.db
+# Submission package: the PDF is ignored by *.pdf above; the staged copy for the zip is built locally
+submission/WejustYolo_Datathon2026_dashboard/
+submission/*.zip

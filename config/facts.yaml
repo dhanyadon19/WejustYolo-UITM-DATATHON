@@ -11,7 +11,7 @@ official_coverage_populated_areas:
     (network coverage, not household take-up and not indoor connectivity).
   # Two different indicators: where the network reaches outdoors (this figure) vs whether households are
   # online (DOSM ICTHS). Shown side by side, never subtracted into a "measured gap".
-  # 'Mainly outdoor' qualifier: expert feedback from an MCMC officer (Nov 2026).
+  # 'Mainly outdoor' qualifier: expert feedback from a telecom industry expert (Nov 2026).
   comparison_note: >
     Two different indicators: where the network reaches outdoors vs whether households are online.
     They are not a measured gap.

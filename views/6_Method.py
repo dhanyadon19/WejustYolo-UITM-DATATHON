@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from app_utils import data, ui
+from app_utils import data, explainers, ui
 
 st.set_page_config(page_title="Method & limitations · Beyond Coverage", layout="wide")
 
@@ -20,7 +20,8 @@ REPO = "https://github.com/dhanyadon19/WejustYolo-UITM-DATATHON"
 ui.page("Method & limitations", "How the numbers are built, how sure we are, and what they cannot tell you.")
 
 # --- 1. Index
-st.header("1. Connectivity Gap Index")
+st.header("1. Need score (Connectivity Gap Index)")
+st.markdown("On screen the index is called the **Need score**; *people reached per RM1m* is the plain name for *estimated beneficiaries per RM1m*.")
 st.latex(r"\mathrm{CGI}_d=\sum_i w_i\,\tilde S_{d,i},\qquad \tilde S_{d,i}=\frac{S_{d,i}-\min_d S_i}{\max_d S_i-\min_d S_i}\ \text{(inverted where lower is worse)}")
 labels = {"access_gap": ("100 − household internet access %", f"DOSM ICTHS {int(gi.access_year.max())}, Table 3.1"),
           "mobile_speed": ("Ookla mobile download, test-weighted (inverted)", f"Ookla {gi.ookla_quarter.iloc[0]}"),
@@ -58,7 +59,7 @@ st.plotly_chart(fig, width="stretch")
 n_runs = int(sens.n_runs.iloc[0])
 ui.what(f"Sarawak's 15 highest-need districts: blue dot = rank with the chosen weights, grey bar = 5th–95th percentile "
         f"rank over {n_runs:,} random weightings (Dirichlet), open diamond = rank with equal weights.",
-        data=f"Gap Index from DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · HIES {int(gi.income_year.max())}")
+        data=f"Need score from DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · HIES {int(gi.income_year.max())}")
 moe = sens[sens.rank_sarawak_moe_min.notna() & (sens.state == "Sarawak")].sort_values("rank_sarawak").head(10)
 st.markdown(f"**Survey uncertainty.** {nsmall} districts have a small {ui.INFERRED_N} (our estimate, not a DOSM figure). "
             f"Setting each one's access to the low and high end of its {ui.MOE_TXT} moves its Sarawak rank as follows: "
@@ -110,15 +111,18 @@ st.dataframe(pd.DataFrame(rows, columns=["Item", "Amount (estimate)", "Basis / s
 ui.what("Unit costs used by the costing (all estimates).", data="config/costs.yaml (sources below; compiled Nov 2026)")
 srcs = sorted(set(t["sources"] + f["sources"] + s["sources"]))
 st.markdown("Sources: " + " · ".join(f"[{i + 1}]({u})" for i, u in enumerate(srcs)))
-cases = {"Main (Residential)": "cost_main_rm", "Lite plan": "cost_lite_rm",
-         "Upper bound (cost sensitivity, not a recommendation)": "cost_upper_bound_rm",
-         "Rule sensitivity: tower test on all households": "cost_rule_all_hh_rm"}
+cases = {"Reference cost (Residential plan): " + ui.REF_COST: "cost_main_rm",
+         "Sensitivity: Lite plan": "cost_lite_rm",
+         "Sensitivity: all costs −30%": "cost_cost_minus30_rm", "Sensitivity: all costs +30%": "cost_cost_plus30_rm",
+         "Sensitivity: upper bound (not a recommendation)": "cost_upper_bound_rm",
+         "Sensitivity: tower test on all households": "cost_rule_all_hh_rm"}
 sar = co.state == "Sarawak"
 st.dataframe(pd.DataFrame([{"Case": k, "Malaysia": ui.fmt_rm(co[c].sum()), "Sarawak": ui.fmt_rm(co.loc[sar, c].sum())}
                            for k, c in cases.items()]), hide_index=True, width="stretch",
              column_config={"Case": st.column_config.TextColumn(width="large")})
-ui.what("Estimated five-year cost to provide service under each case. Upper bound: adds one fibre PoP per take-up-gap "
-        "settlement (capex only), a cost sensitivity, not a recommendation.",
+ui.what("Estimated five-year cost under each case. Where to invest shows the reference cost once, with the range from "
+        "the lowest of the Lite and −30% cases to the +30% case. Upper bound: adds one fibre PoP per take-up-gap "
+        "settlement (capex only), a cost sensitivity, not a recommendation.", conf="indicative",
         data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · config/costs.yaml")
 take = cl.category_main.eq("takeup_gap")
 hh = co.loc[sar, "household_size"]
@@ -141,11 +145,13 @@ ui.caveat()
 
 # --- 5. Settlement types and technology options
 st.header("5. Settlement types and technology options")
+explainers.grouping_flow()
+explainers.terms_expander()
 stc = data.yaml_config("settlement_types")
 mq, tr, rd = stc["mobile_quality"], stc["terrain"], stc["road"]
 fwa = costs["fwa"]
 st.markdown(f"""
-Added after **expert feedback from an MCMC officer** (Nov 2026): rather than a tower-vs-satellite choice, group settlements
+Added after **expert feedback from a telecom industry expert** (Nov 2026): rather than a tower-vs-satellite choice, group settlements
 by demand, distance to existing networks, current service quality and terrain, then match a technology mix.
 
 - **One settlement per rural MOE school** ({len(cl):,}). Rules are applied in order; the first match wins, so each settlement has exactly one type.
@@ -160,7 +166,7 @@ st.markdown(f"""
 **Inputs (all proxies, computed in scripts/build_settlements.py and cached; never fetched by the app)**
 - **Demand:** estimated households and people without home internet (Census 2020 households × DOSM ICTHS {int(gi.access_year.max())} access gap).
 - **Fixed network nearby:** an Ookla fixed tile within 2 km (existing proxy).
-- **Mobile signal:** nearest Ookla {gi.ookla_quarter.iloc[0]} mobile tile within {mq['search_km']} km. *Good* = mean download ≥ {mq['good_min_mbps']} Mbps, the [JENDELA Phase 1 mobile speed target]({mq['source_url']}) (also a mean, from Ookla); *weak* = below; *no tests* = no tile within {mq['search_km']} km (not proof of no signal). Many tiles hold only a few tests.
+- **Mobile signal:** all Ookla {gi.ookla_quarter.iloc[0]} mobile tiles within {mq['search_km']} km combined (total tests, test-weighted mean download). Judged only with at least {mq['min_tests']} tests: single tiles with 1–3 tests are too noisy. *Good* = mean download ≥ {mq['good_min_mbps']} Mbps, the [JENDELA Phase 1 mobile speed target]({mq['source_url']}) (also a mean, from Ookla); *weak* = below; *too few tests* = 1–{mq['min_tests'] - 1} tests; *no tests* = no tile within {mq['search_km']} km (not proof of no signal).
 - **Terrain:** mean slope within {tr['radius_m']} m from [Terrain Tiles]({tr['source_url']}) (zoom {tr['zoom']}, ~38 m, SRTM-based). Flat < {tr['flat_max_deg']}°, hilly {tr['flat_max_deg']}–{tr['steep_min_deg']}°, steep ≥ {tr['steep_min_deg']}°.
 - **Road distance:** straight line to the nearest motorable road in [OpenStreetMap]({rd['source_url']}) (Geofabrik extract, {data.osm_snapshot()}, ODbL; tracks and paths excluded). Near ≤ {rd['near_max_km']} km, far {rd['near_max_km']}–{rd['very_far_min_km']} km, very far > {rd['very_far_min_km']} km.
 - **Break-even (type B):** households without home internet ≥ the tower vs satellite break-even (section 4).
@@ -202,8 +208,16 @@ st.markdown("""
 - **Road distance is straight-line** and depends on how complete OpenStreetMap is in rural Borneo; rivers are not counted.
 """)
 
-# --- 6. Limitations
-st.header("6. Limitations")
+# --- 6. Confidence labels
+st.header("6. Confidence labels")
+st.markdown("Every estimate on screen carries one of three labels, as a word and a colour:")
+st.markdown("\n".join(f"- {ui.conf_badge(k)} {txt}" for k, txt in ui.CONF_RULE)
+            + "\n- Uncertainty is given as numbers where we have them: *estimated 62% (±13 points)* for a DOSM figure "
+              "with our approximate margin of error, *rank 1 (range 1–9)* for ranks under random weightings.",
+            unsafe_allow_html=True)
+
+# --- 7. Limitations
+st.header("7. Limitations")
 st.markdown(f"""
 - **Coverage ≠ access:** the official {facts['value_pct']}% is network coverage of populated areas (mainly outdoor); DOSM measures households online. Two different indicators, not a measured gap.
 - **No indoor signal data:** indoor connectivity depends on building materials, signal penetration, distance to the site, terrain and network capacity, which we do not measure.

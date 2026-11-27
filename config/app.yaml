@@ -1,0 +1,4 @@
+# App metadata shown in the footer of every page (ui.footer). Not statistics: data years are read from data/.
+last_updated: "27 Nov 2026"
+team: "Team WejustYolo"
+event: "MDIT Datathon 2026"

@@ -1,20 +1,26 @@
 # Settlement attributes and settlement types (scripts/build_settlements.py -> data/processed/settlements.csv).
 # Rule-based SCREENING, not engineering design. Every attribute is a PROXY (see data/README.md).
-# Prompted by expert feedback from an MCMC officer (Nov 2026): categorise settlements by density, terrain,
+# Prompted by expert feedback from a telecom industry expert (Nov 2026): categorise settlements by density, terrain,
 # distance to existing networks, current service quality and demand, then match a technology mix.
 # Compiled 2026-11-26.
 
 mobile_quality:
-  # Nearest Ookla MOBILE tile (centroid) within search_km of the settlement (rural MOE school).
+  # ALL Ookla MOBILE tiles (centroids) within search_km of the settlement (rural MOE school), combined:
+  # total tests and test-weighted mean download.
   search_km: 2
   good_min_mbps: 35
+  min_tests: 20
+  # 20 = minimum total tests within 2 km before the speed is judged at all. Single tiles with only 1-3 tests are
+  # too noisy (one phone, one moment), so fewer than 20 tests is 'few_tests', not good or weak, and such a
+  # settlement cannot be type E. Our threshold; the same 20-test line as the schools 'medium confidence' band.
   # 35 Mbps = JENDELA Phase 1 national target for mobile broadband speed, a MEAN speed from Ookla data
   # (JENDELA Phase 1 Concluding Report, MCMC, p.4-6). Ookla tile speeds are also test means, so the
   # comparison is like-for-like. Phase 2 target is 100 Mbps (same report): a stricter line, not used.
   source_url: https://myjendela.my/Sitejendela/media/Doc/JENDELA-Phase-1-Concluding-Report.pdf
   classes:
-    good: "nearest mobile tile within 2 km has mean download >= 35 Mbps"
-    weak: "nearest mobile tile within 2 km has mean download < 35 Mbps"
+    good: "at least 20 mobile tests within 2 km, test-weighted mean download >= 35 Mbps"
+    weak: "at least 20 mobile tests within 2 km, test-weighted mean download < 35 Mbps"
+    few_tests: "1-19 mobile tests within 2 km: too few to judge (NOT proof of weak signal)"
     no_tests: "no Ookla mobile test tile within 2 km (no tests nearby; NOT proof of no signal)"
 
 terrain:
@@ -57,7 +63,7 @@ types:
     costed: tower           # five-year tower cost (costs.yaml, cited); FWA and microwave not costed
   E:
     label: "Good mobile signal nearby"
-    rule: "no fixed network nearby; below break-even; nearest mobile tile within 2 km >= 35 Mbps"
+    rule: "no fixed network nearby; below break-even; at least 20 mobile tests within 2 km with mean download >= 35 Mbps"
     candidates: "Fixed Wireless Access (4G/5G home broadband) on the existing mobile network; a small cell if capacity runs short"
     costed: fwa             # FWA retail plan per household (costs.yaml, cited); small cell not costed
   D:
@@ -67,7 +73,7 @@ types:
     costed: satellite       # satellite per household + school terminal (costs.yaml, cited)
   C:
     label: "Small village, reachable"
-    rule: "everything else: no fixed network nearby, below break-even, road within 5 km, not steep, weak or no mobile tests"
+    rule: "everything else: no fixed network nearby, below break-even, road within 5 km, not steep, mobile signal weak or too few tests"
     candidates: "Small cell or community Wi-Fi, with microwave or satellite backhaul"
     costed: none            # no public cost source for small cells, community Wi-Fi sites or microwave links
 order: [A, B, E, D, C]

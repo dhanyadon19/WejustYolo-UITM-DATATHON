@@ -188,7 +188,7 @@ The site-wide catalogue pages of OpenDOSM and data.gov.my list no boundary datas
 | `amenities_district.csv` | `build_app_data.py` | household access to electricity, piped water and sanitation, latest year per district (OpenDOSM `hh_access_amenities`, 2024), Table 3 spelling |
 | `schools_validation.csv` | `build_schools.py` | the screening-layer validation table against Hansard (2 km and 1 km rules) |
 
-`config/facts.yaml` holds the one typed headline figure, **network coverage of populated areas (mainly outdoor): 99.71% as at 31 Dec 2025** (Communications Minister; [RTM, 4 Feb 2026](https://berita.rtm.gov.my/nasional/senarai-berita-nasional/senarai-artikel/liputan-internet-negara-cecah-99-71-peratus-setakat-akhir-2025/)). It measures network coverage of populated areas, mainly from an outdoor perspective (expert feedback from an MCMC officer, Nov 2026): not household take-up and not indoor connectivity. Beside DOSM household access it is a different indicator (where the network reaches outdoors vs whether households are online), never a measured gap.
+`config/facts.yaml` holds the one typed headline figure, **network coverage of populated areas (mainly outdoor): 99.71% as at 31 Dec 2025** (Communications Minister; [RTM, 4 Feb 2026](https://berita.rtm.gov.my/nasional/senarai-berita-nasional/senarai-artikel/liputan-internet-negara-cecah-99-71-peratus-setakat-akhir-2025/)). It measures network coverage of populated areas, mainly from an outdoor perspective (expert feedback from a telecom industry expert, Nov 2026): not household take-up and not indoor connectivity. Beside DOSM household access it is a different indicator (where the network reaches outdoors vs whether households are online), never a measured gap.
 
 ## External map tiles (Sarawak map, 3D terrain view)
 
@@ -202,7 +202,8 @@ Streamed by the viewer's browser at run time; nothing is downloaded into `data/`
 **Caveats**
 - **Display only.** Terrain and imagery are context; no number in the app is computed from them.
 - **3D view is context only.** The 3D view shows terrain context only; it does not model line-of-sight or signal blocking (future work: add tower locations and a line-of-sight model).
-- **Heights are exaggerated** ×4 for the whole state and ×3 in a district view, with a maximum zoom of 11 (set in `views/3_Sarawak_map.py`), so interior hills read while the coast stays flat and close-ups don't look crumpled.
+- **Heights are exaggerated** ×4 for the whole state and ×3 in a district view, so interior hills read while the coast stays flat.
+- **Zoom (intentional):** the map *view* stops at zoom 11 (`TERRAIN_MAX_ZOOM`) so close-ups don't look crumpled, while terrain and imagery tiles are *fetched* up to zoom 12 (`TERRAIN_TILE_MAX_ZOOM`), one level finer than the closest view, so it stays sharp. Both are set in `views/3_Sarawak_map.py`.
 - **Non-commercial.** Like Ookla (CC BY-NC-SA 4.0), the imagery limits the app to non-commercial use. Esri World Imagery was not used: its account/API-key terms could not be confirmed.
 - **Availability.** Both are third-party public endpoints with no service guarantee; the "Gap Index blocks" view (Carto basemap) is the fallback and the default on phones. If an imagery tile is slow or refused (EOX throttles bursts), that patch of terrain shows in a dark neutral colour until reload; the map says so under the credits.
 
@@ -291,19 +292,20 @@ Weights are in `config/weights.yaml`: access_gap 0.4, mobile_speed 0.2, fixed_re
 
 ## Processed: settlement attributes and types (from `scripts/build_settlements.py`), PROXIES and ESTIMATES
 
-Prompted by expert feedback from an MCMC officer (Nov 2026). `settlements.csv`: one row per rural settlement in `costing_clusters.csv` (4,322), same keys (state, district, school_code).
+Prompted by expert feedback from a telecom industry expert (Nov 2026). `settlements.csv`: one row per rural settlement in `costing_clusters.csv` (4,322), same keys (state, district, school_code).
 
 | Column | Meaning |
 |---|---|
-| `mobile_tile_km`, `mobile_tile_dl_mbps`, `mobile_tile_tests` | nearest Ookla 2026Q3 mobile tile (centroid) within 2 km; empty if none |
-| `mobile_quality` | good (>= 35 Mbps, JENDELA Phase 1 mean mobile speed target, [report](https://myjendela.my/Sitejendela/media/Doc/JENDELA-Phase-1-Concluding-Report.pdf)), weak (< 35), no_tests (no tile within 2 km: not proof of no signal). Many tiles hold 1-3 tests |
+| `mobile_tile_km` | distance to the nearest Ookla 2026Q3 mobile tile (centroid) within 2 km; empty if none |
+| `mobile_tiles_2km`, `mobile_tests_2km`, `mobile_dl_mbps_2km` | ALL mobile tiles within 2 km combined: number of tiles, total tests, test-weighted mean download (Mbps; empty if no tests) |
+| `mobile_quality` | judged only with at least 20 tests within 2 km (`min_tests` in `config/settlement_types.yaml`; single tiles with 1-3 tests are too noisy): good (>= 35 Mbps, JENDELA Phase 1 mean mobile speed target, [report](https://myjendela.my/Sitejendela/media/Doc/JENDELA-Phase-1-Concluding-Report.pdf)), weak (< 35), few_tests (1-19 tests: not judged), no_tests (no tile within 2 km: not proof of no signal). This build: good 2,106, weak 132, few_tests 1,633, no_tests 451 |
 | `elevation_m`, `slope_mean_deg`, `relief_m`, `terrain` | Terrain Tiles z12: elevation at the school, mean slope and max-min elevation within 500 m; flat < 5 deg, hilly 5-15, steep >= 15 (median 4.1 deg, 95th pct 13.3) |
 | `road_km`, `road` | straight-line km to the nearest motorable OSM road; near <= 1, far 1-5, very far > 5 km (median 0.03 km, 99th pct 6.6 km) |
 | `terrain_missing`, `road_missing` | True where the input failed (a missing tile or no OSM file); the value is then empty, never guessed (0 missing in this build) |
 | `settlement_type`, `type_label`, `candidate_technologies` | ordered rules in `config/settlement_types.yaml` (A, B, E, D, C; first match wins; U = not classified when a deciding input is missing) |
 | `type_cost_basis`, `type_costed`, `type_cost_5yr_rm` | five-year cost only with a cited unit cost: B tower, D satellite per household + school terminal (both equal `cost_main`), E FWA retail plan per household (`costs.yaml` fwa); A and C empty = 'not costed (no public cost source)' |
 
-Counts (this build): Malaysia A 3,456, B 7, E 460, D 41, C 358; Sarawak A 778, B 0, E 205, D 23, C 208. `settlement_types_summary.csv`: per scope (All Malaysia, Sarawak) and type: settlements, people without home internet, candidate technologies, type cost (empty where not costed) and the tower-vs-satellite screen cost of the same settlements.
+Counts (this build): Malaysia A 3,456, B 7, E 83, D 55, C 721; Sarawak A 778, B 0, E 39, D 28, C 369. `settlement_types_summary.csv`: per scope (All Malaysia, Sarawak) and type: settlements, people without home internet, candidate technologies, type cost (empty where not costed) and the tower-vs-satellite screen cost of the same settlements.
 
 ## Processed: costing (from `scripts/build_costing.py`), ESTIMATES
 
