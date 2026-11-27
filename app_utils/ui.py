@@ -442,7 +442,6 @@ def fallback(text: str) -> None:
 
 
 # --- district action plan ---
-TOWER_WIDER = "Towers bring wider benefits (mobile coverage on roads and farms) that this cost screen does not value."
 GROUND_CHECKS = [
     "**Power:** reliable electricity for the terminal, day and night.",
     "**Sky view:** a clear view of the sky; tall forest and hills can block the signal.",
@@ -581,19 +580,12 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
                                        gloss(t.candidate_technologies), cost))
             if cards:
                 card_grid(cards)
-            items = []
+            # the tower-or-satellite reference cost lives only in the Reference cost tab (and on Where to invest)
             if not (n["satellite"] or n["tower"]):
                 lever = ("so take-up support is the main lever." if tk is not None and round(tk["people"]) > 0
                          else "and no take-up gap is estimated either.")
-                items.append("- **New infrastructure:** none costed. Every rural settlement has a fixed network likely "
-                             f"nearby (our proxy), {lever}")
-            else:
-                lo, hi = sorted([sum(f["cost_lite"] for f in fixes.values()), sum(f["cost_main"] for f in fixes.values())])
-                rng = fmt_rm(hi) if fmt_rm(lo) == fmt_rm(hi) else f"{fmt_rm(lo)}–{fmt_rm(hi)}, Lite to Residential plan"
-                items.append(f"- **Reference cost** (tower or satellite only, used in the rankings): {rng}. Not a "
-                             f"total of the cards above: types A and C are not costed. Details in the Reference cost "
-                             f"tab below. {TOWER_WIDER}")
-            st.markdown("\n".join(items))
+                st.markdown("- **New infrastructure:** none costed. Every rural settlement has a fixed network likely "
+                            f"nearby (our proxy), {lever}")
 
         # 3. Check on the ground
         present = set(types.settlement_type) if types is not None and len(types) else set()
