@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from app_utils import data, ui
+from app_utils import data, explainers, ui
 
 st.set_page_config(page_title="Method & limitations · Beyond Coverage", layout="wide")
 
@@ -145,6 +145,8 @@ ui.caveat()
 
 # --- 5. Settlement types and technology options
 st.header("5. Settlement types and technology options")
+explainers.grouping_flow()
+explainers.terms_expander()
 stc = data.yaml_config("settlement_types")
 mq, tr, rd = stc["mobile_quality"], stc["terrain"], stc["road"]
 fwa = costs["fwa"]

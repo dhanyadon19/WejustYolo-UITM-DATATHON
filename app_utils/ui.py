@@ -520,6 +520,7 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
                                if isnum(pw) and pw > 0 else ""))
         else:
             none_lack = "DOSM data suggest no households here lack home internet"  # access gap 0%
+            from app_utils.explainers import gloss  # lazy: explainers imports ui
             cards = []
             for t in (types.itertuples() if types is not None else []):
                 if t.settlement_type == "A":
@@ -537,7 +538,7 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
                        else f"<div style='font-size:0.78rem;color:{INK_2};max-width:11rem'>{none_lack}</div>")
                 cards.append(type_card(t.settlement_type, t.type_label,
                                        _stat(f"{int(t.n):,}", "settlement" + ("" if int(t.n) == 1 else "s")) + ppl,
-                                       t.candidate_technologies, cost))
+                                       gloss(t.candidate_technologies), cost))
             if cards:
                 card_grid(cards)
             items = []

@@ -2,7 +2,7 @@
 import plotly.graph_objects as go
 import streamlit as st
 
-from app_utils import data, ui
+from app_utils import data, explainers, ui
 
 st.set_page_config(page_title="Overview · Beyond Coverage", layout="wide")
 
@@ -57,15 +57,15 @@ with st.container(border=True):
         st.page_link("views/3_Sarawak_map.py", label=f"Open the Sarawak map at {top_sar}", icon=":material/map:",
                      query_params={"district": top_sar})
 
+explainers.covered_vs_connected(facts["value_pct"], facts["label"],
+                                100 - val("Malaysia", "internet", "rural"), year)
+
+# the coverage figure and the "two different indicators" note sit in the explainer above
 ui.metric_cards([
-    (facts["label"], ui.fmt_pct(facts["value_pct"], 2), f"{facts['definition']} As at {facts['as_of']}."),
     (f"Households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "total")), None),
     (f"Rural households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "rural")), None),
     (f"Rural households with fixed broadband, {year}", ui.fmt_pct(val("Malaysia", "fixed_broadband", "rural")), None),
 ])
-st.markdown(f"<div style='border-left:3px solid {ui.ACCENT};padding:2px 10px;color:{ui.INK_2};font-size:0.9rem;"
-            f"margin:0.2rem 0 0.4rem 0'>{facts['comparison_note']}</div>",
-            unsafe_allow_html=True)
 st.markdown(f"<span style='color:{ui.INK_2};font-size:0.85rem'>Coverage: <a href='{facts['source_url']}'>"
             f"{facts['source_name']}</a>. Household figures: DOSM ICTHS {year}, Table 1.2.</span> "
             + ui.conf_badge("solid"), unsafe_allow_html=True)
@@ -164,6 +164,9 @@ ui.finding(f"{ui.about_one_in(sv['share']).capitalize()} rural settlements {'nat
            f"could be served through existing networks; ~{sv['new']:,} need new infrastructure",
            "What would close the rural gap: settlement types and candidate technologies (screening), estimates",
            conf="indicative")
+explainers.settlements_bar(scope)
+with st.expander("How settlements are grouped"):
+    explainers.grouping_flow()
 if len(ts):
     rows = []
     for t in ts.itertuples():
@@ -173,7 +176,7 @@ if len(ts):
             cost = f"{ui.fmt_rm(t.type_cost_5yr_rm)} ({t.type_cost_basis.split(',')[0]})"
         swatch = f"<span style='color:{ui.TYPE_COLOURS.get(t.settlement_type, ui.MUTED)}'>●</span>"
         # candidate technologies sit under the type name, so the table keeps four columns and fits a phone
-        tech = f"<br/><span style='font-size:0.85em;color:{ui.INK_2}'>{t.candidate_technologies}</span>"
+        tech = f"<br/><span style='font-size:0.85em;color:{ui.INK_2}'>{explainers.gloss(t.candidate_technologies)}</span>"
         rows.append([f"{swatch} **{t.settlement_type}. {t.type_label}**{tech}", f"{int(t.settlements):,}",
                      f"{t.people_without_home_internet:,.0f}", cost])
     # settlements and people add up; costs do not (A and C are not costed), so the total row has no cost
@@ -198,6 +201,7 @@ if len(ts):
     ui.caveat()
 else:
     ui.fallback("No settlement data available.")
+explainers.terms_expander()
 tab_gap.__exit__(None, None, None)
 
 # --- Trend
