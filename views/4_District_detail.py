@@ -174,9 +174,11 @@ else:
             data=f"Ookla {quarter}; population 2026")
 
 # --- 3. Context
+pw = r.people_without_home_internet
+none_offline = ui.isnum(pw) and round(pw) == 0  # DOSM: every household online -> a dash, never '0 people'
 ui.finding((f"Median household income RM{r.income_median:,.0f} a month" if ui.isnum(r.income_median) else "Context")
-           + (f"; an estimated {r.people_without_home_internet:,.0f} people without home internet"
-              if ui.isnum(r.people_without_home_internet) else ""),
+           + ("; people without home internet: —" if none_offline else
+              f"; an estimated {pw:,.0f} people without home internet" if ui.isnum(pw) else ""),
            "Context: income, electricity, population, pupils", level=4)
 
 
@@ -190,8 +192,10 @@ k1.metric(f"Median household income{yr(r.income_year)}", ui.fmt_num(r.income_med
 k2.metric(f"Households with electricity{yr(r.amenities_year)}", ui.fmt_pct(r.electricity))
 k3.metric(f"Population{yr(r.population_year)}", ui.fmt_num(r.population_k * 1000 if ui.isnum(r.population_k) else None, ",.0f"))
 k4.metric("Pupils in MOE schools (June 2022)", ui.fmt_num(r.students, ",.0f"))
-k5.metric("People without home internet (estimate)", ui.fmt_num(r.people_without_home_internet, ",.0f"),
+k5.metric("People without home internet (estimate)", "—" if none_offline else ui.fmt_num(pw, ",.0f"),
           help="Population × share of households without internet; assumes individuals follow the household rate.")
+if none_offline:
+    k5.caption(ui.NO_OFFLINE)
 if not r.indexed:
     ui.fallback("Income, population, pupils and people without home internet are only compiled for districts with a "
                 "map boundary.")
@@ -273,7 +277,10 @@ else:
     g3.metric("Sensitivity: upper bound", ui.fmt_rm(r.cost_upper_bound_rm),
               help="Adds one fibre PoP per take-up-gap settlement, capex only. A cost sensitivity, not a recommendation.")
     g4.metric("Cost-screen fix", ui.FIX_LABELS.get(r.main_fix, r.main_fix) if isinstance(r.main_fix, str) else ui.DASH)
-    if ui.isnum(r.people_per_rm_m_main):
+    if ui.isnum(r.people_per_rm_m_main) and round(r.people_per_rm_m_main) == 0:
+        st.markdown(f"**{ui.REACH} (estimate):** — ({ui.NO_OFFLINE[:-1]}); "
+                    f"{ui.fmt_num(r.students_per_rm_m_main, ',.0f')} pupils per RM1m.")
+    elif ui.isnum(r.people_per_rm_m_main):
         st.markdown(f"**{ui.REACH} (estimate):** {r.people_per_rm_m_main:,.0f} rural people without home "
                     f"internet reached per RM1m (national rank {ui.fmt_int(r.value_rank_national)}"
                     + (f", Sarawak {int(r.value_rank_sarawak)}" if ui.isnum(r.value_rank_sarawak) else "")
@@ -305,6 +312,7 @@ else:
     OFFLINE_AVG = ("People offline are a district average per settlement (households split equally across rural "
                    "schools); real villages vary.")
     MQ = {"good": "Good", "weak": "Weak", "few_tests": "Too few tests", "no_tests": "No tests"}
+    no_off = bool((at_d.unconnected_people.round(0) == 0).all())  # a dash, never '0 people'
     tb = pd.DataFrame({
         "School": [ui.school_short(n) for n in at_d.school_name],
         "Type": at_d.settlement_type.values,
@@ -318,14 +326,17 @@ else:
     }).sort_values(["Type", "Offline (est., district average)"], ascending=[True, False],
                    key=lambda c: c.map({k: i for i, k in enumerate(ui.TYPE_ORDER)}) if c.name == "Type" else c)
     tb["Type"] = [f"{t}. {lab}" for t, lab in zip(tb["Type"], at_d.loc[tb.index, "type_label"])]
+    off_help = ("People offline (estimate): the district's rural people without home internet split equally across "
+                "its rural schools, so every row is the same.")
+    if no_off:
+        tb["Offline (est., district average)"] = "—"
     st.dataframe(tb, hide_index=True, width="stretch", height=min(36 * (len(tb) + 1) + 4, 460), column_config={
         "School": st.column_config.TextColumn(pinned=True, help="Each rural MOE school stands for "
                                                                   "its village (MOE school list, June 2022)."),
         "Type": st.column_config.TextColumn(help="Settlement type (config/settlement_types.yaml): screening rules, "
                                                  "not a survey."),
-        "Offline (est., district average)": st.column_config.NumberColumn(format="localized", help="People offline (estimate): the district's "
-                                                               "rural people without home internet split equally "
-                                                               "across its rural schools, so every row is the same."),
+        "Offline (est., district average)": (st.column_config.TextColumn(help=off_help) if no_off else
+                                             st.column_config.NumberColumn(format="localized", help=off_help)),
         "Mobile signal (2 km)": st.column_config.TextColumn(help="All Ookla mobile tiles within 2 km combined: tests "
                                                                  "and test-weighted mean download. Judged good or weak "
                                                                  "only with at least 20 tests (proxy)."),
@@ -334,7 +345,7 @@ else:
                                                    "motorable OpenStreetMap road."),
         "Candidate technologies (screening)": st.column_config.TextColumn(width="medium"),
     })
-    st.caption(OFFLINE_AVG)
+    st.caption(ui.NO_OFFLINE if no_off else OFFLINE_AVG)
     ui.download_csv(tb.assign(**{"Mobile tests (2 km)": at_d.loc[tb.index, "mobile_tests_2km"].values,
                                  "Mobile Mbps (2 km)": at_d.loc[tb.index, "mobile_dl_mbps_2km"].round(1).values,
                                  "MOE school name": at_d.loc[tb.index, "school_name"].values,

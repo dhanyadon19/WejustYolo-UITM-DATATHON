@@ -192,6 +192,10 @@ def caveat(text: str = COST_SCREEN) -> None:
                 f"{text}</div>", unsafe_allow_html=True)
 
 
+# shown with a dash where a district has no rural people without home internet (never '0 people')
+NO_OFFLINE = "DOSM data show no rural households without home internet here (or no rural settlements)."
+
+
 def see_method_costs() -> None:
     """Short pointer to the cost caveats on Method & limitations (instead of repeating the disclaimer)."""
     st.page_link("views/6_Method.py", label="Cost caveats: see Method & limitations", icon=":material/info:")
