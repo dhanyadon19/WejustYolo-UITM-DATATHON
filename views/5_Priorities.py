@@ -1,4 +1,5 @@
-"""Where to invest: the one headline reference cost, need rank vs people reached per RM1m, ranks, budget planner."""
+"""Where to invest: need rank vs people reached per RM1m, ranks, the reference cost (in a sensitivity expander),
+budget planner."""
 import math
 
 import numpy as np
@@ -18,7 +19,7 @@ ui.page("Where to invest",
         "Need score first (where the gap is deepest), then people reached per RM1m (where each ringgit reaches the most "
         "people). Ranks come with ranges because the inputs are uncertain.")
 
-# --- the ONE headline cost, shown once, with its range; every other case is a sensitivity (all read from data)
+# --- the ONE national reference cost, with its range; shown once, in the expander below the ranks (read from data)
 co = data.csv("costing_districts")
 ref, lite, m30, p30 = (co[c].sum() for c in ("cost_main_rm", "cost_lite_rm", "cost_cost_minus30_rm", "cost_cost_plus30_rm"))
 ref_lo, ref_hi = min(lite, m30), max(p30, ref)
@@ -28,15 +29,18 @@ def bn(v):
     return f"{v / 1e9:,.2f}"
 
 
-with st.container(border=True):
-    st.markdown(f"<div style='font-size:0.9rem;color:{ui.INK_2}'>Reference cost, all Malaysia, five years "
-                f"{ui.conf_badge('indicative')}</div>"
-                f"<div style='font-size:2rem;font-weight:600;color:{ui.INK};line-height:1.3'>RM{bn(ref)}bn "
-                f"<span style='font-size:1.1rem;font-weight:500;color:{ui.INK_2}'>(RM{bn(ref_lo)}–{bn(ref_hi)}bn)</span></div>"
-                f"<div style='font-size:0.88rem;color:{ui.INK_2}'>Reference: if every settlement without a nearby network "
-                "were served by towers or satellite only. Not a total across settlement types: take-up support (A) and "
-                "small cells or community Wi-Fi (C) are not costed.</div>", unsafe_allow_html=True)
+
+def reference_cost_expander() -> None:
+    """The national reference cost and its sensitivity cases: shown once, after the need ranking."""
     with st.expander("Range and sensitivity cases"):
+        st.markdown(f"<div style='font-size:0.9rem;color:{ui.INK_2}'>Reference cost, all Malaysia, five years "
+                    f"{ui.conf_badge('indicative')}</div>"
+                    f"<div style='font-size:1.6rem;font-weight:600;color:{ui.INK};line-height:1.3'>RM{bn(ref)}bn "
+                    f"<span style='font-size:1rem;font-weight:500;color:{ui.INK_2}'>(RM{bn(ref_lo)}–{bn(ref_hi)}bn)"
+                    f"</span></div><div style='font-size:0.88rem;color:{ui.INK_2};margin-bottom:0.5rem'><b>Reference: "
+                    "if every settlement without a nearby network were served by towers or satellite only — not the "
+                    "settlement-type plan.</b> Not a total across settlement types: take-up support (A) and small cells "
+                    "or community Wi-Fi (C) are not costed.</div>", unsafe_allow_html=True)
         sens = [("Range low: Lite satellite plan (sensitivity)", lite), ("All costs −30% (sensitivity)", m30),
                 ("All costs +30% (sensitivity): range high", p30),
                 ("Tower test on all households (sensitivity)", co["cost_rule_all_hh_rm"].sum()),
@@ -45,7 +49,8 @@ with st.container(border=True):
         st.markdown("\n".join(f"- {k}: {ui.fmt_rm(v)}" for k, v in sens))
         st.caption("The range runs from the lowest of the Lite plan and −30% cases to the +30% case. Method & "
                    "limitations, section 4, explains each case.")
-    ui.conf_legend()
+        ui.caveat()
+        ui.conf_legend()
 
 c1, c2 = st.columns(2)
 scope = c1.radio("Compare districts in", ["Sarawak", "All Malaysia"], horizontal=True, key="prio_scope")
@@ -134,7 +139,6 @@ ui.what([f"Each bubble is a district ({'Sarawak' if scope == 'Sarawak' else 'all
          "Size = rural people reached; colour = reference cost-screen result (tower or satellite); labels = the five districts highest on both.",
          "Settlements with a fixed network likely nearby (take-up gap) are not costed here."],
         data=DATA)
-ui.caveat()
 
 # The beneficiaries-per-RM1m values sit close together, so this rank is secondary to need.
 cl = data.csv("costing_clusters")
@@ -207,6 +211,7 @@ ui.what("Need rank range: 5th–95th percentile rank over 1,000 random index wei
         "unchanged). Small-sample districts carry extra uncertainty from their approximate margin of error."
         + (f" Not shown ({len(excluded)}): {why_txt}." if len(excluded) else ""),
         data=DATA)
+reference_cost_expander()
 
 # --- budget planner: fund districts in need order (not by beneficiaries per RM1m, which are close together)
 bp_head = st.empty()  # finding title, filled once the budget is known
@@ -288,7 +293,6 @@ else:
              "Not ordered by estimated beneficiaries per RM1m: those values are close together.",
              "Take-up-gap settlements (fixed network likely nearby, our proxy) are not in this budget. " + ui.TAKEUP_TXT],
             data=DATA)
-    ui.caveat()
 
 ui.next_step("views/6_Method.py", "Method & limitations",
              "how the index and costs are built, and how sure we are.")
