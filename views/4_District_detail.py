@@ -278,8 +278,8 @@ else:
               help="Adds one fibre PoP per take-up-gap settlement, capex only. A cost sensitivity, not a recommendation.")
     g4.metric("Cost-screen fix", ui.FIX_LABELS.get(r.main_fix, r.main_fix) if isinstance(r.main_fix, str) else ui.DASH)
     if ui.isnum(r.people_per_rm_m_main) and round(r.people_per_rm_m_main) == 0:
-        st.markdown(f"**{ui.REACH} (estimate):** — ({ui.NO_OFFLINE[:-1]}); "
-                    f"{ui.fmt_num(r.students_per_rm_m_main, ',.0f')} pupils per RM1m.")
+        st.markdown(f"**{ui.REACH} (estimate):** —; {ui.fmt_num(r.students_per_rm_m_main, ',.0f')} pupils per RM1m.")
+        st.caption(ui.NO_OFFLINE)
     elif ui.isnum(r.people_per_rm_m_main):
         st.markdown(f"**{ui.REACH} (estimate):** {r.people_per_rm_m_main:,.0f} rural people without home "
                     f"internet reached per RM1m (national rank {ui.fmt_int(r.value_rank_national)}"
