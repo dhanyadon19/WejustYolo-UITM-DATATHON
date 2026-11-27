@@ -23,7 +23,9 @@ ui.page("Schools without fibre",
         f"schools ({int(total.pct_without_fibre)}%) in six states are not yet on fibre.")
 
 # --- Hansard by state
-st.subheader("Schools without fibre, by state (Hansard)")
+_top = by_state.sort_values("schools_without_fibre").iloc[-1]
+ui.finding(f"{_top.state} has the most schools without fibre: {int(_top.schools_without_fibre):,} "
+           f"({int(_top.pct_without_fibre)}% of its schools)", "Schools without fibre, by state (Hansard)", conf="solid")
 fig = go.Figure(go.Bar(
     x=by_state.schools_without_fibre, y=by_state.state, orientation="h",
     marker_color=[ui.ACCENT if s == "Sarawak" else ui.MUTED_LIGHT for s in by_state.state], marker_line_width=0,
@@ -38,10 +40,14 @@ fig.update_xaxes(title="Schools without fibre", range=[0, by_state.schools_witho
 st.plotly_chart(fig, width="stretch")
 ui.what(["Schools without fibre in each state, as stated in Parliament (share of the state's schools in brackets).",
          "These schools use wireless broadband or satellite instead.",
-         "State totals in the tooltip come from rounded percentages, so they are approximate."], data=HANSARD)
+         "State totals in the tooltip come from rounded percentages, so they are approximate."], data=HANSARD,
+        conf="solid")
 
 # --- Map
-st.subheader("Where the schools are")
+_v = val[val.state.str.startswith("Total")].iloc[0]
+ui.finding(f"Our screen finds {int(_v.est_2km):,} schools vs Parliament's {int(_v.hansard_no_fibre):,} "
+           f"({_v.pct_diff_2km:+.0f}%): use it to screen, never to count",
+           "Where the schools are, and how our screening layer compares with Parliament", conf="low")
 c1, c2 = st.columns([1, 2])
 state = c1.selectbox("State", ["All six Hansard states"] + data.SIX_STATES + ["All Malaysia"], index=0)
 screen = c2.toggle("Screening layer (low confidence): no fixed broadband nearby", value=False,
@@ -87,7 +93,7 @@ with left:
     msg = (f"Grey: {len(pts):,} MOE schools."
            + (f" Blue: {len(flag):,} schools with no Ookla fixed tile within 2 km: a low-confidence screen, not a count "
               "of schools without fibre." if screen else ""))
-    ui.what(msg, data=MOE_LIST + (f" · Ookla {quarter}" if screen else ""))
+    ui.what(msg, data=MOE_LIST + (f" · Ookla {quarter}" if screen else ""), conf="low" if screen else "solid")
 with right:
     st.markdown("**Does the screening layer match Parliament?**")
     pct = lambda v: f"{v:+,.0f}%" if ui.isnum(v) else ""  # noqa: E731
@@ -106,10 +112,10 @@ with right:
              f"Flagged schools by confidence (mobile tests nearby): {int(conf.get('low', 0)):,} low, "
              f"{int(conf.get('medium', 0)):,} medium, {int(conf.get('high', 0)):,} high.",
              "Use it to screen, never to count."],
-            data=f"{HANSARD} · {MOE_LIST} · Ookla {quarter}")
+            data=f"{HANSARD} · {MOE_LIST} · Ookla {quarter}", conf="low")
 
-ui.next_step("views/3_Sarawak_map.py", "Sarawak map",
-             "Sarawak has the most schools without fibre. See which of its districts have the deepest gap.")
+ui.next_step("views/5_Priorities.py", "Where to invest",
+             "compare districts on need and people reached per RM1m, and try the budget planner.")
 ui.footer([
     "Hansard, Dewan Rakyat, 11 Nov 2026, oral question 11 (DR-11112026, p.33)",
     "Ministry of Education, Senarai Sekolah Rendah dan Menengah (as at 30 Jun 2022)",

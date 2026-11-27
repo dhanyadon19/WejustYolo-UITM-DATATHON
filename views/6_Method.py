@@ -20,7 +20,8 @@ REPO = "https://github.com/dhanyadon19/WejustYolo-UITM-DATATHON"
 ui.page("Method & limitations", "How the numbers are built, how sure we are, and what they cannot tell you.")
 
 # --- 1. Index
-st.header("1. Connectivity Gap Index")
+st.header("1. Need score (Connectivity Gap Index)")
+st.markdown("On screen the index is called the **Need score**; *people reached per RM1m* is the plain name for *estimated beneficiaries per RM1m*.")
 st.latex(r"\mathrm{CGI}_d=\sum_i w_i\,\tilde S_{d,i},\qquad \tilde S_{d,i}=\frac{S_{d,i}-\min_d S_i}{\max_d S_i-\min_d S_i}\ \text{(inverted where lower is worse)}")
 labels = {"access_gap": ("100 − household internet access %", f"DOSM ICTHS {int(gi.access_year.max())}, Table 3.1"),
           "mobile_speed": ("Ookla mobile download, test-weighted (inverted)", f"Ookla {gi.ookla_quarter.iloc[0]}"),
@@ -58,7 +59,7 @@ st.plotly_chart(fig, width="stretch")
 n_runs = int(sens.n_runs.iloc[0])
 ui.what(f"Sarawak's 15 highest-need districts: blue dot = rank with the chosen weights, grey bar = 5th–95th percentile "
         f"rank over {n_runs:,} random weightings (Dirichlet), open diamond = rank with equal weights.",
-        data=f"Gap Index from DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · HIES {int(gi.income_year.max())}")
+        data=f"Need score from DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · HIES {int(gi.income_year.max())}")
 moe = sens[sens.rank_sarawak_moe_min.notna() & (sens.state == "Sarawak")].sort_values("rank_sarawak").head(10)
 st.markdown(f"**Survey uncertainty.** {nsmall} districts have a small {ui.INFERRED_N} (our estimate, not a DOSM figure). "
             f"Setting each one's access to the low and high end of its {ui.MOE_TXT} moves its Sarawak rank as follows: "
@@ -110,15 +111,18 @@ st.dataframe(pd.DataFrame(rows, columns=["Item", "Amount (estimate)", "Basis / s
 ui.what("Unit costs used by the costing (all estimates).", data="config/costs.yaml (sources below; compiled Nov 2026)")
 srcs = sorted(set(t["sources"] + f["sources"] + s["sources"]))
 st.markdown("Sources: " + " · ".join(f"[{i + 1}]({u})" for i, u in enumerate(srcs)))
-cases = {"Main (Residential): " + ui.REF_COST: "cost_main_rm", "Lite plan": "cost_lite_rm",
-         "Upper bound (cost sensitivity, not a recommendation)": "cost_upper_bound_rm",
-         "Rule sensitivity: tower test on all households": "cost_rule_all_hh_rm"}
+cases = {"Reference cost (Residential plan): " + ui.REF_COST: "cost_main_rm",
+         "Sensitivity: Lite plan": "cost_lite_rm",
+         "Sensitivity: all costs −30%": "cost_cost_minus30_rm", "Sensitivity: all costs +30%": "cost_cost_plus30_rm",
+         "Sensitivity: upper bound (not a recommendation)": "cost_upper_bound_rm",
+         "Sensitivity: tower test on all households": "cost_rule_all_hh_rm"}
 sar = co.state == "Sarawak"
 st.dataframe(pd.DataFrame([{"Case": k, "Malaysia": ui.fmt_rm(co[c].sum()), "Sarawak": ui.fmt_rm(co.loc[sar, c].sum())}
                            for k, c in cases.items()]), hide_index=True, width="stretch",
              column_config={"Case": st.column_config.TextColumn(width="large")})
-ui.what("Estimated five-year cost to provide service under each case. Upper bound: adds one fibre PoP per take-up-gap "
-        "settlement (capex only), a cost sensitivity, not a recommendation.",
+ui.what("Estimated five-year cost under each case. Where to invest shows the reference cost once, with the range from "
+        "the lowest of the Lite and −30% cases to the +30% case. Upper bound: adds one fibre PoP per take-up-gap "
+        "settlement (capex only), a cost sensitivity, not a recommendation.", conf="indicative",
         data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · config/costs.yaml")
 take = cl.category_main.eq("takeup_gap")
 hh = co.loc[sar, "household_size"]
@@ -202,8 +206,16 @@ st.markdown("""
 - **Road distance is straight-line** and depends on how complete OpenStreetMap is in rural Borneo; rivers are not counted.
 """)
 
-# --- 6. Limitations
-st.header("6. Limitations")
+# --- 6. Confidence labels
+st.header("6. Confidence labels")
+st.markdown("Every estimate on screen carries one of three labels, as a word and a colour:")
+st.markdown("\n".join(f"- {ui.conf_badge(k)} {txt}" for k, txt in ui.CONF_RULE)
+            + "\n- Uncertainty is given as numbers where we have them: *estimated 62% (±13 points)* for a DOSM figure "
+              "with our approximate margin of error, *rank 1 (range 1–9)* for ranks under random weightings.",
+            unsafe_allow_html=True)
+
+# --- 7. Limitations
+st.header("7. Limitations")
 st.markdown(f"""
 - **Coverage ≠ access:** the official {facts['value_pct']}% is network coverage of populated areas (mainly outdoor); DOSM measures households online. Two different indicators, not a measured gap.
 - **No indoor signal data:** indoor connectivity depends on building materials, signal penetration, distance to the site, terrain and network capacity, which we do not measure.

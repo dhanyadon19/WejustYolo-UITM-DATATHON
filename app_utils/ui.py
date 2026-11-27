@@ -77,6 +77,65 @@ def ramp_bin(share, ramp=TAKEUP_RAMP):
         return None
     return min(int(float(share) * len(ramp)), len(ramp) - 1)
 
+# --- plain names on screen (technical names go in tooltips and on the Method page) ---
+NEED = "Need score"                      # the Connectivity Gap Index (CGI)
+NEED_TECH = "Need score (Connectivity Gap Index, 0 = best, 1 = worst nationally)"
+REACH = "People reached per RM1m"        # estimated beneficiaries per RM1m
+
+# --- confidence labels: word + colour, beside every estimate. Rule (also on the Method page):
+#   Solid          official figures used as published (DOSM state and district tables, Hansard, the cited
+#                  coverage figure, MOE school list)
+#   Indicative     our estimates and proxies built from public data (Ookla-based proxies, settlement types,
+#                  people offline, costs, Need score and its ranks, which come with ranges)
+#   Low confidence a small inferred DOSM sample (small_sample_flag) or a screen that validates poorly against an
+#                  official count (schools screen vs Hansard)
+CONF = {"solid": ("Solid", "#1f6f4b", "#e3f1e9"), "indicative": ("Indicative", "#7a5200", "#fbf0d6"),
+        "low": ("Low confidence", "#a1302a", "#f9e3e1")}
+CONF_RULE = [
+    ("solid", "Official figures used as published: DOSM survey tables (state level, and districts with an adequate "
+              "sample), Hansard, the cited network-coverage figure, the MOE school list."),
+    ("indicative", "Our estimates and proxies built from public data: anything from Ookla tests (signal, take-up "
+                   "proxy), settlement types, people offline, costs, the Need score and its ranks (shown with ranges)."),
+    ("low", "Rests on a small DOSM sample (flagged from our inferred sample size; its margin of error is shown), or a "
+            "screen that matches an official count poorly (the schools screen vs Hansard)."),
+]
+
+
+def conf_badge(level: str | None) -> str:
+    """Confidence label as HTML: a coloured dot and the word (never colour alone)."""
+    if level not in CONF:
+        return ""
+    word, fg, bg = CONF[level]
+    return (f"<span title='Confidence: see Method & limitations' style='background:{bg};color:{fg};border-radius:10px;"
+            f"padding:1px 8px;font-size:0.78rem;font-weight:600;white-space:nowrap;display:inline-block;"
+            f"line-height:1.6'>● {word}</span>")
+
+
+def finding(title: str, subtitle: str | None = None, conf: str | None = None, level: int = 3) -> None:
+    """Section title written as a finding (numbers read from data), with the descriptive title kept as a subtitle."""
+    st.markdown(f"{'#' * level} {title}")
+    bits = [f"<span>{subtitle}</span>"] if subtitle else []
+    if conf:
+        bits.append(conf_badge(conf))
+    if bits:
+        st.markdown(f"<div style='color:{INK_2};font-size:0.9rem;margin:-0.7rem 0 0.6rem 0;display:flex;gap:10px;"
+                    f"flex-wrap:wrap;align-items:center'>{''.join(bits)}</div>", unsafe_allow_html=True)
+
+
+def est_pct(v, moe=None, d: int = 0) -> str:
+    """'estimated 62% (±13 points)' where a margin exists, else '62.0%'."""
+    if not isnum(v):
+        return DASH
+    return f"estimated {v:.{d}f}% (±{moe:.0f} points)" if isnum(moe) else f"{v:.1f}%"
+
+
+def about_one_in(share) -> str:
+    """0.19 -> 'about 1 in 5'; shares above one half use 'about N in 10'."""
+    if not isnum(share) or share <= 0:
+        return DASH
+    return f"about 1 in {round(1 / share)}" if share <= 0.5 else f"about {round(10 * share)} in 10"
+
+
 # --- shared wording (reviewed) ---
 BENEFIT = "estimated beneficiaries per RM1m"
 BENEFIT_RANK = "estimated-beneficiaries-per-RM1m rank"
@@ -118,13 +177,14 @@ def _split_first(text: str) -> tuple[str, str]:
     return parts[0], (parts[1] if len(parts) > 1 else "")
 
 
-def what(text: str | list[str], data: str | None = None) -> None:
+def what(text: str | list[str], data: str | None = None, conf: str | None = None) -> None:
     """'What this shows' caption under a chart or table, with the data source and year.
     One clear sentence stays visible (the first point of a list, or the first sentence of a text); the rest goes
     into a small 'More detail' fold, so nothing (caveat or source) is removed. The data badge is always visible."""
     # the data badge sits on its own line; "What this shows:" starts on the next one
     chip = (f"<span style='background:#f3f2ee;border-radius:4px;padding:1px 6px;color:{INK_2};"
-            f"display:inline-block;line-height:1.6;margin-bottom:3px'>Data: {data}</span><br/>") if data else ""
+            f"display:inline-block;line-height:1.6;margin-bottom:3px'>Data: {data}</span>") if data else ""
+    chip = (chip + (" " + conf_badge(conf) if conf else "") + "<br/>") if (chip or conf) else ""
     if isinstance(text, (list, tuple)):
         first, rest = (text[0] if text else ""), list(text[1:])
     else:
@@ -145,14 +205,14 @@ def what(text: str | list[str], data: str | None = None) -> None:
 
 def next_step(page: str, label: str, why: str) -> None:
     """'Next' card at the end of a page that walks the user journey:
-    Overview → Schools → Sarawak map → District detail → Priorities → Method."""
+    Overview → Sarawak map → District profile → Schools → Where to invest → Method."""
     st.markdown(f"<div style='margin-top:1.6rem;color:{INK_2};font-size:0.9rem'><b>Next:</b> {why}</div>",
                 unsafe_allow_html=True)
     st.page_link(page, label=label, icon=":material/arrow_forward:")
 
 
 def go_to_district(state: str, district: str) -> None:
-    """Open District detail with this district preselected."""
+    """Open District profile with this district preselected."""
     st.session_state["detail_state"] = state
     st.session_state["detail_district"] = district
     st.switch_page("views/4_District_detail.py")
@@ -251,7 +311,8 @@ def safe_div(num, den):
 
 def moe_text(moe) -> str:
     """Caption for an access figure; empty when there is no inferred margin."""
-    return f"Approx. margin of error ±{moe:.1f} pp (simple random-sampling formula; our estimate)" if isnum(moe) else ""
+    return (f"±{moe:.0f} points: approximate margin of error (simple random-sampling formula; our estimate)"
+            if isnum(moe) else "")
 
 
 def moe_badge(col, moe) -> None:
@@ -267,9 +328,9 @@ def small_sample_banner(name: str, n, moe) -> None:
     if isnum(n):
         parts.append(f"{INFERRED_N} about {int(n)} households")
     if isnum(moe):
-        parts.append(f"{MOE_TXT} ±{moe:.1f} percentage points")
+        parts.append(f"{MOE_TXT} ±{moe:.0f} points")
     detail = (": " + ", ".join(parts) + ".") if parts else "."
-    st.warning(f"**Low confidence.** {name}'s DOSM estimate appears to rest on a small sample{detail} "
+    st.warning(f"**Low confidence.** {name}'s DOSM figure appears to rest on a small sample{detail} "
                f"{NOT_DOSM} Treat its ranks as ranges, not exact positions.", icon="⚠️")
 
 
@@ -360,7 +421,7 @@ def _rank_line(label: str, rank, of, lo, hi) -> str:
         return ""
     rng = f" (range {range_text(lo, hi)})" if isnum(lo) and isnum(hi) else ""
     of_txt = f" of {int(of)}" if isnum(of) else ""
-    return f"{label} rank **{int(rank)}**{of_txt}{rng}."
+    return f"{label} need rank **{int(rank)}**{of_txt}{rng}."
 
 
 def _stat(value: str, label: str) -> str:
@@ -419,18 +480,19 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
                     unsafe_allow_html=True)
 
         # 1. Need
-        st.markdown("**1. Need (Connectivity Gap Index)**")
+        st.markdown(f"**1. Need score** {conf_badge('low' if bool(r.get('small_sample_flag')) is True else 'indicative')}",
+                    unsafe_allow_html=True)
         if isnum(r.get("rank_national")):
             lines = [_rank_line("National", r.rank_national, n_national, r.get("rank_national_p05"), r.get("rank_national_p95"))]
             if state == "Sarawak" and isnum(r.get("rank_sarawak")):
                 lines.append(_rank_line("Sarawak", r.rank_sarawak, n_state, r.get("rank_sarawak_p05"), r.get("rank_sarawak_p95")))
             st.markdown(" ".join(lines) + " Rank 1 = largest gap. Ranges are the 5th–95th percentile rank across "
-                        "random index weightings.")
+                        "random weightings of the Need score (Connectivity Gap Index).")
         elif not r.get("has_boundary", True):
-            st.markdown("Not ranked: there is no map boundary for this district, so it has no Ookla speeds or Gap Index"
+            st.markdown("Not ranked: there is no map boundary for this district, so it has no Ookla speeds or Need score"
                         + (f". Its area, tests and rural schools are counted under **{host}**." if host else "."))
         else:
-            st.markdown("Not ranked: the Gap Index could not be computed for this district.")
+            st.markdown("Not ranked: the Need score could not be computed for this district.")
         flagged = r.get("small_sample_flag")
         if isnum(flagged) and bool(flagged):
             small_sample_banner(name, r.get("implied_sample_n"), r.get("internet_moe95_pp"))
@@ -440,7 +502,7 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
                          query_params={"district": name})
 
         # 2. What to do
-        st.markdown("**2. What to do (estimates)**")
+        st.markdown(f"**2. What to do (estimates)** {conf_badge('indicative')}", unsafe_allow_html=True)
         tk, sat, tw = (fixes.get(c) for c in ("takeup_gap", "satellite", "tower"))
         n = {c: int(f["n"]) if f is not None and isnum(f["n"]) else 0 for c, f in
              (("takeup_gap", tk), ("satellite", sat), ("tower", tw))}
@@ -487,8 +549,9 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
             else:
                 lo, hi = sorted([sum(f["cost_lite"] for f in fixes.values()), sum(f["cost_main"] for f in fixes.values())])
                 rng = fmt_rm(hi) if fmt_rm(lo) == fmt_rm(hi) else f"{fmt_rm(lo)}–{fmt_rm(hi)}, Lite to Residential plan"
-                items.append(f"- **Cost screen used in the rankings:** {rng} ({REF_COST}). Not a total of the "
-                             f"cards above: types A and C are not costed. {TOWER_WIDER}")
+                items.append(f"- **Reference cost** (tower or satellite only, used in the rankings): {rng}. Not a "
+                             f"total of the cards above: types A and C are not costed. Details in the Reference cost "
+                             f"tab below. {TOWER_WIDER}")
             st.markdown("\n".join(items))
 
         # 3. Check on the ground

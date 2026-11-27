@@ -1,6 +1,6 @@
-"""Sarawak map: 3D terrain with rural settlements by settlement type, or 3D district blocks (height = Gap Index).
+"""Sarawak map: 3D terrain with rural settlements by settlement type, or 3D district blocks (height = Need score).
 
-?district=<name> opens the map focused on that Sarawak district (used by District detail's "Show on map")."""
+?district=<name> opens the map focused on that Sarawak district (used by District profile's "Show on map")."""
 import math
 
 import pydeck as pdk
@@ -25,7 +25,7 @@ SARAWAK_VIEW = dict(latitude=2.55, longitude=112.85, zoom=6.05)            # Gap
 SARAWAK_TERRAIN_VIEW = dict(latitude=2.3, longitude=112.75, zoom=6.3)     # tilted terrain view
 TERRAIN_PITCH = 50
 MAP_HEIGHT = 560
-VIEWS = ["3D terrain", "Gap Index blocks"]
+VIEWS = ["3D terrain", "Need score blocks"]
 # District fills are draped on the terrain (rendered into a texture laid over the mesh). Keep every draped fill a
 # very faint accent blue, never white or pale: if a GPU/driver blends that texture's alpha wrongly, a light fill turns
 # into an opaque pale-grey/lavender patch in the district's shape, while a faint blue fill stays a faint blue.
@@ -61,17 +61,26 @@ qp_d = st.query_params.get("district")
 focus = qp_d if qp_d in set(d.district) else None
 tx = TERRAIN_X_DISTRICT if focus else TERRAIN_X  # exaggeration for this render
 
-ui.page("Sarawak: where the gap is deepest, and why it is hard to reach",
-        "Rural settlements on Sarawak's terrain, coloured by settlement type (candidate technologies, screening); or the districts as "
-        "blocks whose height is the Connectivity Gap Index.")
+_si = data.csv("dosm_hh_internet_state")
+_sy = int(_si["year"].max())
+_sr = _si[(_si.year == _sy) & (_si.state == "Sarawak") & (_si.indicator == "internet") & (_si.strata == "rural")]["pct"]
+_off = (100 - float(_sr.iloc[0])) / 100 if len(_sr) else float("nan")
+st.title(f"Rural Sarawak: {ui.about_one_in(_off)} homes offline" if ui.isnum(_off) else "Sarawak map")
+st.markdown(f"<div style='color:{ui.INK_2};margin-top:-0.6rem;display:flex;gap:10px;flex-wrap:wrap;align-items:center'>"
+            f"<span>Sarawak: where the gap is deepest, and why it is hard to reach"
+            + (f" ({100 * _off:.1f}% of rural households without internet, DOSM {_sy})" if ui.isnum(_off) else "")
+            + f"</span>{ui.conf_badge('solid')}</div>", unsafe_allow_html=True)
+st.markdown(f"<p style='color:{ui.INK_2}'>Rural settlements on Sarawak's terrain, coloured by settlement type (candidate "
+            "technologies, screening); or the districts as blocks whose height is the Need score.</p>",
+            unsafe_allow_html=True)
 
 # 3D terrain streams many map tiles; phones default to the lighter Gap Index view (switchable).
 ua = (st.context.headers.get("User-Agent") or "") if st.context.headers else ""
 mobile = any(k in ua for k in ("Mobi", "Android", "iPhone"))
 c1, c2 = st.columns([1, 2], vertical_alignment="bottom")
 view = c1.radio("Map", VIEWS, index=1 if mobile else 0, horizontal=True, key="sarawak_view",
-                help="3D terrain loads elevation and satellite tiles and needs a good connection. The Gap Index view "
-                     "is lighter." + (" Phones start on the Gap Index view." if mobile else ""))
+                help="3D terrain loads elevation and satellite tiles and needs a good connection. The Need score view "
+                     "is lighter." + (" Phones start on the Need score view." if mobile else ""))
 terrain = view == VIEWS[0]
 if not terrain:
     mode = c2.radio("Colour districts by",
@@ -114,7 +123,7 @@ else:
             legend += " &nbsp; " + swatch(ui.MUTED_LIGHT, "No rural school")
     legend += (" &nbsp;&nbsp; <span style='white-space:nowrap'><span style='display:inline-block;width:14px;"
                "height:14px;border:3px solid #0b0b0b;vertical-align:-3px;margin-right:5px'></span>Small-sample district "
-               "(low confidence)</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Height = Gap Index</span>")
+               "(low confidence)</span> &nbsp;&nbsp; <span style='white-space:nowrap'>Height = Need score</span>")
 st.markdown(f"<div style='font-size:0.88rem;color:{ui.INK_2};margin:4px 0 6px 0'>{legend}</div>", unsafe_allow_html=True)
 
 # Streamlit downloads its map code (deck.gl, ~3 MB) the first time a map appears in a browser session, e.g. after
@@ -153,12 +162,12 @@ for _, r in d.iterrows():
     small_r = is_small(r)
     need = ui.rank_range(r.rank_sarawak, r.rank_sarawak_p05, r.rank_sarawak_p95)
     access = (ui.fmt_pct(r.internet_pct)
-              + (f" (approx. ± {r.internet_moe95_pp:.1f} pp)" if small_r and ui.isnum(r.internet_moe95_pp) else ""))
+              + (f" (±{r.internet_moe95_pp:.0f} points, low confidence)" if small_r and ui.isnum(r.internet_moe95_pp) else ""))
     p = {"cgi": round(float(r.cgi), 3) if ui.isnum(r.cgi) else 0.0, "small": small_r,
          "focus": r.district == focus}
     if terrain:
         # tooltip fields are plain text (deck.gl escapes them); the markup lives in the tooltip template
-        p.update({"t0": f"{r.district} (district)", "t1": f"Gap Index {p['cgi']} · Sarawak need rank {need}",
+        p.update({"t0": f"{r.district} (district)", "t1": f"Need score {p['cgi']} · Sarawak need rank {need}",
                   "t2": f"Households online (DOSM {access_year}) {access}",
                   "t3": "Small sample: low confidence" if small_r else "", "t4": ""})
     else:
@@ -305,7 +314,7 @@ else:
                   get_elevation=f"properties.cgi * {MAX_BLOCK_M}", get_line_color=ui.hex_rgb(ui.ACCENT, 255),
                   line_width_min_pixels=4, pickable=False),
     ]
-    tooltip = {"html": "<b>{district}</b><br/>Gap Index {cgi} · need rank {need_rank}<br/>"
+    tooltip = {"html": "<b>{district}</b><br/>Need score {cgi} · need rank {need_rank}<br/>"
                        f"Households online (DOSM {access_year}) {{access}}<br/>Small sample: {{small_sample}}<br/>"
                        f"Mobile download (Ookla {quarter}) {{mobile}} · fixed tests per 1,000 residents {{fixed_reach}}<br/>"
                        "Median household income {income}<br/>Take-up-gap settlements {takeup}<br/>Colour: {fix_label}",
@@ -318,7 +327,7 @@ if terrain:  # the imagery licence asks for the credit on the map interface itse
     st.markdown(f"<div style='font-size:0.72rem;color:{ui.MUTED};margin-top:-0.6rem'>{tiles['imagery']['attribution']}"
                 f" · {tiles['elevation']['attribution']} · Boundaries {ui.OSM_CREDIT} (ODbL) · {ui.BASEMAP_CREDIT}<br/>"
                 "Map empty or partly grey? Terrain and imagery come from public tile servers and can be slow; wait a few "
-                "seconds, reload the page, or switch to Gap Index blocks.</div>", unsafe_allow_html=True)
+                "seconds, reload the page, or switch to Need score blocks.</div>", unsafe_allow_html=True)
 
 # --- the focused district (?district=, a click on the map, or picked here) can be opened in District detail
 by_need = d.sort_values("rank_sarawak").district.tolist()
@@ -335,7 +344,7 @@ def _focus_picked() -> None:
 choice = p1.selectbox("Click a district on the map, or pick one here to zoom to it (sorted by need, highest first)",
                       by_need, index=by_need.index(default) if default in by_need else 0, key=pick_key,
                       on_change=_focus_picked)
-if p2.button(f"Open {choice} in District detail", icon=":material/arrow_forward:", width="stretch"):
+if p2.button(f"Open {choice} in District profile", icon=":material/arrow_forward:", width="stretch"):
     ui.go_to_district(STATE, choice)
 
 weights_txt = ", ".join("{} {}".format(k_.replace("_", " "), v["weight"]) for k_, v in w.items())
@@ -350,9 +359,9 @@ if terrain:
              ui.TAKEUP_TXT],
             data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {access_year} · "
                  f"Ookla {quarter} · OpenStreetMap {data.osm_snapshot()} · config/costs.yaml · "
-                 f"{tiles['imagery']['name']} · Terrain Tiles")
+                 f"{tiles['imagery']['name']} · Terrain Tiles", conf="indicative")
 else:
-    ui.what([f"Each Sarawak district in 3D: height = Connectivity Gap Index (0 = best, 1 = worst nationally; "
+    ui.what([f"Each Sarawak district in 3D: height = Need score (Connectivity Gap Index; 0 = best, 1 = worst nationally; "
              f"weights {weights_txt}).",
              ("Colour = the group holding most of the district's rural people without home internet: take-up gap "
               "(fixed network likely nearby, a proxy), or settlements screened for a tower or satellite."
@@ -361,13 +370,14 @@ else:
               "of the school, a proxy), where take-up support may come first; darker = larger share."),
              ui.TAKEUP_TXT,
              f"Thick outlines = small {ui.INFERRED_N} (our estimate, not a DOSM figure)."],
-            data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · Census 2020 · MOE school list, June 2022")
+            data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · Census 2020 · MOE school list, June 2022",
+            conf="indicative")
 ui.caveat()
 
 if len(no_boundary):
     st.markdown("**Districts with no boundary** (not on the map): " + "; ".join(
         f"{r.district}: {ui.fmt_pct(r.internet_2025)} of households online (DOSM {access_year})"
-        + (f", approx. ± {r.internet_moe95_pp_2025:.1f} pp" if ui.isnum(r.internet_moe95_pp_2025) else "")
+        + (f" (±{r.internet_moe95_pp_2025:.0f} points)" if ui.isnum(r.internet_moe95_pp_2025) else "")
         for r in no_boundary.itertuples())
         + ". No official or open boundary exists yet; its area is drawn inside its neighbour.")
 
@@ -381,7 +391,7 @@ with st.expander("Table view"):
     # fixed tests per 1,000 people and income are in the district tooltip and on District detail
     ui.table(tv, [
         ("district", "District", None),
-        ("cgi", "Gap Index", ".3f", "Connectivity Gap Index, 0 = best, 1 = worst nationally"),
+        ("cgi", "Need score", ".3f", ui.NEED_TECH),
         ("need", "Need rank", lambda v: v, "Sarawak need rank (5th–95th percentile range over random index weightings)"),
         ("internet_pct", "Online (%)", ".1f", f"Households with internet access, DOSM ICTHS {access_year} (%)"),
         ("moe_small", "± MOE (pp)", ".1f", "Approximate margin of error (simple random-sampling formula), our estimate; "
@@ -389,9 +399,10 @@ with st.expander("Table view"):
         ("mb_dl_mbps", "Mobile (Mbps)", ".1f", f"Mobile download speed, Ookla {quarter}, test-weighted mean (Mbps)"),
         ("takeup_pct", "Take-up (%)", ".0f", "Share of rural settlements where our proxy suggests a fixed network is "
                                              "likely nearby (take-up gap)"),
-        ("fix", "Main fix", None, "Fix serving most rural people without home internet among planned settlements"),
+        ("fix", "Cost-screen fix", None, "Tower or satellite fix serving most rural people without home internet "
+                                         "among planned settlements (reference cost screen)"),
     ], download="beyond_coverage_sarawak_districts.csv", notes=[
-        "Beyond Coverage: Sarawak districts on the map, sorted by need (Connectivity Gap Index).",
+        "Beyond Coverage: Sarawak districts on the map, sorted by need (Need score = Connectivity Gap Index).",
         "Need rank range: 5th-95th percentile over 1,000 random index weightings. MOE (pp): our approximate margin of "
         "error (simple random-sampling formula), shown only for small-sample districts; not a DOSM figure.",
         "Take-up (%) and main fix are ESTIMATES from our cost screen (take-up = an Ookla fixed tile within 2 km, a proxy).",
@@ -400,10 +411,11 @@ with st.expander("Table view"):
     ])
     ui.what("All Sarawak districts on the map, sorted by need. Need rank range: 5th–95th percentile over random "
             "index weightings. Margin of error: our approximate estimate, shown only for small-sample districts.",
-            data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · costing (Census 2020, MOE list June 2022)")
+            data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · costing (Census 2020, MOE list June 2022)",
+            conf="indicative")
 
-ui.next_step("views/5_Priorities.py", "Priorities",
-             "compare every district on need and on estimated beneficiaries per RM1m.")
+ui.next_step("views/4_District_detail.py", "District profile",
+             "open one district: what to do first, its settlements, households, Need score and reference cost.")
 ui.footer([
     f"DOSM ICTHS {access_year}, Table 3.1 (household access by district); {ui.INFERRED_N} and {ui.MOE_TXT} are our "
     "estimates (see Method)",

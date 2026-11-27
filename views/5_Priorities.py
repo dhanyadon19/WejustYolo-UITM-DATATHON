@@ -1,4 +1,4 @@
-"""Priorities: need rank vs estimated-beneficiaries-per-RM1m rank."""
+"""Where to invest: the one headline reference cost, need rank vs people reached per RM1m, ranks, budget planner."""
 import math
 
 import numpy as np
@@ -7,17 +7,44 @@ import streamlit as st
 
 from app_utils import data, ui
 
-st.set_page_config(page_title="Priorities · Beyond Coverage", layout="wide")
+st.set_page_config(page_title="Where to invest · Beyond Coverage", layout="wide")
 
 dt = data.district_table()
 quarter = dt["ookla_quarter"].dropna().iloc[0]
 access_year = int(dt["access_year"].dropna().iloc[0])
 DATA = f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · Census 2020 · MOE school list, June 2022 · config/costs.yaml"
 
-ui.page("Priorities",
-        "Need (Gap Index) vs estimated beneficiaries per RM1m: where is the gap deepest, and where would each ringgit "
-        "reach the most people? Ranks come with ranges because "
-        "the inputs are uncertain.")
+ui.page("Where to invest",
+        "Need score first (where the gap is deepest), then people reached per RM1m (where each ringgit reaches the most "
+        "people). Ranks come with ranges because the inputs are uncertain.")
+
+# --- the ONE headline cost, shown once, with its range; every other case is a sensitivity (all read from data)
+co = data.csv("costing_districts")
+ref, lite, m30, p30 = (co[c].sum() for c in ("cost_main_rm", "cost_lite_rm", "cost_cost_minus30_rm", "cost_cost_plus30_rm"))
+ref_lo, ref_hi = min(lite, m30), max(p30, ref)
+
+
+def bn(v):
+    return f"{v / 1e9:,.2f}"
+
+
+with st.container(border=True):
+    st.markdown(f"<div style='font-size:0.9rem;color:{ui.INK_2}'>Reference cost, all Malaysia, five years "
+                f"{ui.conf_badge('indicative')}</div>"
+                f"<div style='font-size:2rem;font-weight:600;color:{ui.INK};line-height:1.3'>RM{bn(ref)}bn "
+                f"<span style='font-size:1.1rem;font-weight:500;color:{ui.INK_2}'>(RM{bn(ref_lo)}–{bn(ref_hi)}bn)</span></div>"
+                f"<div style='font-size:0.88rem;color:{ui.INK_2}'>Reference: if every settlement without a nearby network "
+                "were served by towers or satellite only. Not a total across settlement types: take-up support (A) and "
+                "small cells or community Wi-Fi (C) are not costed.</div>", unsafe_allow_html=True)
+    with st.expander("Range and sensitivity cases"):
+        sens = [("Range low: Lite satellite plan (sensitivity)", lite), ("All costs −30% (sensitivity)", m30),
+                ("All costs +30% (sensitivity): range high", p30),
+                ("Tower test on all households (sensitivity)", co["cost_rule_all_hh_rm"].sum()),
+                ("Upper bound: adds a fibre PoP per take-up settlement (sensitivity, not a recommendation)",
+                 co["cost_upper_bound_rm"].sum())]
+        st.markdown("\n".join(f"- {k}: {ui.fmt_rm(v)}" for k, v in sens))
+        st.caption("The range runs from the lowest of the Lite plan and −30% cases to the +30% case. Method & "
+                   "limitations, section 4, explains each case.")
 
 c1, c2 = st.columns(2)
 scope = c1.radio("Compare districts in", ["Sarawak", "All Malaysia"], horizontal=True, key="prio_scope")
@@ -40,6 +67,10 @@ d["ben_rank"] = d[f"br_{case}"].astype(int)
 d["ben_lo"] = d[["br_main", "br_lite", "br_upper_bound"]].min(axis=1).astype(int)
 d["ben_hi"] = d[["br_main", "br_lite", "br_upper_bound"]].max(axis=1).astype(int)
 n = len(d)
+first = d.sort_values("need_rank").iloc[0]
+ui.finding(f"{first.district} has the highest need {'in Sarawak' if scope == 'Sarawak' else 'nationally'} "
+           f"(rank 1, range {ui.range_text(first[p05], first[p95])})",
+           f"Need score vs people reached per RM1m (estimates), {n} districts with costed settlements", conf="indicative")
 
 fig = go.Figure()
 size = d["planned_people_without_internet"]
@@ -55,8 +86,8 @@ for cat in ["tower", "satellite"]:
         customdata=np.stack([s.district, s.state, s.planned_people_without_internet, s[f"people_per_rm_m_{case}"],
                              s[f"cost_{case}_rm"] / 1e6, s[p05], s[p95], s.ben_lo, s.ben_hi,
                              np.where(s.small_sample_flag, "yes (low confidence)", "no")], axis=-1),
-        hovertemplate="<b>%{customdata[0]}</b>, %{customdata[1]}<br>Need rank %{x} (weighting range %{customdata[5]:.0f}–%{customdata[6]:.0f})"
-                      "<br>Beneficiaries-per-RM1m rank %{y} (range across cost cases %{customdata[7]}–%{customdata[8]})"
+        hovertemplate="<b>%{customdata[0]}</b>, %{customdata[1]}<br>Need rank %{x} (range %{customdata[5]:.0f}–%{customdata[6]:.0f})"
+                      "<br>People-reached-per-RM1m rank %{y} (range %{customdata[7]}–%{customdata[8]})"
                       "<br>%{customdata[2]:,.0f} rural people reached · %{customdata[3]:,.0f} per RM1m (estimate)"
                       "<br>5-year cost RM%{customdata[4]:,.1f}m (estimate)<br>Small sample: %{customdata[9]}<extra></extra>"))
 # label the five districts highest on both axes, right next to their bubble (no leader lines)
@@ -82,8 +113,8 @@ step = 5 if n <= 60 else 20
 ticks = [1] + list(range(step, n + 1, step))  # no rank-0 tick in the padding
 fig.update_xaxes(tickvals=ticks)
 fig.update_yaxes(tickvals=ticks)
-fig.update_xaxes(title="Need rank (1 = largest gap)  → higher need", range=[n + 1.5, 1 - pad], zeroline=False)
-fig.update_yaxes(title="Estimated beneficiaries per RM1m, rank (1 = most)  → more", range=[n + 1.5, 1 - pad], zeroline=False)
+fig.update_xaxes(title="Need score rank (1 = largest gap)  → higher need", range=[n + 1.5, 1 - pad], zeroline=False)
+fig.update_yaxes(title="People reached per RM1m, rank (1 = most, estimate)  → more", range=[n + 1.5, 1 - pad], zeroline=False)
 ev = st.plotly_chart(fig, width="stretch", on_select="rerun", selection_mode="points", key="prio_chart")
 try:
     pts = ev.selection["points"]
@@ -91,17 +122,17 @@ try:
 except (AttributeError, KeyError, TypeError, IndexError):
     sel = None
 if sel is not None:
-    if st.button(f"Open {sel[0]} ({sel[1]}) in District detail", icon=":material/arrow_forward:"):
+    if st.button(f"Open {sel[0]} ({sel[1]}) in District profile", icon=":material/arrow_forward:"):
         ui.go_to_district(sel[1], sel[0])
 ui.what([f"Each bubble is a district ({'Sarawak' if scope == 'Sarawak' else 'all Malaysia'}, {n} with costed "
          "settlements). Click one to open it.",
-         "Right = higher need (Gap Index). Top = more estimated beneficiaries per RM1m (rural people without home "
-         "internet reached per RM1m of five-year infrastructure cost).",
+         "Right = higher need (Need score, the Connectivity Gap Index). Top = more people reached per RM1m (estimated "
+         "beneficiaries: rural people without home internet reached per RM1m of five-year infrastructure cost).",
          "Top-right = high need and many people reached per RM1m. Bottom-right = high need but costly per person: "
          "check the Lite plan and the district's take-up share.",
          "Size = rural people reached; colour = main fix; labels = the five districts highest on both.",
          "Settlements with a fixed network likely nearby (take-up gap) are not costed here."],
-        data=DATA)
+        data=DATA, conf="indicative")
 ui.caveat()
 
 # The beneficiaries-per-RM1m values sit close together, so this rank is secondary to need.
@@ -114,7 +145,7 @@ where = f"{'Sarawak' if scope == 'Sarawak' else 'all Malaysia'}, {'Residential' 
 pts = []
 if len(top):
     close = top.max() <= 1.5 * top.min()  # 'close' = top value within 1.5x of the 15th
-    pts.append(f"Satellite-only districts: estimated beneficiaries per RM1m {'are close together' if close else 'vary'} "
+    pts.append(f"Satellite-only districts: people reached per RM1m {'are close together' if close else 'vary'} "
                f"(top {len(top)}: {top.min():,.0f} to {top.max():,.0f} per RM1m, {where}).")
 if len(has_tower):
     nm = sorted(has_tower["district"])
@@ -124,10 +155,13 @@ if len(has_tower):
                "many people for one fixed cost.")
 pts.append("With satellite, cost grows with every household, so small rank differences mean little: use this rank to "
            "spot districts that cost much more per person, not to order districts.")
-st.markdown("**Need (Gap Index) is the main ranking.**\n" + "".join(f"\n- {t}" for t in pts))
+st.markdown("**The Need score is the main ranking.**\n" + "".join(f"\n- {t}" for t in pts))
 
-st.subheader("Ranks with ranges")
 tbl = d.sort_values(["need_rank"]).copy()
+top3 = tbl.head(3)
+ui.finding("Highest need: " + ", ".join(f"{x['district']} (rank {int(x['need_rank'])}, range "
+                                         f"{ui.range_text(x[p05], x[p95])})" for _, x in top3.iterrows()),
+           "Ranks with ranges", conf="indicative")
 tbl["need"] = [ui.rank_short(r, a, b) for r, a, b in zip(tbl.need_rank, tbl[p05], tbl[p95])]
 tbl["ben"] = [ui.rank_short(r, a, b) for r, a, b in zip(tbl.ben_rank, tbl.ben_lo, tbl.ben_hi)]
 tbl["cost_m"] = tbl[f"cost_{case}_rm"] / 1e6
@@ -137,20 +171,20 @@ tbl["small"] = ["Yes" if ui.isnum(v) and bool(v) else "No" for v in tbl.small_sa
 # pupils per RM1m stays on District detail; the table keeps the columns needed to compare districts
 ui.table(tbl, [("district", "District", None)] + ([("state", "State", None)] if scope == "All Malaysia" else []) + [
     ("need", "Need rank", lambda v: v, "Need rank (5th–95th percentile range over random index weightings)"),
-    ("ben", "Per RM1m rank", lambda v: v, "Estimated-beneficiaries-per-RM1m rank (range across the Residential, Lite "
-                                          "and upper-bound cost cases)"),
-    (f"people_per_rm_m_{case}", "Per RM1m", ",.0f", "Estimated beneficiaries per RM1m: rural people without home "
-                                                    "internet in planned settlements per RM1m of five-year cost"),
-    ("cost_m", "Cost (RM m)", ",.1f", "Estimated five-year infrastructure cost, RM million"),
+    ("ben", "Per RM1m rank", lambda v: v, "People-reached-per-RM1m rank (estimated beneficiaries per RM1m; range "
+                                          "across the Residential, Lite and upper-bound cost cases)"),
+    (f"people_per_rm_m_{case}", "Per RM1m", ",.0f", "People reached per RM1m (estimated beneficiaries): rural people "
+                                                    "without home internet in planned settlements per RM1m of five-year cost"),
+    ("cost_m", "Ref. cost (RM m)", ",.1f", "Reference cost: estimated five-year tower or satellite cost, RM million"),
     ("planned_people_without_internet", "People reached", ",.0f", "Estimated rural people without home internet in "
                                                                   "planned (tower or satellite) settlements"),
     ("takeup_pct", "Take-up (%)", ".0f", "Share of rural settlements where our proxy suggests a fixed network is "
                                          "likely nearby (take-up gap)"),
-    ("fix", "Main fix", None),
+    ("fix", "Cost-screen fix", None),
     ("small", "Small sample", None, "Yes = DOSM estimate rests on a small inferred sample: low confidence"),
 ], download=f"beyond_coverage_priorities_{ui.slug(scope)}_{'residential' if case == 'main' else 'lite'}.csv", notes=[
     f"Beyond Coverage: need and estimated beneficiaries per RM1m, {where}.",
-    "Need (Gap Index) is the main ranking. Need rank range: 5th-95th percentile over 1,000 random index weightings; "
+    "Need score (Connectivity Gap Index) is the main ranking. Need rank range: 5th-95th percentile over 1,000 random index weightings; "
     "per-RM1m rank range: lowest-highest across the Residential, Lite and upper-bound cost cases.",
     "ESTIMATES ONLY: costs, people reached and per-RM1m figures come from a cost screen, not a full cost-benefit "
     "comparison. Settlements with a fixed network likely nearby (proxy) are a take-up gap and are not costed.",
@@ -170,10 +204,10 @@ ui.what("Need rank range: 5th–95th percentile rank over 1,000 random index wei
         "highest rank across the Residential, Lite and upper-bound cost cases (scaling all costs ±30% leaves ranks "
         "unchanged). Small-sample districts carry extra uncertainty from their approximate margin of error."
         + (f" Not shown ({len(excluded)}): {why_txt}." if len(excluded) else ""),
-        data=DATA)
+        data=DATA, conf="indicative")
 
 # --- budget planner: fund districts in need order (not by beneficiaries per RM1m, which are close together)
-st.subheader("Budget planner")
+bp_head = st.empty()  # finding title, filled once the budget is known
 st.markdown("**Screening tool: estimates only, not a funding recommendation.**")
 q = data.funding_queue(scope, case)
 cl_scope = cl if scope == "All Malaysia" else cl[cl.state == "Sarawak"]
@@ -186,10 +220,10 @@ else:
     top = math.ceil(total_m / step) * step  # slider end: the full planned cost, rounded up to the step
     budget_m = st.slider(f"Five-year budget, RM million ({where})", 0.0, top, value=round(top / 2 / step) * step,
                          step=step, format="RM%.1fm", key=f"budget_{scope}_{case}",
-                         help=f"Up to {ui.fmt_rm(q['cost'].sum())}, the estimated five-year cost of every planned tower "
-                              f"and satellite settlement in this selection ({ui.REF_COST}).")
-    st.caption(f"Slider maximum {ui.fmt_rm(q['cost'].sum())}: {ui.REF_COST}. Types A (take-up) and C (small cell or "
-               "community Wi-Fi) are not costed, so this is not a total across settlement types.")
+                         help="Up to the estimated five-year cost of every planned tower and satellite settlement in "
+                              "this selection.")
+    st.caption("Slider maximum: the reference cost of every planned tower and satellite settlement in this selection. "
+               "Types A (take-up) and C (small cell or community Wi-Fi) are not costed.")
     budget = budget_m * 1e6
     # fund in order and stop at the first settlement the rest of the budget cannot cover, so need order is kept
     funded = q[q["cum_cost"] <= budget + 0.5]
@@ -202,6 +236,10 @@ else:
     full = per_d[per_d.n_f == per_d.n]
     part = per_d[(per_d.n_f > 0) & (per_d.n_f < per_d.n)]
     used, reached = funded["cost"].sum(), funded["people"].sum()
+    with bp_head.container():
+        ui.finding(f"A {ui.fmt_rm(budget)} budget funds {len(full):,} district{'' if len(full) == 1 else 's'} fully and reaches "
+                   f"an estimated {reached:,.0f} people" if len(funded) else f"A {ui.fmt_rm(budget)} budget funds no settlement yet",
+                   "Budget planner: districts funded in order of need", conf="indicative")
     m1, m2, m3 = st.columns(3)
     m1.metric("Budget used", ui.fmt_rm(used), help=f"Of {ui.fmt_rm(budget)} chosen; the rest cannot fund the next "
                                                   "settlement in line.")
@@ -227,7 +265,7 @@ else:
         fd["cost_m"] = fd.cost_f / 1e6
         with st.expander(f"Funded districts ({len(fd):,})", expanded=len(fd) <= 12):
             ui.table(fd, [("district", "District", None)] + ([("state", "State", None)] if scope == "All Malaysia" else [])
-                     + [("need_rank", "Need rank", ".0f", "Gap Index rank, 1 = highest need" + (" in Sarawak" if scope == "Sarawak" else " nationally")),
+                     + [("need_rank", "Need rank", ".0f", "Need score rank, 1 = highest need" + (" in Sarawak" if scope == "Sarawak" else " nationally")),
                         ("sett", "Settlements", lambda v: v, "Funded of planned (tower or satellite) settlements"),
                         ("people_f", "People reached", ",.0f", "Estimated rural people without home internet in "
                                                                "the funded settlements"),
@@ -237,23 +275,23 @@ else:
                      download=f"beyond_coverage_budget_{ui.slug(scope)}_{'residential' if case == 'main' else 'lite'}.csv",
                      notes=[f"Beyond Coverage budget planner, {where}, budget RM{budget_m:.1f}m. SCREENING TOOL: "
                             "estimates only, not a funding recommendation.",
-                            "Order: districts by need (Gap Index rank), within a district cheapest cost per person "
+                            "Order: districts by need (Need score rank), within a district cheapest cost per person "
                             "first; stops at the first settlement the budget cannot cover. Take-up-gap settlements "
                             "(fixed network likely nearby, proxy) are not in this budget.",
                             f"Data: {DATA}."])
-    ui.what(["Funds districts by need (Gap Index rank, highest first); within a district, the cheapest tower or "
+    ui.what(["Funds districts by need (Need score rank, highest first); within a district, the cheapest tower or "
              "satellite settlements per person first.",
              "Stops at the first settlement the remaining budget cannot cover, so a lower-need district is never "
              "funded ahead of a higher-need one.",
              "Not ordered by estimated beneficiaries per RM1m: those values are close together.",
              "Take-up-gap settlements (fixed network likely nearby, our proxy) are not in this budget. " + ui.TAKEUP_TXT],
-            data=DATA)
+            data=DATA, conf="indicative")
     ui.caveat()
 
 ui.next_step("views/6_Method.py", "Method & limitations",
              "how the index and costs are built, and how sure we are.")
 ui.footer([
-    f"Need: Connectivity Gap Index (DOSM ICTHS {access_year}, Ookla {quarter}, OpenDOSM income and population); see Method",
-    "Estimated beneficiaries per RM1m: costing on rural MOE schools (June 2022) and DOSM Census 2020; costs from "
+    f"Need score: Connectivity Gap Index (DOSM ICTHS {access_year}, Ookla {quarter}, OpenDOSM income and population); see Method",
+    "People reached per RM1m (estimated beneficiaries per RM1m): costing on rural MOE schools (June 2022) and DOSM Census 2020; costs from "
     "config/costs.yaml (estimates)",
 ])
