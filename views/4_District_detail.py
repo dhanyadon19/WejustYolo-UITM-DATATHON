@@ -48,6 +48,7 @@ ui.action_plan(
     sources=f"DOSM ICTHS {access_year} · Ookla {quarter} · Census {cyear if cyear else ui.DASH} · MOE school list, "
             f"June 2022 · OpenStreetMap {data.osm_snapshot()} · Terrain Tiles · config/costs.yaml",
     on_host_click=ui.go_to_district, types=data.district_types(state, district))
+ui.conf_legend()
 
 # --- download: the action plan, one row per rural settlement (estimates, with their sources in the file)
 sett = data.district_settlements(state, district)
@@ -111,7 +112,7 @@ tab_hh.__enter__()
 v25, m25 = r.internet_2025, r.internet_moe95_pp_2025
 ui.finding(f"{district}: {ui.est_pct(v25, m25 if small else None)} of households online in {access_year}"
            if ui.isnum(v25) else f"{district}: no DOSM household access figure",
-           "Households with internet, DOSM 2024 and 2025", conf="low" if small else "solid", level=4)
+           "Households with internet, DOSM 2024 and 2025", level=4)
 if not (ui.isnum(r.internet_2024) or ui.isnum(r.internet_2025)):
     ui.fallback("No DOSM household access figure for this district.")
 else:
@@ -142,12 +143,12 @@ ui.what(["Share of households with internet access (DOSM ICTHS Table 3.1).",
          "Error bars = our approximate 95% margin of error (simple random-sampling formula, inferred sample size), "
          "shown only where the sample is small.",
          "DOSM does not publish these margins: they are our estimates."],
-        data="DOSM ICTHS 2024 and 2025, Table 3.1", conf="low" if small else "solid")
+        data="DOSM ICTHS 2024 and 2025, Table 3.1")
 
 # --- 2. Speeds
 ui.finding((f"Mobile download averages {r.mb_dl_mbps:.0f} Mbps" if ui.isnum(r.mb_dl_mbps) else "No mobile speed tests")
            + (f"; fixed {r.fx_dl_mbps:.0f} Mbps where homes have it" if ui.isnum(r.fx_dl_mbps) else ""),
-           f"Measured speeds (Ookla, {quarter}): user-run tests", conf="indicative", level=4)
+           f"Measured speeds (Ookla, {quarter}): user-run tests", level=4)
 if not ui.isnum(r.mb_dl_mbps) and not ui.isnum(r.fx_dl_mbps):
     ui.fallback("No Ookla speeds: no map boundary" + (f" (its tests are counted under {host})." if host else ".")
                 if not r.has_boundary else "No Ookla tests were assigned to this district.")
@@ -170,13 +171,13 @@ else:
         notes.append(f"only {ui.fmt_int(r.mb_tests)} mobile tests (low sample)")
     ui.what("Speeds from user-run Speedtest results in the district. Fixed speeds come only from homes that already "
             "have fixed broadband, so a fast fixed speed does not mean wide coverage." + (" Note: " + "; ".join(notes) + "." if notes else ""),
-            data=f"Ookla {quarter}; population 2026", conf="indicative")
+            data=f"Ookla {quarter}; population 2026")
 
 # --- 3. Context
 ui.finding((f"Median household income RM{r.income_median:,.0f} a month" if ui.isnum(r.income_median) else "Context")
            + (f"; an estimated {r.people_without_home_internet:,.0f} people without home internet"
               if ui.isnum(r.people_without_home_internet) else ""),
-           "Context: income, electricity, population, pupils", conf="solid", level=4)
+           "Context: income, electricity, population, pupils", level=4)
 
 
 def yr(v) -> str:
@@ -199,7 +200,7 @@ ctx_sources = [f"HIES {int(r.income_year)}" if ui.isnum(r.income_year) else "",
                f"population {int(r.population_year)}" if ui.isnum(r.population_year) else "",
                "MOE school list, June 2022", f"DOSM ICTHS {access_year}"]
 ui.what("Background indicators for the district. People without home internet is our estimate (population × "
-        "share of households offline).", data=" · ".join(s for s in ctx_sources if s), conf="solid")
+        "share of households offline).", data=" · ".join(s for s in ctx_sources if s))
 tab_hh.__exit__(None, None, None)
 
 # --- Need score (Connectivity Gap Index)
@@ -207,7 +208,7 @@ tab_need.__enter__()
 if ui.isnum(r.rank_national):
     ui.finding(f"{district} ranks {int(r.rank_national)} of {n_indexed} nationally on need "
                f"(range {ui.range_text(r.rank_national_dirichlet_p05, r.rank_national_dirichlet_p95)})",
-               "Need score (Connectivity Gap Index): four indicators, weighted", conf="low" if small else "indicative",
+               "Need score (Connectivity Gap Index): four indicators, weighted",
                level=4)
 if not r.indexed:
     ui.fallback("No Need score: without a map boundary there are no Ookla indicators for this district.")
@@ -237,7 +238,7 @@ else:
         fig.update_yaxes(autorange="reversed")
         st.plotly_chart(fig, width="stretch")
         ui.what("The four indicators behind the Need score (Connectivity Gap Index), each scaled 0–1 across all "
-                "districts (1 = worst), with the weight each carries.", conf="low" if small else "indicative",
+                "districts (1 = worst), with the weight each carries.",
                 data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES {ui.fmt_int(r.income_year).replace(',', '')} · "
                      f"population {ui.fmt_int(r.population_year).replace(',', '')}")
 
@@ -249,10 +250,9 @@ if ui.isnum(r.cost_main_rm) and r.cost_main_rm > 0:
     lo_c, hi_c = sorted([r.cost_lite_rm, r.cost_main_rm])
     ui.finding(f"Reference cost for {district}: {ui.fmt_rm(lo_c)}–{ui.fmt_rm(hi_c)} over five years"
                if ui.fmt_rm(lo_c) != ui.fmt_rm(hi_c) else f"Reference cost for {district}: {ui.fmt_rm(hi_c)} over five years",
-               f"Cost screen used in the rankings: {ui.REF_COST}", conf="indicative", level=4)
+               f"Cost screen used in the rankings: {ui.REF_COST}", level=4)
 else:
-    ui.finding(f"No reference cost for {district}", f"Cost screen used in the rankings: {ui.REF_COST}",
-               conf="indicative", level=4)
+    ui.finding(f"No reference cost for {district}", f"Cost screen used in the rankings: {ui.REF_COST}", level=4)
 if not r.has_boundary:
     ui.fallback("No settlements costed: no map boundary" + (f" (its rural schools are counted under {host})." if host else "."))
 elif not ui.isnum(r.rural_settlements):
@@ -287,8 +287,7 @@ else:
              "The rest get a tower if enough households without home internet make it cheaper than satellite over "
              "five years; otherwise satellite.",
              "All costs are estimates. " + ui.TAKEUP_TXT],
-            data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {access_year} · Ookla {quarter} · config/costs.yaml",
-            conf="indicative")
+            data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {access_year} · Ookla {quarter} · config/costs.yaml")
     ui.caveat()
 tab_cost.__exit__(None, None, None)
 
@@ -302,7 +301,7 @@ if not len(at_d):
 else:
     n_ex = int(at_d.settlement_type.isin(["A", "E"]).sum())
     ui.finding(f"{district}: {n_ex:,} of {len(at_d):,} rural settlements could use existing networks (types A and E)",
-               f"Settlements in {district} ({len(at_d):,}), one per rural MOE school", conf="indicative", level=4)
+               f"Settlements in {district} ({len(at_d):,}), one per rural MOE school", level=4)
     MQ = {"good": "Good", "weak": "Weak", "few_tests": "Too few tests", "no_tests": "No tests"}
     tb = pd.DataFrame({
         "School": [ui.school_short(n) for n in at_d.school_name],
@@ -347,7 +346,7 @@ else:
              "and people offline is an estimate.",
              "Mobile signal combines all Ookla tiles within 2 km and is judged only with at least 20 tests."],
             data=f"MOE school list, June 2022 · DOSM ICTHS {access_year} · Ookla {quarter} · "
-                 f"OpenStreetMap {data.osm_snapshot()} · Terrain Tiles", conf="indicative")
+                 f"OpenStreetMap {data.osm_snapshot()} · Terrain Tiles")
 tab_set.__exit__(None, None, None)
 
 ui.next_step("views/5_Priorities.py", "Where to invest",
