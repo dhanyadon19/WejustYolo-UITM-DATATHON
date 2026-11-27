@@ -69,7 +69,7 @@ st.title(f"Rural Sarawak: {ui.about_one_in(_off)} homes offline" if ui.isnum(_of
 st.markdown(f"<div style='color:{ui.INK_2};margin-top:-0.6rem;display:flex;gap:10px;flex-wrap:wrap;align-items:center'>"
             f"<span>Sarawak: where the gap is deepest, and why it is hard to reach"
             + (f" ({100 * _off:.1f}% of rural households without internet, DOSM {_sy})" if ui.isnum(_off) else "")
-            + f"</span>{ui.conf_badge('solid')}</div>", unsafe_allow_html=True)
+            + "</span></div>", unsafe_allow_html=True)
 st.markdown(f"<p style='color:{ui.INK_2}'>Rural settlements on Sarawak's terrain, coloured by settlement type (candidate "
             "technologies, screening); or the districts as blocks whose height is the Need score.</p>",
             unsafe_allow_html=True)
@@ -169,7 +169,10 @@ for _, r in d.iterrows():
         # tooltip fields are plain text (deck.gl escapes them); the markup lives in the tooltip template
         p.update({"t0": f"{r.district} (district)", "t1": f"Need score {p['cgi']} · Sarawak need rank {need}",
                   "t2": f"Households online (DOSM {access_year}) {access}",
-                  "t3": "Small sample: low confidence" if small_r else "", "t4": ""})
+                  "t3": "Small sample: low confidence" if small_r else ""})
+        # districts share the tooltip template with the settlements: every field it names must exist (empty here),
+        # or deck.gl prints the raw placeholder; empty fields sit in <div>s, which collapse
+        p.update({f"t{i}": "" for i in range(4, 8)})
     else:
         if key == "largest_group":
             cat = r[key] if isinstance(r[key], str) else None
@@ -296,7 +299,8 @@ if terrain:
                   extensions=terrain_ext, terrain_draw_mode=S("offset"), billboard=True,
                   parameters={"depthCompare": "always", "depthWriteEnabled": False}),
     ]
-    tooltip = {"html": "<b>{t0}</b><br/><b>{t1}</b><br/>{t2}<br/>{t3}<br/>{t4}<br/>{t5}<br/>{t6}<br/>{t7}", "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
+    tooltip = {"html": "<div><b>{t0}</b></div><div><b>{t1}</b></div>"
+                       + "".join(f"<div>{{t{i}}}</div>" for i in range(2, 8)), "style": {"backgroundColor": "white", "color": ui.INK, "fontSize": "12px"}}
     # dark, label-free basemap under the terrain: if the terrain is slow or fails, the box is dark, not Streamlit's
     # default light basemap (which looked like an empty white map)
     deck = pdk.Deck(layers=layers, initial_view_state=VIEW, map_style=pdk.map_styles.CARTO_DARK_NO_LABELS,
@@ -359,7 +363,7 @@ if terrain:
              ui.TAKEUP_TXT],
             data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {access_year} · "
                  f"Ookla {quarter} · OpenStreetMap {data.osm_snapshot()} · config/costs.yaml · "
-                 f"{tiles['imagery']['name']} · Terrain Tiles", conf="indicative")
+                 f"{tiles['imagery']['name']} · Terrain Tiles")
 else:
     ui.what([f"Each Sarawak district in 3D: height = Need score (Connectivity Gap Index; 0 = best, 1 = worst nationally; "
              f"weights {weights_txt}).",
@@ -370,8 +374,7 @@ else:
               "of the school, a proxy), where take-up support may come first; darker = larger share."),
              ui.TAKEUP_TXT,
              f"Thick outlines = small {ui.INFERRED_N} (our estimate, not a DOSM figure)."],
-            data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · Census 2020 · MOE school list, June 2022",
-            conf="indicative")
+            data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · Census 2020 · MOE school list, June 2022")
 ui.caveat()
 
 if len(no_boundary):
@@ -386,8 +389,12 @@ with st.expander("Table view"):
     tv["need"] = [ui.rank_short(r, a, b) for r, a, b in zip(tv.rank_sarawak, tv.rank_sarawak_p05, tv.rank_sarawak_p95)]
     # margin of error only where the sample is small (elsewhere DOSM's figure has no inferred margin)
     tv["moe_small"] = tv.internet_moe95_pp.where(tv.small_sample_flag.fillna(False).astype(bool))
-    tv["takeup_pct"] = 100 * tv.share_settlements_takeup_gap
-    tv["fix"] = tv.main_fix.map(ui.FIX_LABELS)
+    # settlement types (proxy-based), not the tower-vs-satellite cost screen: that lives in District profile
+    # (Reference cost tab) and on Where to invest
+    tv = tv.merge(data.district_type_mix(), on=["state", "district"], how="left")
+    tv["top_type_txt"] = [f"{t}. {lab} ({100 * sh:.0f}%)" if isinstance(t, str) else ui.DASH
+                          for t, lab, sh in zip(tv.top_type, tv.top_type_label, tv.top_share)]
+    tv["servable_pct"] = 100 * tv.servable_share
     # fixed tests per 1,000 people and income are in the district tooltip and on District detail
     ui.table(tv, [
         ("district", "District", None),
@@ -397,22 +404,24 @@ with st.expander("Table view"):
         ("moe_small", "± MOE (pp)", ".1f", "Approximate margin of error (simple random-sampling formula), our estimate; "
                                            "shown only for small-sample districts"),
         ("mb_dl_mbps", "Mobile (Mbps)", ".1f", f"Mobile download speed, Ookla {quarter}, test-weighted mean (Mbps)"),
-        ("takeup_pct", "Take-up (%)", ".0f", "Share of rural settlements where our proxy suggests a fixed network is "
-                                             "likely nearby (take-up gap)"),
-        ("fix", "Cost-screen fix", None, "Tower or satellite fix serving most rural people without home internet "
-                                         "among planned settlements (reference cost screen)"),
+        ("top_type_txt", "Most common type", None, "Most common settlement type among the district's rural "
+                                                  "settlements (one per rural MOE school), with its share (for type A "
+                                                  "this is the take-up share); proxy-based estimate"),
+        ("servable_pct", "A + E (%)", ".0f", "Share of rural settlements servable through existing networks "
+                                                         "(types A + E: take-up support or home broadband over the "
+                                                         "mobile network), proxy-based estimate"),
     ], download="beyond_coverage_sarawak_districts.csv", notes=[
         "Beyond Coverage: Sarawak districts on the map, sorted by need (Need score = Connectivity Gap Index).",
         "Need rank range: 5th-95th percentile over 1,000 random index weightings. MOE (pp): our approximate margin of "
         "error (simple random-sampling formula), shown only for small-sample districts; not a DOSM figure.",
-        "Take-up (%) and main fix are ESTIMATES from our cost screen (take-up = an Ookla fixed tile within 2 km, a proxy).",
+        "Most common settlement type and A + E (%) (servable through existing networks) are ESTIMATES from proxies "
+        "(take-up = an Ookla fixed tile within 2 km; types from config/settlement_types.yaml).",
         f"Data: DOSM ICTHS {access_year}; Ookla {quarter}; HIES 2024; Census 2020; MOE school list June 2022; "
         "config/costs.yaml.",
     ])
     ui.what("All Sarawak districts on the map, sorted by need. Need rank range: 5th–95th percentile over random "
             "index weightings. Margin of error: our approximate estimate, shown only for small-sample districts.",
-            data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · costing (Census 2020, MOE list June 2022)",
-            conf="indicative")
+            data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · costing (Census 2020, MOE list June 2022)")
 
 ui.next_step("views/4_District_detail.py", "District profile",
              "open one district: what to do first, its settlements, households, Need score and reference cost.")

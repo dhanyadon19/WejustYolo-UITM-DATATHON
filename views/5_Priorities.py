@@ -45,6 +45,7 @@ with st.container(border=True):
         st.markdown("\n".join(f"- {k}: {ui.fmt_rm(v)}" for k, v in sens))
         st.caption("The range runs from the lowest of the Lite plan and −30% cases to the +30% case. Method & "
                    "limitations, section 4, explains each case.")
+    ui.conf_legend()
 
 c1, c2 = st.columns(2)
 scope = c1.radio("Compare districts in", ["Sarawak", "All Malaysia"], horizontal=True, key="prio_scope")
@@ -70,7 +71,7 @@ n = len(d)
 first = d.sort_values("need_rank").iloc[0]
 ui.finding(f"{first.district} has the highest need {'in Sarawak' if scope == 'Sarawak' else 'nationally'} "
            f"(rank 1, range {ui.range_text(first[p05], first[p95])})",
-           f"Need score vs people reached per RM1m (estimates), {n} districts with costed settlements", conf="indicative")
+           f"Need score vs people reached per RM1m (estimates), {n} districts with costed settlements")
 
 fig = go.Figure()
 size = d["planned_people_without_internet"]
@@ -130,9 +131,9 @@ ui.what([f"Each bubble is a district ({'Sarawak' if scope == 'Sarawak' else 'all
          "beneficiaries: rural people without home internet reached per RM1m of five-year infrastructure cost).",
          "Top-right = high need and many people reached per RM1m. Bottom-right = high need but costly per person: "
          "check the Lite plan and the district's take-up share.",
-         "Size = rural people reached; colour = main fix; labels = the five districts highest on both.",
+         "Size = rural people reached; colour = reference cost-screen result (tower or satellite); labels = the five districts highest on both.",
          "Settlements with a fixed network likely nearby (take-up gap) are not costed here."],
-        data=DATA, conf="indicative")
+        data=DATA)
 ui.caveat()
 
 # The beneficiaries-per-RM1m values sit close together, so this rank is secondary to need.
@@ -161,7 +162,7 @@ tbl = d.sort_values(["need_rank"]).copy()
 top3 = tbl.head(3)
 ui.finding("Highest need: " + ", ".join(f"{x['district']} (rank {int(x['need_rank'])}, range "
                                          f"{ui.range_text(x[p05], x[p95])})" for _, x in top3.iterrows()),
-           "Ranks with ranges", conf="indicative")
+           "Ranks with ranges")
 tbl["need"] = [ui.rank_short(r, a, b) for r, a, b in zip(tbl.need_rank, tbl[p05], tbl[p95])]
 tbl["ben"] = [ui.rank_short(r, a, b) for r, a, b in zip(tbl.ben_rank, tbl.ben_lo, tbl.ben_hi)]
 tbl["cost_m"] = tbl[f"cost_{case}_rm"] / 1e6
@@ -180,7 +181,9 @@ ui.table(tbl, [("district", "District", None)] + ([("state", "State", None)] if 
                                                                   "planned (tower or satellite) settlements"),
     ("takeup_pct", "Take-up (%)", ".0f", "Share of rural settlements where our proxy suggests a fixed network is "
                                          "likely nearby (take-up gap)"),
-    ("fix", "Cost-screen fix", None),
+    ("fix", "Ref. cost-screen result", None, "Reference cost-screen result: tower or satellite, whichever serves most "
+                                             "rural people without home internet among planned settlements (towers and "
+                                             "satellite only; not the settlement-type grouping)"),
     ("small", "Small sample", None, "Yes = DOSM estimate rests on a small inferred sample: low confidence"),
 ], download=f"beyond_coverage_priorities_{ui.slug(scope)}_{'residential' if case == 'main' else 'lite'}.csv", notes=[
     f"Beyond Coverage: need and estimated beneficiaries per RM1m, {where}.",
@@ -204,7 +207,7 @@ ui.what("Need rank range: 5th–95th percentile rank over 1,000 random index wei
         "highest rank across the Residential, Lite and upper-bound cost cases (scaling all costs ±30% leaves ranks "
         "unchanged). Small-sample districts carry extra uncertainty from their approximate margin of error."
         + (f" Not shown ({len(excluded)}): {why_txt}." if len(excluded) else ""),
-        data=DATA, conf="indicative")
+        data=DATA)
 
 # --- budget planner: fund districts in need order (not by beneficiaries per RM1m, which are close together)
 bp_head = st.empty()  # finding title, filled once the budget is known
@@ -239,7 +242,7 @@ else:
     with bp_head.container():
         ui.finding(f"A {ui.fmt_rm(budget)} budget funds {len(full):,} district{'' if len(full) == 1 else 's'} fully and reaches "
                    f"an estimated {reached:,.0f} people" if len(funded) else f"A {ui.fmt_rm(budget)} budget funds no settlement yet",
-                   "Budget planner: districts funded in order of need", conf="indicative")
+                   "Budget planner: districts funded in order of need")
     m1, m2, m3 = st.columns(3)
     m1.metric("Budget used", ui.fmt_rm(used), help=f"Of {ui.fmt_rm(budget)} chosen; the rest cannot fund the next "
                                                   "settlement in line.")
@@ -285,7 +288,7 @@ else:
              "funded ahead of a higher-need one.",
              "Not ordered by estimated beneficiaries per RM1m: those values are close together.",
              "Take-up-gap settlements (fixed network likely nearby, our proxy) are not in this budget. " + ui.TAKEUP_TXT],
-            data=DATA, conf="indicative")
+            data=DATA)
     ui.caveat()
 
 ui.next_step("views/6_Method.py", "Method & limitations",

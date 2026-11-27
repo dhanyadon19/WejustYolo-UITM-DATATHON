@@ -122,7 +122,7 @@ st.dataframe(pd.DataFrame([{"Case": k, "Malaysia": ui.fmt_rm(co[c].sum()), "Sara
              column_config={"Case": st.column_config.TextColumn(width="large")})
 ui.what("Estimated five-year cost under each case. Where to invest shows the reference cost once, with the range from "
         "the lowest of the Lite and −30% cases to the +30% case. Upper bound: adds one fibre PoP per take-up-gap "
-        "settlement (capex only), a cost sensitivity, not a recommendation.", conf="indicative",
+        "settlement (capex only), a cost sensitivity, not a recommendation.",
         data=f"MOE school list, June 2022 · Census 2020 · DOSM ICTHS {int(gi.access_year.max())} · Ookla {gi.ookla_quarter.iloc[0]} · config/costs.yaml")
 take = cl.category_main.eq("takeup_gap")
 hh = co.loc[sar, "household_size"]

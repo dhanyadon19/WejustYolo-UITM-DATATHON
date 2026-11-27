@@ -62,13 +62,15 @@ explainers.covered_vs_connected(facts["value_pct"], facts["label"],
 
 # the coverage figure and the "two different indicators" note sit in the explainer above
 ui.metric_cards([
-    (f"Households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "total")), None),
-    (f"Rural households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "rural")), None),
-    (f"Rural households with fixed broadband, {year}", ui.fmt_pct(val("Malaysia", "fixed_broadband", "rural")), None),
+    (f"Households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "total")), None, "solid"),
+    (f"Rural households with internet, {year}", ui.fmt_pct(val("Malaysia", "internet", "rural")), None, "solid"),
+    (f"Rural households with fixed broadband, {year}", ui.fmt_pct(val("Malaysia", "fixed_broadband", "rural")), None,
+     "solid"),
 ])
+ui.conf_legend()
 st.markdown(f"<span style='color:{ui.INK_2};font-size:0.85rem'>Coverage: <a href='{facts['source_url']}'>"
-            f"{facts['source_name']}</a>. Household figures: DOSM ICTHS {year}, Table 1.2.</span> "
-            + ui.conf_badge("solid"), unsafe_allow_html=True)
+            f"{facts['source_name']}</a>. Household figures: DOSM ICTHS {year}, Table 1.2.</span>",
+            unsafe_allow_html=True)
 
 # Sections as tabs, the action summary first (design guide: inverted pyramid, less scrolling)
 tab_gap, tab_state, tab_ur, tab_trend = st.tabs(["What would close the gap", "By state", "Urban vs rural", "Trend"])
@@ -80,7 +82,7 @@ lo2 = states.head(2)
 ui.finding(f"{lo2.state.iloc[0]} and {lo2.state.iloc[1]} have the fewest households online: "
            f"{lo2.pct.iloc[0]:.1f}% and {lo2.pct.iloc[1]:.1f}%",
            f"Household internet access by state, {year}, beside network coverage (mainly outdoor): two different "
-           "indicators", conf="solid")
+           "indicators")
 # Dot plot, not bars: the axis does not start at 0, and bar length would exaggerate the gaps.
 hl = states.state.isin(["Sabah", "Sarawak"])
 fig = go.Figure()
@@ -103,7 +105,7 @@ st.plotly_chart(fig, width="stretch")
 ui.what(f"Share of households with internet access in {year}, by state (grey dots; Sabah and Sarawak in blue); "
         f"the dotted line marks {facts['label'].lower()} ({facts['value_pct']}%) for context. "
         + facts["comparison_note"],
-        data=f"DOSM ICTHS {year} (Table 1.2) · network coverage (mainly outdoor) as at {facts['as_of']}", conf="solid")
+        data=f"DOSM ICTHS {year} (Table 1.2) · network coverage (mainly outdoor) as at {facts['as_of']}")
 tab_state.__exit__(None, None, None)
 
 
@@ -133,16 +135,16 @@ with left:
     fig, m = dumbbell(a, b, "Urban", "Rural", ui.MUTED, ui.ACCENT, "% of households with internet", "pct_b")
     gap = m.assign(g=m.pct_a - m.pct_b).sort_values("g", ascending=False).iloc[0]
     ui.finding(f"Rural homes lag most in {gap.state}: {gap.pct_b:.1f}% online vs {gap.pct_a:.1f}% urban",
-               f"Urban vs rural household access, {year}", conf="solid", level=4)
+               f"Urban vs rural household access, {year}", level=4)
     st.plotly_chart(fig, width="stretch")
     ui.what(f"Household internet access in urban (grey) and rural (blue) areas, {year}. The widest gap is in "
             f"{gap.state}: {gap.pct_a:.1f}% urban vs {gap.pct_b:.1f}% rural. Kuala Lumpur and Putrajaya have no rural strata.",
-            data=f"DOSM ICTHS {year}, Table 1.2", conf="solid")
+            data=f"DOSM ICTHS {year}, Table 1.2")
 
 with right:
     ui.finding(f"Rural homes: {val('Malaysia', 'mobile_broadband', 'rural'):.0f}% have mobile broadband, only "
                f"{val('Malaysia', 'fixed_broadband', 'rural'):.0f}% fixed",
-               f"Rural households with mobile vs fixed broadband, by state, {year}", conf="solid", level=4)
+               f"Rural households with mobile vs fixed broadband, by state, {year}", level=4)
     a = cur[(cur.indicator == "mobile_broadband") & (cur.strata == "rural")][["state", "pct"]]
     b = cur[(cur.indicator == "fixed_broadband") & (cur.strata == "rural")][["state", "pct"]]
     fig, m = dumbbell(a, b, "Mobile broadband", "Fixed broadband", ui.MUTED, ui.ACCENT, "% of rural households", "pct_b")
@@ -150,7 +152,7 @@ with right:
     ui.what(f"Rural households with mobile broadband (grey) vs fixed (wired) broadband (blue), {year} (DOSM Table 1.2). "
             f"Nationally {val('Malaysia', 'mobile_broadband', 'rural'):.1f}% of rural homes have mobile broadband but only "
             f"{val('Malaysia', 'fixed_broadband', 'rural'):.1f}% have fixed broadband.",
-            data=f"DOSM ICTHS {year}, Table 1.2", conf="solid")
+            data=f"DOSM ICTHS {year}, Table 1.2")
 
 # --- What would close the gap: settlement types and candidate technologies (screening)
 tab_gap.__enter__()
@@ -162,8 +164,7 @@ ts = data.type_summary(scope)
 sv = data.servable_share(scope)
 ui.finding(f"{ui.about_one_in(sv['share']).capitalize()} rural settlements {'nationally' if scope == 'All Malaysia' else 'in Sarawak'} "
            f"could be served through existing networks; ~{sv['new']:,} need new infrastructure",
-           "What would close the rural gap: settlement types and candidate technologies (screening), estimates",
-           conf="indicative")
+           "What would close the rural gap: settlement types and candidate technologies (screening), estimates")
 explainers.settlements_bar(scope)
 with st.expander("How settlements are grouped"):
     explainers.grouping_flow()
@@ -197,7 +198,7 @@ if len(ts):
              ui.TAKEUP_TXT],
             data=f"MOE school list, June 2022 · Census {cyear if cyear else ui.DASH} · DOSM ICTHS {int(acc_year)} · "
                  f"Ookla {cl_q.iloc[0] if len(cl_q) else ui.DASH} · OpenStreetMap {data.osm_snapshot()} · "
-                 "Terrain Tiles · config/costs.yaml", conf="indicative")
+                 "Terrain Tiles · config/costs.yaml")
     ui.caveat()
 else:
     ui.fallback("No settlement data available.")
@@ -220,8 +221,7 @@ else:
     f0, f1 = tt.iloc[0], tt.iloc[-1]
     verb = "rose" if f1.pct > f0.pct else ("fell" if f1.pct < f0.pct else "held")
     ui.finding(f"{place}: {ind_lab[ind].lower()} {verb} from {f0.pct:.1f}% in {int(f0.year)} to {f1.pct:.1f}% in {int(f1.year)}",
-               f"Trend, {int(trend.year.min())}–{int(trend.year.max())}, households by urban/rural strata",
-               conf="solid", level=4)
+               f"Trend, {int(trend.year.min())}–{int(trend.year.max())}, households by urban/rural strata", level=4)
 fig = go.Figure()
 styles = {"total": (ui.MUTED_LIGHT, "dot", "Total"), "urban": (ui.MUTED, "solid", "Urban"), "rural": (ui.ACCENT, "solid", "Rural")}
 for s, (col, dash, lab) in styles.items():
@@ -241,7 +241,7 @@ if not t.empty:
     st.plotly_chart(fig, width="stretch")
     ui.what(f"{ind_lab[ind]} among households in {place}, by urban/rural strata. Years before the latest edition are "
             "rounded to one decimal by DOSM; each year comes from the newest DOSM edition that reports it.",
-            data=f"DOSM ICTHS {int(t.year.min())}–{int(t.year.max())}, Tables 6.4–6.6", conf="solid")
+            data=f"DOSM ICTHS {int(t.year.min())}–{int(t.year.max())}, Tables 6.4–6.6")
 tab_trend.__exit__(None, None, None)
 
 ui.next_step("views/3_Sarawak_map.py", "Sarawak map",

@@ -101,22 +101,53 @@ CONF_RULE = [
 ]
 
 
-def conf_badge(level: str | None) -> str:
-    """Confidence label as HTML: a coloured dot and the word (never colour alone)."""
+# hover text for each label (shown in a styled tooltip, not the browser's title tooltip)
+CONF_HELP = {"solid": "Official figure as published (DOSM, Hansard, MOE).",
+             "indicative": "Our estimate from public data and proxies: good for screening and comparing, not an exact "
+                           "count.",
+             "low": "Small sample or weak proxy: check locally before acting."}
+CONF_SHORT = {"solid": "official figure", "indicative": "our estimate from public data",
+              "low": "small sample or weak proxy"}
+# stylesheet for the badge tooltip, injected once per page (conf_css, from footer() and conf_legend()); the tip is
+# hidden by its inline style, so without the stylesheet nothing extra shows
+_CONF_CSS = ("<style>.bc-conf{position:relative;cursor:help}.bc-conf .bc-tip{position:absolute;left:0;"
+             "top:calc(100% + 6px);z-index:1000;width:max-content;max-width:260px;background:#262730;color:#ffffff;"
+             "font-weight:400;font-size:0.8rem;line-height:1.35;padding:6px 9px;border-radius:6px;"
+             "box-shadow:0 2px 8px rgba(0,0,0,.18);white-space:normal}"
+             ".bc-conf:hover .bc-tip,.bc-conf:focus .bc-tip{display:block !important}</style>")
+
+
+def conf_css() -> None:
+    """Inject the badge-tooltip stylesheet (a styles-only st.html takes no space on the page)."""
+    st.html(_CONF_CSS)
+
+
+def conf_badge(level: str | None, short: bool = False) -> str:
+    """Confidence label as HTML: a coloured dot and the word (never colour alone), with a styled hover explanation.
+    Used only beside key estimates (headline cards, the District profile action box, the Where to invest headline
+    cost); each page that shows badges also shows conf_legend() once."""
     if level not in CONF:
         return ""
     word, fg, bg = CONF[level]
-    return (f"<span title='Confidence: see Method & limitations' style='background:{bg};color:{fg};border-radius:10px;"
-            f"padding:1px 8px;font-size:0.78rem;font-weight:600;white-space:nowrap;display:inline-block;"
-            f"line-height:1.6'>● {word}</span>")
+    word = "Low" if (short and level == "low") else word
+    return (f"<span class='bc-conf' tabindex='0' aria-label='Confidence: {word}. {CONF_HELP[level]}' "
+            f"style='background:{bg};color:{fg};border-radius:10px;padding:1px 8px;font-size:0.78rem;font-weight:600;"
+            f"white-space:nowrap;display:inline-block;line-height:1.6'>● {word}"
+            f"<span class='bc-tip' role='tooltip' style='display:none'>{CONF_HELP[level]}</span></span>")
 
 
-def finding(title: str, subtitle: str | None = None, conf: str | None = None, level: int = 3) -> None:
+def conf_legend() -> None:
+    """One small legend per page that shows confidence badges."""
+    conf_css()
+    items = " · ".join(f"{conf_badge(k, short=True)} = {CONF_SHORT[k]}" for k in ("solid", "indicative", "low"))
+    st.markdown(f"<div style='font-size:0.8rem;color:{INK_2};margin:0.1rem 0 0.6rem 0;line-height:1.9'>"
+                f"Confidence: {items}</div>", unsafe_allow_html=True)
+
+
+def finding(title: str, subtitle: str | None = None, level: int = 3) -> None:
     """Section title written as a finding (numbers read from data), with the descriptive title kept as a subtitle."""
     st.markdown(f"{'#' * level} {title}")
     bits = [f"<span>{subtitle}</span>"] if subtitle else []
-    if conf:
-        bits.append(conf_badge(conf))
     if bits:
         st.markdown(f"<div style='color:{INK_2};font-size:0.9rem;margin:-0.7rem 0 0.6rem 0;display:flex;gap:10px;"
                     f"flex-wrap:wrap;align-items:center'>{''.join(bits)}</div>", unsafe_allow_html=True)
@@ -177,14 +208,14 @@ def _split_first(text: str) -> tuple[str, str]:
     return parts[0], (parts[1] if len(parts) > 1 else "")
 
 
-def what(text: str | list[str], data: str | None = None, conf: str | None = None) -> None:
+def what(text: str | list[str], data: str | None = None) -> None:
     """'What this shows' caption under a chart or table, with the data source and year.
     One clear sentence stays visible (the first point of a list, or the first sentence of a text); the rest goes
     into a small 'More detail' fold, so nothing (caveat or source) is removed. The data badge is always visible."""
     # the data badge sits on its own line; "What this shows:" starts on the next one
     chip = (f"<span style='background:#f3f2ee;border-radius:4px;padding:1px 6px;color:{INK_2};"
             f"display:inline-block;line-height:1.6;margin-bottom:3px'>Data: {data}</span>") if data else ""
-    chip = (chip + (" " + conf_badge(conf) if conf else "") + "<br/>") if (chip or conf) else ""
+    chip = (chip + "<br/>") if chip else ""
     if isinstance(text, (list, tuple)):
         first, rest = (text[0] if text else ""), list(text[1:])
     else:
@@ -221,6 +252,7 @@ def go_to_district(state: str, district: str) -> None:
 def footer(sources: list[str], osm: bool = False, basemap: bool = False) -> None:
     from app_utils import data  # lazy: data does not import ui, but keep ui importable on its own
 
+    conf_css()  # hover help for any confidence badge on the page
     st.divider()
     lines = [f"- {s}" for s in sources]
     if osm:
@@ -330,8 +362,10 @@ def small_sample_banner(name: str, n, moe) -> None:
     if isnum(moe):
         parts.append(f"{MOE_TXT} ±{moe:.0f} points")
     detail = (": " + ", ".join(parts) + ".") if parts else "."
-    st.warning(f"**Low confidence.** {name}'s DOSM figure appears to rest on a small sample{detail} "
-               f"{NOT_DOSM} Treat its ranks as ranges, not exact positions.", icon="⚠️")
+    st.markdown(f"<div style='background:#fff6e5;border:1px solid #f0d9a8;border-radius:8px;padding:8px 12px;"
+                f"margin:0.3rem 0 0.6rem 0;color:{INK};font-size:0.92rem'>⚠️ {conf_badge('low')} {name}'s DOSM figure "
+                f"appears to rest on a small sample{detail} {NOT_DOSM} Treat its ranks as ranges, not exact positions."
+                "</div>", unsafe_allow_html=True)
 
 
 # --- display tables: formatted strings, "—" for missing values, numbers right-aligned ---
@@ -452,12 +486,13 @@ def card_grid(cards: list[str], min_px: int = 220) -> None:
 
 def metric_cards(items: list[tuple], min_px: int = 200) -> None:
     """Headline numbers as clean cards whose labels wrap (st.metric truncates long labels).
-    items: (label, value, help or None); help shows on hover over the card."""
+    items: (label, value, help or None[, confidence level]); help shows on hover over the card."""
     import html
-    cards = [f"<div title='{html.escape(h or '', quote=True)}' style='border:1px solid {GRID};border-radius:8px;"
+    cards = [f"<div title='{html.escape(it[2] or '', quote=True)}' style='border:1px solid {GRID};border-radius:8px;"
              f"padding:12px 14px;background:#ffffff'><div style='font-size:0.85rem;color:{INK_2};line-height:1.3'>"
-             f"{lab}</div><div style='font-size:2rem;font-weight:600;color:{INK};line-height:1.25;margin-top:4px'>"
-             f"{val}</div></div>" for lab, val, h in items]
+             f"{it[0]}</div><div style='font-size:2rem;font-weight:600;color:{INK};line-height:1.25;margin-top:4px'>"
+             f"{it[1]}</div>" + (f"<div style='margin-top:2px'>{conf_badge(it[3])}</div>" if len(it) > 3 else "")
+             + "</div>" for it in items]
     card_grid(cards, min_px)
 
 

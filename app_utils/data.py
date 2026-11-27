@@ -260,3 +260,21 @@ def servable_share(scope: str) -> dict:
     ex = float(t.loc[t["settlement_type"].isin(["A", "E"]), "settlements"].sum())
     new = int(t.loc[t["settlement_type"].isin(["B", "D", "C"]), "settlements"].sum())
     return {"n": int(n), "existing": int(ex), "new": new, "share": ex / n if n else float("nan")}
+
+@st.cache_data(show_spinner=False)
+def district_type_mix() -> pd.DataFrame:
+    """Per district: rural settlements, the most common settlement type (ties go to the first type in legend order
+    A, B, E, D, C), its share, and the share servable through existing networks (types A + E, proxy-based)."""
+    s = settlements()
+    order = {k: i for i, k in enumerate(["A", "B", "E", "D", "C", "U"])}
+    c = s.groupby(["state", "district", "settlement_type", "type_label"]).size().rename("k").reset_index()
+    c["o"] = c["settlement_type"].map(order)
+    c = c.sort_values(["state", "district", "k", "o"], ascending=[True, True, False, True])
+    top = c.groupby(["state", "district"]).head(1)[["state", "district", "settlement_type", "type_label", "k"]]
+    g = s.groupby(["state", "district"]).agg(n_settlements=("school_code", "size"),
+                                             n_servable=("settlement_type", lambda t: int(t.isin(["A", "E"]).sum())))
+    out = g.reset_index().merge(top.rename(columns={"settlement_type": "top_type", "type_label": "top_type_label",
+                                                    "k": "top_n"}), on=["state", "district"], how="left")
+    out["top_share"] = out["top_n"] / out["n_settlements"]
+    out["servable_share"] = out["n_servable"] / out["n_settlements"]
+    return out
