@@ -66,12 +66,12 @@ if len(sett):
         "settlement_school_name": sett.school_name, "school_name_short": [ui.school_short(n) for n in sett.school_name],
         "longitude": sett.lon, "latitude": sett.lat,
         "fixed_network_nearby_proxy": ["yes" if bool(v) else "no" for v in sett.fixed_nearby],
-        "fix_main": [fix_txt(c) for c in sett.category_main],
+        "cost_basis_main": [fix_txt(c) for c in sett.category_main],
         "est_households": sett.households.round(1),
         "est_households_without_home_internet": sett.unconnected_households.round(1),
         "est_people_without_home_internet_district_avg": sett.unconnected_people.round(0).astype("Int64"),
         "est_5yr_cost_main_rm": pd.array([rm(c, v) for c, v in zip(sett.category_main, sett.cost_main)], dtype="Int64"),
-        "fix_lite": [fix_txt(c) for c in sett.category_lite],
+        "cost_basis_lite": [fix_txt(c) for c in sett.category_lite],
         "est_5yr_cost_lite_rm": pd.array([rm(c, v) for c, v in zip(sett.category_lite, sett.cost_lite)], dtype="Int64"),
     })
     at = data.settlements()
@@ -94,7 +94,9 @@ if len(sett):
         f"fixed_network_nearby_proxy: an Ookla {quarter} fixed tile within 2 km (a proxy). These settlements need take-up "
         "support, not infrastructure, so their cost is left empty.",
         "Costs: five-year, RM, from config/costs.yaml (retail prices and public statements). Main = Residential satellite "
-        "plan, Lite = Residential Lite plan; satellite cost includes one Business terminal for the school.",
+        "plan, Lite = Residential Lite plan; satellite cost includes one Business terminal for the school. "
+        "cost_basis_main / cost_basis_lite: tower or satellite, for costing only; see settlement_type and "
+        "candidate_technologies_screening for the suggested fix.",
         "settlement_type: rule-based screening (config/settlement_types.yaml); candidate technologies are a screening "
         "list, not a recommendation. mobile_quality: all Ookla mobile tiles within 2 km combined, judged only with at least 20 tests, vs the JENDELA 35 Mbps target; "
         "terrain: mean slope within 500 m (Terrain Tiles); road: straight-line km to the nearest motorable OSM road. "
@@ -269,14 +271,16 @@ else:
               help=f"Settlements where our proxy suggests a fixed network is likely nearby (an Ookla fixed tile within "
                    f"2 km); an estimated {ui.fmt_num(r.takeup_gap_people_without_internet, ',.0f')} rural people without "
                    "home internet. Not costed as infrastructure.")
-    f3.metric("Towers", ui.fmt_int(r.n_tower))
-    f4.metric("Satellite settlements", ui.fmt_int(r.n_satellite))
+    BASIS_HELP = "For costing only. See the settlement types above for the suggested fix."
+    f3.metric("Towers (cost basis)", ui.fmt_int(r.n_tower), help=BASIS_HELP)
+    f4.metric("Satellite (cost basis)", ui.fmt_int(r.n_satellite), help=BASIS_HELP)
     g1, g2, g3, g4 = st.columns(4)
     g1.metric("Reference cost (Residential plan)", ui.fmt_rm(r.cost_main_rm), help=ui.REF_COST.capitalize() + ".")
     g2.metric("Sensitivity: Lite plan", ui.fmt_rm(r.cost_lite_rm))
     g3.metric("Sensitivity: upper bound", ui.fmt_rm(r.cost_upper_bound_rm),
               help="Adds one fibre PoP per take-up-gap settlement, capex only. A cost sensitivity, not a recommendation.")
-    g4.metric("Cost-screen fix", ui.FIX_LABELS.get(r.main_fix, r.main_fix) if isinstance(r.main_fix, str) else ui.DASH)
+    g4.metric("Cost basis (for costing only)",
+              ui.FIX_LABELS.get(r.main_fix, r.main_fix) if isinstance(r.main_fix, str) else ui.DASH, help=BASIS_HELP)
     if ui.isnum(r.people_per_rm_m_main) and round(r.people_per_rm_m_main) == 0:
         st.markdown(f"**{ui.REACH} (estimate):** —; {ui.fmt_num(r.students_per_rm_m_main, ',.0f')} pupils per RM1m.")
         st.caption(ui.NO_OFFLINE)
