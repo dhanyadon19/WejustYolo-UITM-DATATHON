@@ -382,7 +382,7 @@ else:
              ui.TAKEUP_TXT,
              f"Thick outlines = small {ui.INFERRED_N} (our estimate, not a DOSM figure)."],
             data=f"DOSM ICTHS {access_year} · Ookla {quarter} · HIES 2024 · Census 2020 · MOE school list, June 2022")
-ui.caveat()
+ui.see_method_costs()
 
 if len(no_boundary):
     st.markdown("**Districts with no boundary** (not on the map): " + "; ".join(

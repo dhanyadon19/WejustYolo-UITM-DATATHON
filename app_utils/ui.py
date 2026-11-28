@@ -186,8 +186,19 @@ COST_SCREEN = ("Cost screen, not a full cost-benefit comparison: households are 
 
 
 def caveat(text: str = COST_SCREEN) -> None:
+    """The cost-screen disclaimer. Shown in full only on Method, the District profile Reference cost tab and the
+    Where to invest 'Range and sensitivity cases' expander; other pages use see_method_costs()."""
     st.markdown(f"<div style='border-left:3px solid {MUTED_LIGHT};padding:2px 10px;color:{INK_2};font-size:0.85rem'>"
                 f"{text}</div>", unsafe_allow_html=True)
+
+
+# shown with a dash where a district has no rural people without home internet (never '0 people')
+NO_OFFLINE = "DOSM data show no rural households without home internet here (or no rural settlements)."
+
+
+def see_method_costs() -> None:
+    """Short pointer to the cost caveats on Method & limitations (instead of repeating the disclaimer)."""
+    st.page_link("views/6_Method.py", label="Cost caveats: see Method & limitations", icon=":material/info:")
 
 OSM_CREDIT = "© OpenStreetMap contributors"
 BASEMAP_CREDIT = "Basemap © OpenStreetMap contributors © CARTO"
@@ -442,7 +453,6 @@ def fallback(text: str) -> None:
 
 
 # --- district action plan ---
-TOWER_WIDER = "Towers bring wider benefits (mobile coverage on roads and farms) that this cost screen does not value."
 GROUND_CHECKS = [
     "**Power:** reliable electricity for the terminal, day and night.",
     "**Sky view:** a clear view of the sky; tall forest and hills can block the signal.",
@@ -581,19 +591,12 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
                                        gloss(t.candidate_technologies), cost))
             if cards:
                 card_grid(cards)
-            items = []
+            # the tower-or-satellite reference cost lives only in the Reference cost tab (and on Where to invest)
             if not (n["satellite"] or n["tower"]):
                 lever = ("so take-up support is the main lever." if tk is not None and round(tk["people"]) > 0
                          else "and no take-up gap is estimated either.")
-                items.append("- **New infrastructure:** none costed. Every rural settlement has a fixed network likely "
-                             f"nearby (our proxy), {lever}")
-            else:
-                lo, hi = sorted([sum(f["cost_lite"] for f in fixes.values()), sum(f["cost_main"] for f in fixes.values())])
-                rng = fmt_rm(hi) if fmt_rm(lo) == fmt_rm(hi) else f"{fmt_rm(lo)}–{fmt_rm(hi)}, Lite to Residential plan"
-                items.append(f"- **Reference cost** (tower or satellite only, used in the rankings): {rng}. Not a "
-                             f"total of the cards above: types A and C are not costed. Details in the Reference cost "
-                             f"tab below. {TOWER_WIDER}")
-            st.markdown("\n".join(items))
+                st.markdown("- **New infrastructure:** none costed. Every rural settlement has a fixed network likely "
+                            f"nearby (our proxy), {lever}")
 
         # 3. Check on the ground
         present = set(types.settlement_type) if types is not None and len(types) else set()
@@ -609,5 +612,4 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
             st.markdown("**3. Check on the ground before choosing a technology**")
             st.markdown("\n".join(f"- {c}" for c in checks))
 
-        caveat()
         st.caption(f"Data: {sources}. All costs and people counts are estimates.")
