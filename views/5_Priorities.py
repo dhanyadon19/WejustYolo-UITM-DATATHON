@@ -3,7 +3,6 @@ budget planner."""
 import math
 
 import numpy as np
-import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -33,7 +32,7 @@ def bn(v):
 
 def reference_cost_expander() -> None:
     """The national reference cost and its sensitivity cases: shown once, after the need ranking."""
-    with st.expander("Range and sensitivity cases"):
+    with st.expander("Reference cost: towers or satellite only. Not a total and not a recommendation"):
         st.markdown(f"<div style='font-size:0.9rem;color:{ui.INK_2}'>Reference cost, all Malaysia, five years "
                     f"{ui.conf_badge('indicative')}</div>"
                     f"<div style='font-size:1.6rem;font-weight:600;color:{ui.INK};line-height:1.3'>RM{bn(ref)}bn "
@@ -50,14 +49,23 @@ def reference_cost_expander() -> None:
         st.markdown("\n".join(f"- {k}: {ui.fmt_rm(v)}" for k, v in sens))
         st.caption("The range runs from the lowest of the Lite plan and −30% cases to the +30% case. Method & "
                    "limitations, section 4, explains each case.")
-        ui.caveat()
         ui.conf_legend()
 
 c1, c2 = st.columns(2)
 scope = c1.radio("Compare districts in", ["Sarawak", "All Malaysia"], horizontal=True, key="prio_scope")
 plan = c2.radio("Satellite plan", ["Residential (main case)", "Lite (sensitivity)"], horizontal=True, key="prio_plan")
 case = "main" if plan.startswith("Residential") else "lite"
-fix_col = "main_fix" if case == "main" else "main_fix_lite"
+
+# most common settlement type per district among settlements without a nearby network (types B, E, D, C);
+# ties go to the type order used everywhere else (ui.TYPE_ORDER)
+NO_NET = [t for t in ui.TYPE_ORDER if t in ("B", "E", "D", "C")]
+_s = data.settlements()
+_s = _s[_s.settlement_type.isin(NO_NET)]
+_cnt = _s.groupby(["state", "district", "settlement_type"]).size().rename("n").reset_index()
+_cnt["order"] = _cnt.settlement_type.map({t: i for i, t in enumerate(ui.TYPE_ORDER)})
+_top = (_cnt.sort_values(["n", "order"], ascending=[False, True]).groupby(["state", "district"]).head(1)
+        .merge(_cnt.groupby(["state", "district"]).n.sum().rename("n_all").reset_index(), on=["state", "district"]))
+TYPE_LAB = dict(zip(_s.settlement_type, _s.type_label))
 
 d = dt if scope == "All Malaysia" else dt[dt.state == "Sarawak"]
 need_col = "rank_national" if scope == "All Malaysia" else "rank_sarawak"
@@ -68,6 +76,10 @@ if d.empty:
 need, p05, p95 = (("rank_national", "rank_national_dirichlet_p05", "rank_national_dirichlet_p95") if scope == "All Malaysia"
                   else ("rank_sarawak", "rank_sarawak_dirichlet_p05", "rank_sarawak_dirichlet_p95"))
 d["need_rank"] = d[need].rank(method="min").astype(int)  # re-ranked among districts that have a cost
+d = d.merge(_top[["state", "district", "settlement_type", "n", "n_all"]].rename(
+    columns={"settlement_type": "top_type", "n": "top_n"}), on=["state", "district"], how="left")
+d["top_type"] = d["top_type"].fillna("U")
+d["top_type_txt"] = [f"{t}. {TYPE_LAB[t]}" if t in TYPE_LAB else ui.DASH for t in d.top_type]
 for k in ["main", "lite", "upper_bound"]:
     d[f"br_{k}"] = d[f"people_per_rm_m_{k}"].rank(ascending=False, method="min")
 d["ben_rank"] = d[f"br_{case}"].astype(int)
@@ -82,26 +94,26 @@ ui.finding(f"{first.district} has the highest need {'in Sarawak' if scope == 'Sa
 fig = go.Figure()
 size = d["planned_people_without_internet"]
 sref = 2.0 * size.max() / (36 ** 2)
-for cat in ["tower", "satellite"]:
-    s = d[d[fix_col] == cat]
+for cat in ui.TYPE_ORDER:  # colour = most common type among settlements without a nearby network
+    s = d[d.top_type == cat]
     if s.empty:
         continue
     fig.add_trace(go.Scatter(
-        x=s.need_rank, y=s.ben_rank, mode="markers", name=ui.FIX_LABELS[cat],
+        x=s.need_rank, y=s.ben_rank, mode="markers", name=s.top_type_txt.iloc[0],
         marker=dict(size=s.planned_people_without_internet, sizemode="area", sizeref=sref, sizemin=5,
-                    color=ui.FIX_COLOURS[cat], opacity=0.85, line=dict(color=ui.SURFACE, width=2)),
+                    color=ui.TYPE_COLOURS[cat], opacity=0.85, line=dict(color=ui.SURFACE, width=2)),
         customdata=np.stack([s.district, s.state, s.planned_people_without_internet, s[f"people_per_rm_m_{case}"],
                              s[f"cost_{case}_rm"] / 1e6, s[p05], s[p95], s.ben_lo, s.ben_hi,
-                             np.where(s.small_sample_flag, "yes (low confidence)", "no")], axis=-1),
+                             np.where(s.small_sample_flag, "yes (low confidence)", "no"), s.top_type_txt,
+                             [f"{int(a):,} of {int(b):,}" if ui.isnum(a) else ui.DASH for a, b in zip(s.top_n, s.n_all)]],
+                            axis=-1),
         hovertemplate="<b>%{customdata[0]}</b>, %{customdata[1]}<br>Need rank %{x} (range %{customdata[5]:.0f}–%{customdata[6]:.0f})"
+                      "<br>Most common type (no nearby network): %{customdata[10]} (%{customdata[11]} settlements)"
                       "<br>People-reached-per-RM1m rank %{y} (range %{customdata[7]}–%{customdata[8]})"
                       "<br>%{customdata[2]:,.0f} rural people reached · %{customdata[3]:,.0f} per RM1m (estimate)"
-                      "<br>5-year cost RM%{customdata[4]:,.1f}m (estimate)<br>Small sample: %{customdata[9]}<extra></extra>"))
-# label the three highest-need districts (the title names rank 1) and the five highest on both axes, right next
-# to their bubble (no leader lines)
-top_need = d.nsmallest(3, "need_rank")
-lab = pd.concat([top_need, d.assign(score=d.need_rank + d.ben_rank).nsmallest(5, "score")])
-lab = lab[~lab.index.duplicated()]
+                      "<br>Reference cost RM%{customdata[4]:,.1f}m over 5 years (estimate)<br>Small sample: %{customdata[9]}<extra></extra>"))
+# label the three highest-need districts (the title names rank 1), right next to their bubble (no leader lines)
+lab = d.nsmallest(3, "need_rank")
 for _, r in lab.iterrows():
     # shift each label left by its own bubble radius (area sizemode: diameter px = sqrt(size / sizeref)) + white border
     radius = max(np.sqrt(r.planned_people_without_internet / sref), 5) / 2 + 2
@@ -118,7 +130,7 @@ for qx, qy, xa, ya, txt in ((1, 1, "right", "top", "<b>Act first</b>"),
     fig.add_annotation(x=qx, y=qy, xref="paper", yref="paper", xanchor=xa, yanchor=ya, text=txt, showarrow=False,
                        font=dict(size=11, color=ui.MUTED), bgcolor="rgba(252,252,251,0.8)")
 ui.style(fig, height=560)
-fig.update_layout(showlegend=len(fig.data) > 1)  # one colour only (e.g. every Sarawak district is satellite): no legend
+fig.update_layout(showlegend=True, legend=dict(title=dict(text="Most common type (no nearby network)")))
 pad = max(1.0, 0.035 * n)  # room so the largest rank-1 bubble is not clipped at the plot edge
 step = 5 if n <= 60 else 20
 ticks = [1] + list(range(step, n + 1, step))  # no rank-0 tick in the padding
@@ -141,10 +153,8 @@ ui.what([f"Each bubble is a district ({'Sarawak' if scope == 'Sarawak' else 'all
          "beneficiaries: rural people without home internet reached per RM1m of five-year infrastructure cost).",
          "Top-right = high need and many people reached per RM1m. Bottom-right = high need but costly per person: "
          "check the Lite plan and the district's take-up share.",
-         "Size = rural people reached; colour = reference cost-screen result ("
-         + (" or ".join(ui.FIX_LABELS[c].lower() for c in ("tower", "satellite") if (d[fix_col] == c).any())
-            if len(fig.data) > 1 else f"{ui.FIX_LABELS[d[fix_col].iloc[0]].lower()} for every district here")
-         + "); labels = the three highest-need districts and the five highest on both.",
+         "Size = rural people reached; colour = the most common settlement type among the district's settlements "
+         "without a nearby network (B, E, D, C; proxy-based); labels = the three highest-need districts.",
          "Settlements with a fixed network likely nearby (take-up gap) are not costed here."],
         data=DATA)
 
@@ -158,7 +168,8 @@ where = f"{'Sarawak' if scope == 'Sarawak' else 'all Malaysia'}, {'Residential' 
 pts = []
 if len(top):
     close = top.max() <= 1.5 * top.min()  # 'close' = top value within 1.5x of the 15th
-    pts.append(f"Satellite-only districts: people reached per RM1m {'are close together' if close else 'vary'} "
+    pts.append(f"On the reference cost (towers or satellite only), people reached per RM1m in districts with no "
+               f"tower {'are close together' if close else 'vary'} "
                f"(top {len(top)}: {top.min():,.0f} to {top.max():,.0f} per RM1m, {where}).")
 if len(has_tower):
     nm = sorted(has_tower["district"])
@@ -166,8 +177,8 @@ if len(has_tower):
     pts.append(f"{names} score{'s' if len(has_tower) == 1 else ''} higher: "
                f"{'it has' if len(has_tower) == 1 else 'they have'} a settlement large enough for a tower, which reaches "
                "many people for one fixed cost.")
-pts.append("With satellite, cost grows with every household, so small rank differences mean little: use this rank to "
-           "spot districts that cost much more per person, not to order districts.")
+pts.append("On that reference, cost grows with every household, so small rank differences mean little: use this rank "
+           "to spot districts that cost much more per person, not to order districts.")
 st.markdown("**The Need score is the main ranking.**\n" + "".join(f"\n- {t}" for t in pts))
 
 tbl = d.sort_values(["need_rank"]).copy()
@@ -179,7 +190,6 @@ tbl["need"] = [ui.rank_short(r, a, b) for r, a, b in zip(tbl.need_rank, tbl[p05]
 tbl["ben"] = [ui.rank_short(r, a, b) for r, a, b in zip(tbl.ben_rank, tbl.ben_lo, tbl.ben_hi)]
 tbl["cost_m"] = tbl[f"cost_{case}_rm"] / 1e6
 tbl["takeup_pct"] = 100 * tbl.share_settlements_takeup_gap
-tbl["fix"] = tbl[fix_col].map(ui.FIX_LABELS)
 tbl["small"] = ["Yes" if ui.isnum(v) and bool(v) else "No" for v in tbl.small_sample_flag]
 # pupils per RM1m stays on District detail; the table keeps the columns needed to compare districts
 ui.table(tbl, [("district", "District", None)] + ([("state", "State", None)] if scope == "All Malaysia" else []) + [
@@ -193,8 +203,8 @@ ui.table(tbl, [("district", "District", None)] + ([("state", "State", None)] if 
                                                                   "planned (tower or satellite) settlements"),
     ("takeup_pct", "Take-up (%)", ".0f", "Share of rural settlements where our proxy suggests a fixed network is "
                                          "likely nearby (take-up gap)"),
-    ("fix", "Ref. cost-screen result", None, "Result of the reference tower-vs-satellite screen for this district's "
-                                             "planned settlements; not the settlement-type recommendation."),
+    ("top_type_txt", "Most common type", None, "Most common settlement type among the district's settlements without "
+                                               "a nearby network (types B, E, D, C; screening rules, proxy-based)"),
     ("small", "Small sample", None, "Yes = DOSM estimate rests on a small inferred sample: low confidence"),
 ], download=f"beyond_coverage_priorities_{ui.slug(scope)}_{'residential' if case == 'main' else 'lite'}.csv", notes=[
     f"Beyond Coverage: need and estimated beneficiaries per RM1m, {where}.",
@@ -237,8 +247,9 @@ else:
                          step=step, format="RM%.1fm", key=f"budget_{scope}_{case}",
                          help="Up to the estimated five-year cost of every planned tower and satellite settlement in "
                               "this selection.")
-    st.caption("Slider maximum: the reference cost of every planned tower and satellite settlement in this selection. "
-               "Types A (take-up) and C (small cell or community Wi-Fi) are not costed.")
+    st.caption("Uses the reference cost (towers or satellite only) for every settlement without a nearby network "
+               "(types B, C, D and E). Small villages (C) would likely cost less with small cells or community Wi-Fi, "
+               "which have no public price.")
     budget = budget_m * 1e6
     # fund in order and stop at the first settlement the rest of the budget cannot cover, so need order is kept
     funded = q[q["cum_cost"] <= budget + 0.5]
@@ -270,8 +281,8 @@ else:
               help=f"{len(tk):,} settlements where our proxy suggests a fixed network is likely nearby: they need "
                    "take-up support, not new infrastructure, so they are not costed or funded here.")
     if nxt is not None and len(funded):
-        st.markdown(f"Next in line: a {ui.FIX_LABELS[nxt.category].lower()} settlement in **{nxt.district}** "
-                    f"(need rank {int(nxt.need_rank)}), estimated {ui.fmt_rm(nxt.cost)}; "
+        st.markdown(f"Next in line: a settlement in **{nxt.district}** "
+                    f"(need rank {int(nxt.need_rank)}), reference cost {ui.fmt_rm(nxt.cost)}; "
                     f"{ui.fmt_rm(nxt.cum_cost - budget)} more budget would fund it.")
     fd = per_d[per_d.n_f > 0].reset_index()
     if len(fd):
@@ -301,6 +312,7 @@ else:
              "Not ordered by estimated beneficiaries per RM1m: those values are close together.",
              "Take-up-gap settlements (fixed network likely nearby, our proxy) are not in this budget. " + ui.TAKEUP_TXT],
             data=DATA)
+    ui.caveat()
 
 ui.next_step("views/6_Method.py", "Method & limitations",
              "how the index and costs are built, and how sure we are.")
