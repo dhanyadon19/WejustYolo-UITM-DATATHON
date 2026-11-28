@@ -372,6 +372,10 @@ def moe_badge(col, moe) -> None:
 
 def small_sample_banner(name: str, n, moe) -> None:
     """Low-confidence warning for small-sample districts (degrades gracefully if n or MOE is missing)."""
+    plain = ""
+    if isnum(n):
+        plain = f"Only about {int(n)} households in {name} seem to have been surveyed"
+        plain += (f", so the share online could be about ±{moe:.0f} points higher or lower. " if isnum(moe) else ". ")
     parts = []
     if isnum(n):
         parts.append(f"{INFERRED_N} about {int(n)} households")
@@ -379,8 +383,9 @@ def small_sample_banner(name: str, n, moe) -> None:
         parts.append(f"{MOE_TXT} ±{moe:.0f} points")
     detail = (": " + ", ".join(parts) + ".") if parts else "."
     st.markdown(f"<div style='background:#fff6e5;border:1px solid #f0d9a8;border-radius:8px;padding:8px 12px;"
-                f"margin:0.3rem 0 0.6rem 0;color:{INK};font-size:0.92rem'>⚠️ {conf_badge('low')} {name}'s DOSM figure "
-                f"appears to rest on a small sample{detail} {NOT_DOSM} Treat its ranks as ranges, not exact positions."
+                f"margin:0.3rem 0 0.6rem 0;color:{INK};font-size:0.92rem'>⚠️ {conf_badge('low')} <b>{plain}</b>{name}'s DOSM "
+                f"figure appears to rest on a small sample{detail} {NOT_DOSM} The real margin is likely larger because "
+                "the survey design is not simple random sampling. Treat its ranks as ranges, not exact positions."
                 "</div>", unsafe_allow_html=True)
 
 
@@ -473,6 +478,37 @@ def _rank_line(label: str, rank, of, lo, hi) -> str:
     return f"{label} need rank **{int(rank)}**{of_txt}{rng}."
 
 
+def _need_plain(name: str, state: str, r, n_national, n_state) -> list[str]:
+    """Plain-language rank sentences (bold headline, then the range across weightings); [] if not ranked."""
+    def of(n):
+        return f" of {int(n)}" if isnum(n) else ""
+    nat, saw = r.get("rank_national"), r.get("rank_sarawak") if state == "Sarawak" else None
+    if not isnum(nat):
+        return []
+    nat_t = f"Malaysia (#{int(nat)}{of(n_national)})"
+    if isnum(saw):
+        saw_t = f"Sarawak (#{int(saw)}{of(n_state)})"
+        if int(saw) == 1 and int(nat) == 1:
+            head = f"{name} has the highest need in {saw_t} and {nat_t}."
+        elif int(saw) == 1:
+            head = f"{name} has the highest need in {saw_t} and ranks #{int(nat)}{of(n_national)} in Malaysia."
+        else:
+            head = f"{name} ranks #{int(saw)}{of(n_state)} for need in Sarawak and #{int(nat)}{of(n_national)} in Malaysia."
+        lo, hi = r.get("rank_sarawak_p05"), r.get("rank_sarawak_p95")
+        where = " in Sarawak"
+    else:
+        head = (f"{name} has the highest need in {nat_t}." if int(nat) == 1
+                else f"{name} ranks #{int(nat)}{of(n_national)} for need in Malaysia.")
+        lo, hi = r.get("rank_national_p05"), r.get("rank_national_p95")
+        where = ""
+    out = [f"**{head}**"]
+    if isnum(lo) and isnum(hi):
+        lo, hi = int(round(lo)), int(round(hi))
+        out.append(f"Its rank{where} stays at {lo} however we weight the four factors." if lo == hi else
+                   f"Its rank{where} stays between {lo} and {hi} however we weight the four factors.")
+    return out
+
+
 def _stat(value: str, label: str) -> str:
     """Big number with a small label under it (HTML, for type cards)."""
     return (f"<div><div style='font-size:1.55rem;font-weight:650;color:{INK};line-height:1.15'>{value}</div>"
@@ -536,6 +572,9 @@ def action_plan(r, fixes: dict, *, n_national, n_state, host: str | None, source
             lines = [_rank_line("National", r.rank_national, n_national, r.get("rank_national_p05"), r.get("rank_national_p95"))]
             if state == "Sarawak" and isnum(r.get("rank_sarawak")):
                 lines.append(_rank_line("Sarawak", r.rank_sarawak, n_state, r.get("rank_sarawak_p05"), r.get("rank_sarawak_p95")))
+            plain = _need_plain(name, state, r, n_national, n_state)
+            if plain:
+                st.markdown("  \n".join(plain))  # Markdown line break between the two plain sentences
             st.markdown(" ".join(lines) + " Rank 1 = largest gap. Ranges are the 5th–95th percentile rank across "
                         "random weightings of the Need score (Connectivity Gap Index).")
         elif not r.get("has_boundary", True):
